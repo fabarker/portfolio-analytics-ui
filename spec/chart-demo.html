@@ -8,15 +8,15 @@
     @media(prefers-reduced-motion:reduce){#chart-demo *{transition:none!important;animation:none!important}}
   </style>
   <h2 id="cd-heading">Charts that follow the table</h2>
-  <p class="cd-lead">Select a portfolio, sleeve, or holding in the analytical table to reveal its chart below. The table stays the primary comparison surface; the chart explains the selected row over time or across scenarios.</p>
+  <p class="cd-lead">Select a portfolio, category, product or index remainder in the Drivers &amp; Differences table; the cards that follow the selected row retitle to it. The table stays the primary comparison surface; the chart explains the selected row over time or across scenarios.</p>
   <p>Historical analysis starts with growth of an investment. Forward-looking analysis offers projections and scenario comparisons. Portfolio colours stay consistent, and the chart legend controls which allocations receive emphasis independently of table selection.</p>
-  <div class="cd-instruction"><strong>Try the workflow.</strong> Select <strong>Growth sleeve</strong>, toggle portfolio names in the legend, then switch to <strong>Forward-looking</strong>. Compare standalone growth with weighted portfolio contribution, change the horizon, and open <strong>Scenarios</strong> to compare each portfolio’s base and scenario values side by side.</div>
+  <div class="cd-instruction"><strong>Try the workflow.</strong> Select <strong>Public Equity</strong>, toggle portfolio names in the legend, then switch to <strong>Forward-looking</strong>. Compare standalone growth with weighted portfolio contribution, change the horizon, and open <strong>Scenarios</strong> to compare each portfolio’s base and scenario values side by side.</div>
 
   <div class="cd-live" aria-label="Interactive chart feature example">
     <div class="cd-top"><div><h3>Selected-row analysis</h3><p class="cd-note">This selector simulates choosing a row in the Drivers &amp; Differences table.</p></div><span class="cd-sim">Simulated data · no investment results</span></div>
     <div class="cd-controls">
       <div class="cd-group"><span class="cd-label" id="cd-time-label">Analysis</span><div class="cd-segment" role="group" aria-labelledby="cd-time-label"><button type="button" data-cd-mode="historical" aria-pressed="true">Historical</button><button type="button" data-cd-mode="forward" aria-pressed="false">Forward-looking</button></div></div>
-      <label class="cd-group"><span class="cd-label">Selected table row</span><select id="cd-row"><option value="portfolio">Total portfolio</option><option value="growth">Growth sleeve</option><option value="defensive">Defensive sleeve</option></select></label>
+      <label class="cd-group"><span class="cd-label">Selected table row</span><select id="cd-row"><option value="portfolio">Total portfolio</option><option value="growth">Public Equity</option><option value="defensive">Investment Grade Fixed Income</option></select></label>
       <div class="cd-group" data-cd-forward hidden><span class="cd-label" id="cd-view-label">Chart view</span><div class="cd-segment" role="group" aria-labelledby="cd-view-label"><button type="button" data-cd-view="projection" aria-pressed="true">Projection</button><button type="button" data-cd-view="scenarios" aria-pressed="false">Scenarios</button></div></div>
       <div class="cd-group" data-cd-projection hidden><span class="cd-label" id="cd-measure-label">Value basis</span><div class="cd-segment" role="group" aria-labelledby="cd-measure-label"><button type="button" data-cd-measure="standalone" aria-pressed="true">Standalone growth</button><button type="button" data-cd-measure="weighted" aria-pressed="false">Portfolio contribution</button></div></div>
       <label class="cd-group" data-cd-projection hidden><span class="cd-label">Projection horizon <span class="cd-proposed">Proposed control</span></span><select id="cd-horizon"><option value="3">3 years</option><option value="5" selected>5 years</option><option value="10">10 years</option></select></label>
@@ -32,20 +32,20 @@
     <div><h3>Interaction requirements</h3><ul>
       <li><strong>Historical:</strong> retain every compared allocation as a visible line. Clicking a legend entry adds or removes it from the emphasized set; muted lines are still identifiable by colour and the legend.</li>
       <li><strong>Projection:</strong> show one small chart per emphasized allocation, with a central path and uncertainty band. Every chart uses the same time and value axes for the selected row and value basis.</li>
-      <li><strong>Value basis:</strong> standalone growth starts at £100. Weighted contribution starts at the sleeve’s share of a portfolio initially worth £100; a 55% Growth sleeve starts at £55.</li>
+      <li><strong>Value basis:</strong> standalone growth starts at £100. Weighted contribution starts at the category’s share of a portfolio initially worth £100; a 55% Public Equity category starts at £55.</li>
       <li><strong>Scenarios:</strong> show base and scenario values beside each other for each allocation. Name the assumption set, state its scope, and label units.</li>
       <li><strong>Persistent context:</strong> switching historical/forward-looking, metrics, or chart views retains the chosen row and emphasized set. The table and allocation builder stay available.</li>
     </ul></div>
     <div><h3>Acceptance checks</h3><ul>
-      <li>Select Growth, then Defensive: the chart title, values, and contribution weights update without changing selected portfolios.</li>
+      <li>Select Public Equity, then Investment Grade Fixed Income: the chart title, values, and contribution weights update without changing selected portfolios.</li>
       <li>Toggle Core and Income in the legend: those lines become muted or emphasized; the corresponding projection charts appear or disappear.</li>
-      <li>Switch Growth to portfolio contribution: each projection’s starting value equals that allocation’s Growth weight, with a clear “per £100 initial portfolio” label.</li>
+      <li>Switch Public Equity to portfolio contribution: each projection’s starting value equals that allocation’s Public Equity weight, with a clear “per £100 initial portfolio” label.</li>
       <li>Change the horizon: every projection chart uses the same selected horizon and matching axes, including when only one chart is shown.</li>
       <li>Remove all emphasis: historical lines remain visible, while projections show a clear instruction to select a portfolio.</li>
       <li>All controls work with a keyboard; chart titles, accessible descriptions, and numerical outcome summaries communicate meaning beyond colour.</li>
     </ul></div>
   </div>
-  <p class="cd-story"><strong>User story.</strong> As a portfolio manager, I can inspect a selected sleeve’s history and plausible future outcomes without losing my comparison. As an analyst, I can hold the scale and assumptions context constant while comparing several allocations.</p>
+  <p class="cd-story"><strong>User story.</strong> As a portfolio manager, I can inspect a selected category’s history and plausible future outcomes without losing my comparison. As an analyst, I can hold the scale and assumptions context constant while comparing several allocations.</p>
   <details><summary>Chart boundaries, data semantics, and proposed defaults</summary><p>The example uses deterministic placeholder paths and illustrative bands. The 80% band and available horizons are proposed interface defaults; they are not confirmed model settings, calibrated probabilities, or promises of investment performance. A production interface must display the model’s supplied uncertainty definition and horizon.</p><p>Chart type follows the metric. Return/value projections can use growth paths. Historical risk contribution uses a percentage or volatility-contribution time series; factor exposure uses beta/exposure units. Do not convert a beta, allocation weight, or risk contribution into “growth of £100.” If a forward projection is unavailable for the selected metric, explain that state and offer the compatible scenario view.</p><p>Historical plots use common inception by default, while distinguishing actual history from backtests. Missing observations create visible gaps rather than invented interpolation. The product should offer shared tooltips and a resizable table/chart split as proposed enhancements. This compact demo focuses on legend emphasis, value basis, horizons, and scenario comparisons; it does not implement pricing, risk modelling, historical reconstruction, or the application-wide table selection.</p></details>
   <script>
   (()=>{
@@ -57,7 +57,7 @@
       {id:'growth',name:'Growth tilt',color:'#b76b36',growth:.7,rate:.074,risk:13.1},
       {id:'income',name:'Income',color:'#39806b',growth:.3,rate:.046,risk:7.2}
     ];
-    const rows={portfolio:'Total portfolio',growth:'Growth sleeve',defensive:'Defensive sleeve'};
+    const rows={portfolio:'Total portfolio',growth:'Public Equity',defensive:'Investment Grade Fixed Income'};
     const state={mode:'historical',view:'projection',measure:'standalone',row:'portfolio',horizon:5,scenario:'lower',emphasis:new Set(['core','growth'])};
     const money=v=>'£'+v.toFixed(0),num=(v,n=1)=>v.toFixed(n),weight=p=>state.row==='portfolio'?1:state.row==='growth'?p.growth:1-p.growth;
     const rate=p=>state.row==='portfolio'?p.rate:state.row==='growth'?p.rate+.021:p.rate-.025;
@@ -90,7 +90,7 @@
         const axisSvg=axis(w,h,l,r,t,b,max,years,v=>v===0?'Now':`${v}y`,state.measure==='standalone'?'Value of £100':'Contribution to value (£)');
         return `<div class="cd-small" style="--cd-color:${d.p.color}"><h4>${d.p.name}<span>Start ${money(d.start)}${state.row!=='portfolio'&&state.measure==='weighted'?' · '+num(weight(d.p)*100,0)+'% weight':''}</span></h4><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${d.p.name}: starts at ${money(d.start)}; central value ${money(last.center)} after ${years} years with illustrative range ${money(last.low)} to ${money(last.high)}.">${axisSvg}<path d="${band}" fill="${d.p.color}" opacity=".13"/><path d="${line}" fill="none" stroke="${d.p.color}" stroke-width="3"/></svg><p class="cd-outcome">Year ${years}: <strong>${money(last.center)}</strong> central · ${money(last.low)}–${money(last.high)} illustrative range</p></div>`;
       }).join('')}</div>`;
-      $('.cd-summary').textContent=state.measure==='standalone'?'Each chart starts with £100 invested independently in the selected row. Shared axes are calculated across all compared allocations, so changing emphasis does not rescale the charts.':'Each chart shows the selected row’s weighted value within a portfolio initially worth £100. The example isolates sleeve growth at its initial allocation; this is not a full rebalancing simulation.';
+      $('.cd-summary').textContent=state.measure==='standalone'?'Each chart starts with £100 invested independently in the selected row. Shared axes are calculated across all compared allocations, so changing emphasis does not rescale the charts.':'Each chart shows the selected row’s weighted value within a portfolio initially worth £100. The example isolates category growth at its initial allocation; this is not a full rebalancing simulation.';
     }
     function scenarios(){
       const scenarioName=$('#cd-scenario').selectedOptions[0].textContent;

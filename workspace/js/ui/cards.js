@@ -1,0 +1,266 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Portfolio Analytics · the card workspace
+   A workspace is a collection of cards on a 12-column grid. Cards are
+   dragged by their header and resized from their corner; a moved card pushes
+   the cards it lands on down, then the grid compacts upwards. Each card
+   fetches its own data through PA.api, tagged with the store revision, and
+   renders through a catalogue entry (PA.cards.types, see cardtypes.js).
+
+   Card type contract
+   ──────────────────
+   {id, title, description, group, size:{w,h}, min:{w,h}, basis:'historical'|'forward'|'both'|'none',
+    supportsRow:boolean, settings:[{key,label,type:'select'|'multi'|'toggle',options:[[v,label]],default}],
+    data(ctx, settings, card) → Promise<any>,
+    render(body, data, ctx, settings, card),
+    subtitle(ctx, settings, card) → string,
+    dataTable?(data, ctx, settings) → html}
+   ctx: {ws, members, emphasized, prefs, scenario, row, rowLabel, revision}
+   ───────────────────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+  var PA = window.PA, U = PA.util, esc = U.esc, S = PA.store, UI = PA.ui, I = U.icon;
+  var C = PA.cards = { types: {}, order: [], state: {} };
+  var grid, COLS = 12, ROW = 48, GAP = 12, cache = {}, cacheRev = -1, sheetEl = null;
+
+  C.register = function (type) { C.types[type.id] = type; C.order.push(type.id); };
+
+  /* ── shared data fetch with a per-revision cache ─────────────────── */
+  C.fetch = function (name, req) {
+    if (cacheRev !== S.session.revision) { cache = {}; cacheRev = S.session.revision; }
+    var key = name + ':' + JSON.stringify(req);
+    if (!cache[key]) { cache[key] = PA.api[name](req); cache[key].catch(function () { if (cache[key]) delete cache[key]; }); }
+    return cache[key];
+  };
+  C.ctx = function () {
+    var w = S.ws, p = w.prefs, ids = w.comparison.members, em = p.emphasis.filter(function (id) { return ids.indexOf(id) >= 0; });
+    return { ws: w, members: S.members(), emphasized: em.length ? em : ids.slice(), prefs: p, scenario: S.activeScenario(), row: p.selectedRow, rowLabel: C.rowLabel(p.selectedRow), revision: S.session.revision };
+  };
+  C.rowLabel = function (key) {
+    if (key === '__total') return 'Portfolio total';
+    var parts = key.split('/'), cat = PA.data.categoryById[parts[0]];
+    if (!cat) return key;
+    if (parts.length === 1) return cat.name;
+    if (parts[1] === '__index') return cat.short + ' Index';
+    var ins = PA.data.instrumentById[parts[1]]; return ins ? ins.name : key;
+  };
+  C.settingsOf = function (card) { var t = C.types[card.type], out = {}; (t.settings || []).forEach(function (s) { out[s.key] = card.settings && card.settings[s.key] !== undefined ? card.settings[s.key] : s.default; }); return out; };
+
+  /* ── loading and rendering one card ──────────────────────────────── */
+  function load(card) {
+    var t = C.types[card.type]; if (!t) return;
+    var st = C.state[card.id] = C.state[card.id] || { status: 'idle', data: null, error: null, revision: 0 };
+    var ctx = C.ctx(), rev = ++st.revision, settings = C.settingsOf(card);
+    st.status = 'loading'; paintStatus(card);
+    var p; try { p = t.data(ctx, settings, card); } catch (e) { p = Promise.reject({ message: e.message }); }
+    Promise.resolve(p).then(function (data) { if (rev !== st.revision) return; st.status = 'current'; st.data = data; st.error = null; st.ctx = ctx; paint(card); },
+      function (err) { if (rev !== st.revision) return; st.status = 'failed'; st.error = err; paint(card); });
+  }
+  function paintStatus(card) {
+    var el = grid.querySelector('[data-card="' + CSS.escape(card.id) + '"]'); if (!el) return;
+    var st = C.state[card.id], bar = el.querySelector('.card-status');
+    bar.innerHTML = st.status === 'loading' ? '<span class="status is-updating">' + (st.data ? 'Previous result · updating' : 'Calculating') + '</span>' : (st.status === 'failed' ? '<span class="status is-failed">Failed · ' + esc(st.error && st.error.message || '') + '</span><button type="button" class="btn btn-xs" data-retry>Retry</button>' : '');
+    bar.hidden = st.status !== 'loading' && st.status !== 'failed';
+    el.classList.toggle('is-stale', st.status !== 'current');
+  }
+  function paint(card) {
+    var el = grid.querySelector('[data-card="' + CSS.escape(card.id) + '"]'); if (!el) return;
+    var t = C.types[card.type], st = C.state[card.id], settings = C.settingsOf(card);
+    /* a fresh body each paint, so delegated handlers a renderer attached never accumulate */
+    var old = el.querySelector('.card-body'), body = old.cloneNode(false); old.parentNode.replaceChild(body, old);
+    paintStatus(card);
+    el.querySelector('.card-sub').textContent = t.subtitle ? t.subtitle(st.ctx || C.ctx(), settings, card) : '';
+    if (st.status === 'failed' && !st.data) { body.innerHTML = '<div class="chart-empty">This card could not be calculated. ' + esc(st.error && st.error.message || '') + '</div>'; return; }
+    if (!st.data) { body.innerHTML = '<div class="chart-empty"><span class="spinner" style="display:inline-block;vertical-align:middle;margin-right:8px"></span>Calculating…</div>'; return; }
+    try { t.render(body, st.data, st.ctx || C.ctx(), settings, card); } catch (e) { console.error(e); body.innerHTML = '<div class="chart-empty">Could not draw this card: ' + esc(e.message) + '</div>'; }
+    var dt = el.querySelector('.card-data');
+    if (card.showData && t.dataTable) { dt.hidden = false; dt.innerHTML = t.dataTable(st.data, st.ctx || C.ctx(), settings, card); } else { dt.hidden = true; dt.innerHTML = ''; }
+  }
+  C.repaint = function (id) { var c = S.card(id); if (c) paint(c); };
+  C.reload = function (id) { var c = S.card(id); if (c) load(c); };
+
+  /* ── chrome ──────────────────────────────────────────────────────── */
+  function cardHtml(card) {
+    var t = C.types[card.type];
+    if (!t) return '<article class="card" data-card="' + esc(card.id) + '" style="' + pos(card) + '"><div class="card-body"><div class="chart-empty">Unknown card type “' + esc(card.type) + '”.</div></div></article>';
+    return '<article class="card" data-card="' + esc(card.id) + '" style="' + pos(card) + '" tabindex="0" aria-label="' + esc((card.name || t.title) + ' card. Arrow keys move it, shift with arrows resizes it.') + '">' +
+      '<header class="card-head"><span class="card-grip" aria-hidden="true">' + I.grip + '</span><div class="card-title"><h3>' + esc(card.name || t.title) + (card.followRow && t.supportsRow ? ' <span class="tag tag-info" data-tip="Follows the row selected in the Drivers &amp; Differences table">Row</span>' : '') + '</h3><div class="card-sub"></div></div>' +
+      '<div class="card-tools"><button type="button" class="btn btn-icon btn-ghost btn-sm" data-settings aria-label="Card settings" aria-haspopup="dialog" aria-expanded="false" data-tip="Settings">' + I.sliders + '</button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-menu aria-label="Card menu" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div></header>' +
+      '<div class="card-status" hidden></div><div class="card-body"></div><div class="card-data" hidden></div>' +
+      '<button type="button" class="card-resize" data-resize aria-label="Resize card" tabindex="-1"></button></article>';
+  }
+  function pos(card) { return 'grid-column:' + (card.x + 1) + ' / span ' + card.w + ';grid-row:' + (card.y + 1) + ' / span ' + card.h; }
+
+  C.render = function () {
+    if (!grid || !S.ws) return;
+    var cards = S.ws.cards;
+    if (!cards.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">' + I.layers + '<h3>No cards yet</h3><p>A workspace is a collection of cards, each one a piece of analysis. Add cards from the repository.</p><div class="actions"><button type="button" class="btn btn-primary" data-add-card>' + I.plus + '<span>Add card</span></button></div></div>'; return; }
+    grid.innerHTML = cards.map(cardHtml).join('');
+    cards.forEach(function (c) { if (C.state[c.id] && C.state[c.id].data) paint(c); load(c); });
+  };
+  function rerenderAll() { if (S.ws) S.ws.cards.forEach(load); }
+
+  /* ── settings popover and menu ───────────────────────────────────── */
+  function settingsPopover(btn, card) {
+    var t = C.types[card.type], settings = C.settingsOf(card);
+    var html = '<div class="menu-head">' + esc(card.name || t.title) + '</div><div class="card-settings">';
+    (t.settings || []).forEach(function (s) {
+      if (s.type === 'select') html += '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + s.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
+      else if (s.type === 'multi') html += '<div class="field"><span class="label">' + esc(s.label) + '</span><div class="factor-pick">' + s.options.map(function (o) { return '<button type="button" class="fchip" data-multi="' + s.key + '" data-val="' + esc(o[0]) + '" aria-pressed="' + ((settings[s.key] || []).indexOf(o[0]) >= 0) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
+      else if (s.type === 'toggle') html += '<label class="switch"><input type="checkbox" data-set="' + s.key + '"' + (settings[s.key] ? ' checked' : '') + '><span class="track"></span><span>' + esc(s.label) + '</span></label>';
+    });
+    if (t.supportsRow) html += '<label class="switch"><input type="checkbox" data-follow' + (card.followRow ? ' checked' : '') + '><span class="track"></span><span>Follow the selected row</span></label><div class="field-hint">' + (card.followRow ? 'Showing ' + esc(C.rowLabel(S.ws.prefs.selectedRow)) + '. Select another row in the table to change it.' : 'Showing the whole portfolio.') + '</div>';
+    if (!(t.settings || []).length && !t.supportsRow) html += '<div class="field-hint">This card has no settings. It follows the context bar.</div>';
+    html += '</div>';
+    UI.popover(btn, { html: html, role: 'dialog', align: 'end', cls: 'card-pop', onOpen: function (el) {
+      U.on(el, 'change', 'select[data-set]', function (e, sel) { var p = U.clone(card.settings || {}); p[sel.dataset.set] = sel.value; S.updateCard(card.id, { settings: p }); });
+      U.on(el, 'change', 'input[type=checkbox][data-set]', function (e, cb) { var p = U.clone(card.settings || {}); p[cb.dataset.set] = cb.checked; S.updateCard(card.id, { settings: p }); });
+      U.on(el, 'change', '[data-follow]', function (e, cb) { S.updateCard(card.id, { followRow: cb.checked }); el.querySelector('.field-hint').textContent = cb.checked ? 'Showing ' + C.rowLabel(S.ws.prefs.selectedRow) + '.' : 'Showing the whole portfolio.'; });
+      U.on(el, 'click', '[data-multi]', function (e, b) { var p = U.clone(card.settings || {}), key = b.dataset.multi, cur = (C.settingsOf(card)[key] || []).slice(), i = cur.indexOf(b.dataset.val); if (i >= 0) { if (cur.length === 1) { UI.toast('Keep at least one selected.'); return; } cur.splice(i, 1); } else cur.push(b.dataset.val); var order = (t.settings.filter(function (s) { return s.key === key; })[0].options).map(function (o) { return o[0]; }); p[key] = order.filter(function (v) { return cur.indexOf(v) >= 0; }); b.setAttribute('aria-pressed', String(cur.indexOf(b.dataset.val) >= 0)); S.updateCard(card.id, { settings: p }); });
+    } });
+  }
+  function cardMenu(btn, card) {
+    var t = C.types[card.type];
+    UI.menu(btn, [
+      { head: card.name || t.title },
+      { label: 'Rename', onClick: function () { UI.prompt({ title: 'Rename card', label: 'Card name', value: card.name || t.title }).then(function (n) { if (n) S.updateCard(card.id, { name: n }); }); } },
+      { label: card.showData ? 'Hide data table' : 'Show data table', icon: I.table, disabled: !t.dataTable, onClick: function () { S.updateCard(card.id, { showData: !card.showData }); } },
+      { label: 'Duplicate', icon: I.copy, onClick: function () { var copy = U.clone(card); copy.id = U.uid('c'); copy.y = bottom(); S.addCard(copy); } },
+      { label: 'Save to card repository', icon: I.export, onClick: function () { saveToRepository(card); } },
+      { sep: true },
+      { label: 'Remove from workspace', icon: I.trash, onClick: function () { S.removeCard(card.id); UI.toast('Card removed.', { action: { label: 'Undo', fn: S.undo } }); } }
+    ], { align: 'end' });
+  }
+  function saveToRepository(card) {
+    var t = C.types[card.type];
+    UI.prompt({ title: 'Save card to the repository', sub: 'Saved cards keep their settings and are available in every workspace.', label: 'Name', value: card.name || t.title, confirmLabel: 'Save' }).then(function (name) {
+      if (!name) return;
+      PA.api.saveCard({ id: U.uid('card'), name: name, type: card.type, settings: U.clone(card.settings || {}), followRow: !!card.followRow, createdBy: 'F. Barker', createdAt: new Date().toISOString() }).then(function () { UI.toast('“' + name + '” saved to the card repository.'); if (sheetEl && !sheetEl.hidden) renderSheet(); });
+    });
+  }
+  function bottom() { return S.ws.cards.reduce(function (m, c) { return Math.max(m, c.y + c.h); }, 0); }
+
+  /* ── layout engine ───────────────────────────────────────────────── */
+  function overlaps(a, b) { return a.id !== b.id && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+  /** Fix `fixedId` where it is; push others down out of its way; then compact upwards. */
+  function resolve(cards, fixedId) {
+    var list = cards.map(function (c) { return { id: c.id, x: c.x, y: c.y, w: c.w, h: c.h }; });
+    var fixed = list.filter(function (c) { return c.id === fixedId; })[0];
+    var placed = fixed ? [fixed] : [];
+    list.filter(function (c) { return c.id !== fixedId; }).sort(function (a, b) { return a.y - b.y || a.x - b.x; }).forEach(function (c) { while (placed.some(function (p) { return overlaps(c, p); })) c.y++; placed.push(c); });
+    /* compact: every card moves up as far as it can without crossing another */
+    var byY = placed.slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; }), done = [];
+    byY.forEach(function (c) { if (c.id !== fixedId) { while (c.y > 0) { c.y--; if (done.some(function (p) { return overlaps(c, p); })) { c.y++; break; } } } done.push(c); });
+    var out = {}; done.forEach(function (c) { out[c.id] = { x: c.x, y: c.y, w: c.w, h: c.h }; }); return out;
+  }
+  function cellSize() { var r = grid.getBoundingClientRect(); return { col: (r.width - GAP * (COLS - 1)) / COLS, row: ROW, left: r.left, top: r.top }; }
+  function startDrag(e, el, card, mode) {
+    if (window.innerWidth <= 900) return;
+    e.preventDefault();
+    var cs = cellSize(), startX = e.clientX, startY = e.clientY, o = { x: card.x, y: card.y, w: card.w, h: card.h }, t = C.types[card.type], min = (t && t.min) || { w: 3, h: 3 };
+    var live = { x: o.x, y: o.y, w: o.w, h: o.h };
+    el.classList.add(mode === 'move' ? 'is-dragging' : 'is-resizing'); el.setPointerCapture(e.pointerId);
+    var ghost = U.html('<div class="card-ghost"></div>'); grid.appendChild(ghost);
+    var paintGhost = function () { ghost.style.gridColumn = (live.x + 1) + ' / span ' + live.w; ghost.style.gridRow = (live.y + 1) + ' / span ' + live.h; };
+    paintGhost();
+    var move = function (ev) {
+      var dx = Math.round((ev.clientX - startX) / (cs.col + GAP)), dy = Math.round((ev.clientY - startY) / (cs.row + GAP));
+      if (mode === 'move') { live.x = U.clamp(o.x + dx, 0, COLS - o.w); live.y = Math.max(0, o.y + dy); el.style.transform = 'translate(' + (ev.clientX - startX) + 'px,' + (ev.clientY - startY) + 'px)'; }
+      else { live.w = U.clamp(o.w + dx, min.w, COLS - o.x); live.h = Math.max(min.h, o.h + dy); el.style.gridColumn = (live.x + 1) + ' / span ' + live.w; el.style.gridRow = (live.y + 1) + ' / span ' + live.h; }
+      paintGhost();
+    };
+    var up = function () {
+      el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+      el.classList.remove('is-dragging', 'is-resizing'); el.style.transform = ''; ghost.remove();
+      commit(card.id, live);
+    };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  }
+  function commit(id, p) {
+    var cards = S.ws.cards.map(function (c) { return c.id === id ? Object.assign({}, c, p) : c; });
+    var positions = resolve(cards, id);
+    var changed = S.ws.cards.some(function (c) { var q = positions[c.id]; return q.x !== c.x || q.y !== c.y || q.w !== c.w || q.h !== c.h; });
+    if (!changed) { applyPositions(); return; }
+    S.setLayout(positions); applyPositions();
+    var c = S.card(id); if (c) { C.repaint(id); }
+  }
+  function applyPositions() { S.ws.cards.forEach(function (c) { var el = grid.querySelector('[data-card="' + CSS.escape(c.id) + '"]'); if (el) el.style.cssText = pos(c); }); }
+  C.resetLayout = function () {
+    var y = 0; var positions = {};
+    S.ws.cards.forEach(function (c) { var t = C.types[c.type], w = t ? t.size.w : 6, h = t ? t.size.h : 6; positions[c.id] = { x: 0, y: y, w: w, h: h }; y += h; });
+    var cards = S.ws.cards.map(function (c) { return Object.assign({}, c, positions[c.id]); });
+    /* pack two half-width cards side by side where possible */
+    var packed = {}, cursorY = 0, cursorX = 0, rowH = 0;
+    cards.forEach(function (c) { if (cursorX + c.w > COLS) { cursorY += rowH; cursorX = 0; rowH = 0; } packed[c.id] = { x: cursorX, y: cursorY, w: c.w, h: c.h }; cursorX += c.w; rowH = Math.max(rowH, c.h); if (cursorX >= COLS) { cursorY += rowH; cursorX = 0; rowH = 0; } });
+    S.setLayout(packed); applyPositions(); S.ws.cards.forEach(function (c) { C.repaint(c.id); });
+  };
+
+  /* ── add-card sheet (the card repository) ────────────────────────── */
+  var savedCards = null;
+  function renderSheet() {
+    if (!sheetEl) return;
+    var groups = {}; C.order.forEach(function (id) { var t = C.types[id]; (groups[t.group] = groups[t.group] || []).push(t); });
+    sheetEl.innerHTML = '<div class="sheet-head"><h2>Card repository</h2><span class="spacer"></span><button type="button" class="btn btn-icon btn-ghost" data-close aria-label="Close">' + I.close + '</button></div>' +
+      '<div class="sheet-body"><div class="search-wrap" style="margin-bottom:12px">' + I.search + '<input type="search" id="sheet-search" placeholder="Find a card…" aria-label="Find a card"></div>' +
+      '<div class="eyebrow" style="margin:4px 0 8px">Saved cards · shared</div><div class="sheet-list" id="sheet-saved">' + (savedCards === null ? '<div class="faint small">Loading…</div>' : savedCards.length ? savedCards.map(function (s) { var t = C.types[s.type]; return '<div class="sheet-item" data-text="' + esc((s.name + ' ' + (t ? t.title : '')).toLowerCase()) + '"><div><b>' + esc(s.name) + '</b><small>' + esc(t ? t.title : s.type) + ' · ' + esc(s.createdBy) + '</small></div><div class="row"><button type="button" class="btn btn-xs btn-primary" data-add-saved="' + esc(s.id) + '">Add</button><button type="button" class="btn btn-icon btn-xs btn-ghost" data-del-saved="' + esc(s.id) + '" aria-label="Delete saved card">' + I.trash + '</button></div></div>'; }).join('') : '<div class="faint small">No saved cards yet. Use a card’s menu to save it with its settings.</div>') + '</div>' +
+      Object.keys(groups).map(function (g) { return '<div class="eyebrow" style="margin:16px 0 8px">' + esc(g) + '</div><div class="sheet-list">' + groups[g].map(function (t) { return '<div class="sheet-item" data-text="' + esc((t.title + ' ' + t.description).toLowerCase()) + '"><div><b>' + esc(t.title) + '</b><small>' + esc(t.description) + '</small></div><button type="button" class="btn btn-xs" data-add-type="' + esc(t.id) + '">Add</button></div>'; }).join('') + '</div>'; }).join('') + '</div>';
+    sheetEl.querySelector('[data-close]').onclick = function () { S.setSession('addCardOpen', false); };
+    sheetEl.querySelector('#sheet-search').oninput = function (e) { var q = e.target.value.trim().toLowerCase(); U.$$('.sheet-item', sheetEl).forEach(function (it) { it.hidden = !!q && it.dataset.text.indexOf(q) < 0; }); };
+  }
+  function wireSheet() {
+    U.on(sheetEl, 'click', '[data-add-type]', function (e, b) { var t = C.types[b.dataset.addType]; var card = { id: U.uid('c'), type: t.id, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: {}, followRow: !!t.defaultFollowRow }; S.addCard(card); UI.toast('“' + t.title + '” added at the bottom of the workspace.'); scrollToCard(card.id); });
+    U.on(sheetEl, 'click', '[data-add-saved]', function (e, b) { var s = savedCards.filter(function (x) { return x.id === b.dataset.addSaved; })[0], t = C.types[s.type]; if (!t) return; var card = { id: U.uid('c'), type: s.type, name: s.name, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: U.clone(s.settings || {}), followRow: !!s.followRow }; S.addCard(card); UI.toast('“' + s.name + '” added.'); scrollToCard(card.id); });
+    U.on(sheetEl, 'click', '[data-del-saved]', function (e, b) { var s = savedCards.filter(function (x) { return x.id === b.dataset.delSaved; })[0]; UI.confirm({ title: 'Delete “' + s.name + '” from the repository?', sub: 'Cards already placed in workspaces are kept.', confirmLabel: 'Delete', danger: true }).then(function (ok) { if (ok) PA.api.deleteSavedCard(s.id).then(function () { savedCards = savedCards.filter(function (x) { return x.id !== s.id; }); renderSheet(); }); }); });
+  }
+  function scrollToCard(id) { setTimeout(function () { var el = grid.querySelector('[data-card="' + CSS.escape(id) + '"]'); if (el) { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); el.focus(); } }, 50); }
+  var untrap = null, sheetTrigger = null;
+  function toggleSheet() {
+    var open = S.session.addCardOpen;
+    sheetEl.hidden = !open;
+    var scrim = U.$('#sheet-scrim');
+    if (open) {
+      sheetTrigger = document.activeElement;
+      if (!scrim) { scrim = U.html('<div class="drawer-scrim" id="sheet-scrim" style="z-index:40"></div>'); scrim.onclick = function () { S.setSession('addCardOpen', false); }; U.$('#view-ws').appendChild(scrim); }
+      renderSheet(); untrap = U.trapFocus(sheetEl); sheetEl.querySelector('#sheet-search').focus();
+      if (savedCards === null) PA.api.listSavedCards().then(function (list) { savedCards = list; if (!sheetEl.hidden) { var q = sheetEl.querySelector('#sheet-search').value; renderSheet(); sheetEl.querySelector('#sheet-search').value = q; } });
+    } else { if (scrim) scrim.remove(); if (untrap) untrap(); untrap = null; if (sheetTrigger && document.contains(sheetTrigger)) sheetTrigger.focus(); }
+  }
+  C.invalidateSavedCards = function () { savedCards = null; };
+
+  /* ── events ──────────────────────────────────────────────────────── */
+  C.init = function () {
+    grid = U.$('#cards'); sheetEl = U.$('#card-sheet');
+    wireSheet();
+    U.on(grid, 'click', '[data-settings]', function (e, b) { settingsPopover(b, S.card(b.closest('.card').dataset.card)); });
+    U.on(grid, 'click', '[data-menu]', function (e, b) { cardMenu(b, S.card(b.closest('.card').dataset.card)); });
+    U.on(grid, 'click', '[data-retry]', function (e, b) { load(S.card(b.closest('.card').dataset.card)); });
+    U.on(grid, 'click', '[data-add-card]', function () { S.setSession('addCardOpen', true); });
+    U.on(grid, 'pointerdown', '.card-head', function (e, h) { if (e.target.closest('button')) return; if (e.button !== 0) return; var el = h.closest('.card'); startDrag(e, el, S.card(el.dataset.card), 'move'); });
+    U.on(grid, 'pointerdown', '[data-resize]', function (e, b) { if (e.button !== 0) return; var el = b.closest('.card'); startDrag(e, el, S.card(el.dataset.card), 'resize'); });
+    grid.addEventListener('keydown', function (e) {
+      var el = e.target.closest && e.target.closest('.card'); if (!el || e.target !== el) return;
+      var card = S.card(el.dataset.card); if (!card) return;
+      var t = C.types[card.type], min = (t && t.min) || { w: 3, h: 3 }, p = { x: card.x, y: card.y, w: card.w, h: card.h }, k = e.key;
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].indexOf(k) < 0) return;
+      e.preventDefault();
+      if (e.shiftKey) { if (k === 'ArrowRight') p.w = Math.min(COLS - p.x, p.w + 1); if (k === 'ArrowLeft') p.w = Math.max(min.w, p.w - 1); if (k === 'ArrowDown') p.h++; if (k === 'ArrowUp') p.h = Math.max(min.h, p.h - 1); }
+      else { if (k === 'ArrowRight') p.x = Math.min(COLS - p.w, p.x + 1); if (k === 'ArrowLeft') p.x = Math.max(0, p.x - 1); if (k === 'ArrowDown') p.y++; if (k === 'ArrowUp') p.y = Math.max(0, p.y - 1); }
+      commit(card.id, p); el.focus();
+      U.announce((card.name || t.title) + (e.shiftKey ? ' resized to ' + p.w + ' by ' + p.h : ' moved to column ' + (p.x + 1) + ', row ' + (p.y + 1)));
+    });
+    S.subscribe(function (type, extra) {
+      if (!S.ws) return;
+      if (type === 'load') { C.state = {}; cache = {}; C.render(); sheetEl.hidden = true; }
+      if (type === 'refresh') rerenderAll();
+      if (type === 'update' || type === 'undo' || type === 'redo') {
+        /* cards added, removed or changed: rebuild the chrome, keep data where the card is unchanged */
+        var ids = S.ws.cards.map(function (c) { return c.id; }), domIds = U.$$('.card', grid).map(function (el) { return el.dataset.card; });
+        var same = ids.length === domIds.length && ids.every(function (id, i) { return id === domIds[i]; });
+        if (!same) C.render(); else if (!extra.refresh) { S.ws.cards.forEach(function (c) { var el = grid.querySelector('[data-card="' + CSS.escape(c.id) + '"]'); el.querySelector('.card-title h3').innerHTML = esc(c.name || C.types[c.type].title) + (c.followRow && C.types[c.type].supportsRow ? ' <span class="tag tag-info">Row</span>' : ''); load(c); }); }
+      }
+      if (type === 'pref' && (extra.key === 'selectedRow' || extra.key === 'emphasis' || extra.key === 'expanded')) S.ws.cards.forEach(function (c) { var t = C.types[c.type]; if (extra.key === 'selectedRow' && c.followRow && t.supportsRow) load(c); else if (t.livePrefs) paint(c); });
+      if (type === 'session' && extra.key === 'addCardOpen') toggleSheet();
+    });
+    if (window.ResizeObserver) new ResizeObserver(U.debounce(function () { if (S.ws) S.ws.cards.forEach(function (c) { if (C.state[c.id] && C.state[c.id].data) paint(c); }); }, 150)).observe(grid);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.session.addCardOpen) S.setSession('addCardOpen', false); });
+  };
+})();

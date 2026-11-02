@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portfolio Analytics</title>
+<meta name="description" content="Build, test and compare multi-asset allocations: a portfolio builder beside a workspace of analysis cards, a sleeve repository, and a scenario drawer for capital-market assumptions.">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/workspace.css">
+<link rel="stylesheet" href="css/cards.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2312233f'/%3E%3Crect x='7' y='16' width='5' height='9' fill='%232a78d6'/%3E%3Crect x='13.5' y='8' width='5' height='17' fill='%23fff'/%3E%3Crect x='20' y='12' width='5' height='13' fill='%23eda100'/%3E%3C/svg%3E">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<!-- Live regions exist from first paint so announcements are never dropped. -->
+<div id="live-polite" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="live-assertive" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+<div id="app" class="app">
+  <!-- Workspace list -->
+  <div id="view-home" class="home" hidden></div>
+  <!-- Sleeve repository -->
+  <div id="view-repo" class="home" hidden></div>
+
+  <!-- Workspace: rail | main | drawer -->
+  <div id="view-ws" class="ws" hidden>
+    <aside class="rail" id="rail" aria-label="Portfolio builder">
+      <div class="rail-brand">
+        <div class="brand-text"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></div>
+        <button type="button" class="rail-toggle collapse" id="rail-collapse" aria-expanded="true" aria-label="Collapse the builder" title="Collapse the builder (b)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l-6 6 6 6M16 4l-6 6 6 6"/></svg>
+        </button>
+        <button type="button" class="rail-toggle menu-btn" id="rail-close" aria-label="Close the builder">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+      </div>
+      <div class="rail-collapsed-strip">
+        <button type="button" class="btn btn-icon btn-ghost" id="rail-expand" aria-label="Expand the builder" title="Expand the builder (b)">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4l6 6-6 6M4 4l6 6-6 6"/></svg>
+        </button>
+        <button type="button" class="btn btn-icon btn-ghost" id="rail-add" aria-label="Add an investment" title="Add an investment">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
+        </button>
+        <span class="vlabel">Builder</span>
+      </div>
+      <div class="rail-body" id="builder"></div>
+      <div class="rail-foot" id="rail-foot"></div>
+    </aside>
+    <button type="button" class="resizer" id="rail-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the builder" aria-valuemin="280" aria-valuemax="560" aria-valuenow="360" tabindex="0"></button>
+
+    <main class="main" id="main">
+      <header class="ws-head" id="ws-head"></header>
+      <div class="ws-compare" id="ws-compare" aria-label="Allocations in the comparison"></div>
+      <div class="canvas" id="canvas">
+        <div class="notice-stack" id="notices"></div>
+        <div class="controls" id="context-bar" role="region" aria-label="Analysis context"></div>
+        <div class="context-line" id="context-line" aria-live="polite"></div>
+        <div class="cards-grid" id="cards" aria-label="Analysis cards"></div>
+      </div>
+    </main>
+
+    <aside class="drawer" id="drawer" aria-labelledby="drawer-title" hidden></aside>
+    <aside class="sheet" id="card-sheet" aria-label="Card repository" hidden></aside>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="dialog-root"></div>
+<div id="pop-root"></div>
+<div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
+
+<!-- Load order is load-bearing: utilities, mock data, engine, API, state, UI, boot.
+     To point the page at a service instead of the in-page mock, set
+     window.PA_CONFIG = { adapter: 'http', baseUrl: '/api/v1' } before app.js. -->
+<script src="js/util.js"></script>
+<script src="data/universe.js"></script>
+<script src="data/assumptions.js"></script>
+<script src="data/history.js"></script>
+<script src="data/sleeves.js"></script>
+<script src="data/workspaces.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/api.js"></script>
+<script src="js/state.js"></script>
+<script src="js/ui/common.js"></script>
+<script src="js/ui/viz.js"></script>
+<script src="js/ui/cards.js"></script>
+<script src="js/ui/cardtypes.js"></script>
+<script src="js/ui/ddcard.js"></script>
+<script src="js/ui/context.js"></script>
+<script src="js/ui/shell.js"></script>
+<script src="js/ui/builder.js"></script>
+<script src="js/ui/sleeves.js"></script>
+<script src="js/ui/drawer.js"></script>
+<script src="js/ui/dialogs.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

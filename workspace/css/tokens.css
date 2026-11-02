@@ -1,0 +1,112 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Portfolio Analytics · design tokens
+   Translated from the Proposal Tool's stylesheet so both products read as one
+   family on the host: same ground, ink, rules, accent, navy rail and the same
+   fixed series palette. Green, amber and red stay reserved for status and are
+   never used to identify an allocation.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* House typefaces, served locally. GS Sans and GS Sans Condensed are
+   variable; the ranges let the browser interpolate instead of synthesising.
+   Goldman Sans ships regular only and is used at 400 for the wordmark. */
+@font-face{font-family:"GS Sans";src:url("../fonts/gs-sans-variable.woff2") format("woff2");
+  font-weight:250 700;font-style:normal;font-display:swap}
+@font-face{font-family:"GS Sans Condensed";src:url("../fonts/gs-sans-condensed-variable.woff2") format("woff2");
+  font-weight:300 900;font-style:normal;font-display:swap}
+@font-face{font-family:"Goldman Sans";src:url("../fonts/goldman-sans-regular.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Roboto";src:url("../fonts/roboto-regular.woff2") format("woff2");
+  font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Roboto";src:url("../fonts/roboto-medium.woff2") format("woff2");
+  font-weight:500;font-style:normal;font-display:swap}
+
+:root{
+  /* type */
+  --f-body:'GS Sans','Roboto',system-ui,-apple-system,sans-serif;
+  --f-display:'GS Sans','Roboto',system-ui,-apple-system,sans-serif;
+  --f-num:'GS Sans Condensed','GS Sans','Roboto',system-ui,-apple-system,sans-serif;
+  --f-brand:'Goldman Sans','GS Sans','Roboto',system-ui,sans-serif;
+
+  /* ground and ink */
+  --bg:#FBFCFE;
+  --surface:#FFFFFF;
+  --surface-2:#F0F2F5;
+  --surface-3:#E9EDF2;
+  --ink:#1C2733;
+  --ink-2:#5B6B7C;
+  --ink-3:#8494A4;
+  --ink-row:#4B5A6A;
+  --line:#EEF1F4;
+  --line-strong:#D4DAE2;
+  --line-mid:#AFBAC7;
+
+  /* action */
+  --accent:#1F5FBF;
+  --accent-ink:#FFFFFF;
+  --accent-wash:#E3EBFA;
+  --accent-line:#B9CDF0;
+  --accent-deep:#1E4FA3;
+
+  /* status — reserved; never a series colour */
+  --ok:#1A7F37;        --ok-bg:#E7F4EC;   --ok-line:#B7E0C5;
+  --warn:#B45309;      --warn-bg:#FEF3C7; --warn-line:#F3D48A;
+  --neg:#B42318;       --neg-bg:#FDE8E8;  --neg-line:#F1B8B2;
+  --info:#1F5FBF;      --info-bg:#E3EBFA; --info-line:#B9CDF0;
+  --edit-bg:#FFF6DD;   --edit-line:#C9A23E;
+
+  /* the series palette, assigned to an allocation when it joins the
+     comparison and kept for its life — never by column position */
+  --cat-1:#2a78d6; --cat-2:#eb6834; --cat-3:#1baf7a;
+  --cat-4:#eda100; --cat-5:#e87ba4; --cat-6:#4a3aa7;
+
+  /* the navy rail */
+  --rail-bg:#12233f;
+  --rail-bg-2:#172b4c;
+  --rail-ink:#FFFFFF;
+  --rail-ink-2:#B6C2D2;
+  --rail-ink-3:#7E90A8;
+  --rail-line:#233754;
+  --rail-eyebrow:#F3C46B;
+  --rail-input-bg:#1D2F4B;
+  --rail-input-border:#52739C;
+  --rail-accent:#2A6AD0;
+  --rail-focus:#8FB4FF;
+  --rail-hover:#1B3156;
+  --rail-selected:#22406B;
+
+  /* charts */
+  --viz-axis:#C3CDD8;
+  --viz-grid:#E4EAF0;
+  --viz-ink:#1C2733;
+  --viz-muted:#8494A4;
+
+  /* shape and depth */
+  --radius:6px;
+  --radius-sm:4px;
+  --radius-pill:999px;
+  --shadow:0 1px 2px rgba(16,24,40,.05);
+  --shadow-pop:0 10px 30px -8px rgba(16,24,40,.28);
+  --shadow-dialog:0 24px 60px -12px rgba(16,24,40,.4);
+  --focus:0 0 0 2px var(--surface),0 0 0 4px var(--accent);
+
+  /* layout */
+  --rail-w:360px;
+  --rail-collapsed:56px;
+  --drawer-w:460px;
+  --header-h:60px;
+  --toolbar-h:52px;
+
+  /* motion */
+  --fast:120ms;
+  --base:200ms;
+  --rail-motion:260ms cubic-bezier(.4,0,.2,1);
+  --flash:1300ms;
+
+  /* carets for selects */
+  --caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%238494A4' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  --rail-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%238FA2BC' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion:reduce){
+  :root{--fast:0ms;--base:0ms;--rail-motion:0ms;--flash:0ms}
+}

@@ -50,5 +50,8 @@ the user asks for them.
   so run the workspace checks before `build-document.mjs`.
 - `spec/` — the built spec plus its sources; `cd spec && node build-document.mjs`
   rebuilds it, `verify-document.mjs` checks it.
+- `design/` — self-contained design-option pages: `rail-alternatives.html`
+  (ten rail layouts; option 4, the tabbed rail, was chosen) and
+  `rail-colours.html` (ten rail colourings; 9, Split, was chosen).
 - `reference/venn/` — reference screenshots.
 - Remote: https://github.com/fabarker/portfolio-analytics-ui.git (branch main).

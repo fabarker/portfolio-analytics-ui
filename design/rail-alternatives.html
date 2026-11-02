@@ -1,0 +1,1221 @@
+<title>Builder Rail Options</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column of numbered options; each pairs a working rail (fixed 340px) with its notes, stacking on phones. */
+:root{
+  --pg-bg:#F2F5F8; --pg-surface:#FFFFFF; --pg-ink:#1C2733; --pg-ink2:#56677A; --pg-ink3:#7D8EA0;
+  --pg-line:#DCE3EA; --pg-accent:#1F5FBF; --pg-wash:#E3EBFA; --pg-note:#FFF6DD; --pg-note-line:#E9D296; --pg-note-ink:#5E4508;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cond:'IBM Plex Sans Condensed','Arial Narrow',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  /* the product's navy rail; fixed in both page themes because it is the thing on show */
+  --r-bg:#12233f; --r-bg2:#172b4c; --r-ink:#FFFFFF; --r-ink2:#B6C2D2; --r-ink3:#8193AB; --r-line:#233754;
+  --r-eyebrow:#F3C46B; --r-input:#1D2F4B; --r-input-b:#52739C; --r-accent:#2A6AD0; --r-hover:#1B3156;
+  --r-sel:#22406B; --r-focus:#8FB4FF; --r-warn-bg:#4A3B14; --r-warn-b:#8A6D1E; --r-warn:#F3C46B; --r-bad:#F6A8A0;
+  --r-ok:#8FD3A8; --r-tag:#223A60; --r-tag-b:#3A5478; --r-pop:#1A2E4F; --r-shadow:rgba(4,10,22,.55);
+  --r-sl-bg:#2E2552; --r-sl-b:#5B4BA8; --r-sl:#D6CEFF; --r-toast:#0A1530; --r-toast-bad:#5A1D1A;
+  --r-up:#7FB0FF; --r-down:#F2A65A; --r-canvas:#EEF2F6; --r-canvas-card:#FFFFFF; --r-canvas-line:#D9E0E8;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --pg-bg:#0E151F; --pg-surface:#16202D; --pg-ink:#E4EAF1; --pg-ink2:#A2B0C0; --pg-ink3:#76879C;
+  --pg-line:#273446; --pg-accent:#86AEF2; --pg-wash:#1B2A42; --pg-note:#2B2414; --pg-note-line:#5A4A20; --pg-note-ink:#F0D58C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --pg-bg:#0E151F; --pg-surface:#16202D; --pg-ink:#E4EAF1; --pg-ink2:#A2B0C0; --pg-ink3:#76879C;
+  --pg-line:#273446; --pg-accent:#86AEF2; --pg-wash:#1B2A42; --pg-note:#2B2414; --pg-note-line:#5A4A20; --pg-note-ink:#F0D58C; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--pg-bg);color:var(--pg-ink);font:15px/1.55 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--pg-bg)}
+.page{max-width:1080px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+a{color:var(--pg-accent)}
+:focus-visible{outline:2px solid var(--pg-accent);outline-offset:2px}
+
+/* page header */
+.hero{padding-block:36px 22px;display:grid;gap:14px;max-width:760px}
+.eyebrow-pg{font:600 12px/1 var(--f-cond);letter-spacing:.18em;text-transform:uppercase;color:var(--pg-ink3)}
+.hero h1{font:600 clamp(28px,6vw,40px)/1.1 var(--f-cond);letter-spacing:-.01em}
+.hero p{color:var(--pg-ink2);max-width:65ch}
+.must{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--pg-note-line);background:var(--pg-note);color:var(--pg-note-ink);border-radius:8px;font-size:14px;max-width:760px}
+.must b{font-weight:600}
+.must svg{width:18px;height:18px;flex:none;margin-top:2px}
+.rec{margin-top:6px;padding:16px 18px;border-radius:8px;background:var(--pg-surface);border:1px solid var(--pg-line);display:grid;gap:8px;max-width:760px}
+.rec h2{font:600 13px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--pg-accent)}
+.rec p{font-size:14.5px}
+.fine{font-size:13px;color:var(--pg-ink3)}
+
+/* jump bar */
+.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--pg-bg);margin-inline:-4px;padding:10px 4px;border-bottom:1px solid var(--pg-line);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.jump::-webkit-scrollbar{display:none}
+.jump a{flex:none;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--pg-line);background:var(--pg-surface);color:var(--pg-ink);text-decoration:none;font:500 13px/1 var(--f-cond);white-space:nowrap}
+.jump a b{font-weight:700;color:var(--pg-accent)}
+.jump a:hover{border-color:var(--pg-accent)}
+
+/* option sections */
+.opt{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px 36px;padding-block:44px;border-bottom:1px solid var(--pg-line);scroll-margin-top:calc(env(safe-area-inset-top,0px) + 60px)}
+.opt-head{grid-column:1/-1;display:grid;gap:8px;max-width:760px}
+.opt-head h2{display:flex;align-items:baseline;gap:12px;font:600 26px/1.15 var(--f-cond)}
+.opt-head h2 .n{font:700 15px/1 var(--f-cond);color:var(--pg-accent);border:1.5px solid currentColor;border-radius:6px;padding:4px 7px;transform:translateY(-3px)}
+.opt-head p{color:var(--pg-ink2);max-width:65ch}
+.mockcol{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-content:start;min-width:0}
+.mock-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--pg-ink3)}
+.mock-tools button{font:600 11px/1 var(--f-cond);letter-spacing:.08em;text-transform:uppercase;height:28px;padding:0 10px;border:1px solid var(--pg-line);border-radius:6px;background:var(--pg-surface);color:var(--pg-ink2);cursor:pointer}
+.mock-tools button:hover{color:var(--pg-ink);border-color:var(--pg-ink3)}
+.notes{display:grid;gap:16px;align-content:start;min-width:0;max-width:62ch}
+.notes h3{font:600 12px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--pg-ink3);margin-bottom:6px}
+.notes ul{margin:0;padding-left:18px;display:grid;gap:4px}
+.notes li::marker{color:var(--pg-ink3)}
+.try{padding:12px 14px;border-radius:8px;background:var(--pg-wash);font-size:14px}
+.try b{font-weight:600}
+.pc{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pc h3.good{color:var(--pg-accent)}
+.collapsed{font-size:14px;color:var(--pg-ink2)}
+.collapsed b{color:var(--pg-ink);font-weight:600}
+.scores{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--pg-ink2)}
+.scores span{display:inline-flex;align-items:center;gap:6px}
+.dots{display:inline-flex;gap:3px}
+.dots i{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--pg-accent)}
+.dots i.on{background:var(--pg-accent)}
+
+/* summary table */
+.summary{padding-block:44px 0;display:grid;gap:14px}
+.summary h2{font:600 26px/1.15 var(--f-cond)}
+.tablewrap{overflow-x:auto;border:1px solid var(--pg-line);border-radius:8px;background:var(--pg-surface)}
+.sumt{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+.sumt th,.sumt td{padding:10px 12px;border-bottom:1px solid var(--pg-line);text-align:left;vertical-align:middle}
+.sumt thead th{font:600 11.5px/1.2 var(--f-cond);letter-spacing:.12em;text-transform:uppercase;color:var(--pg-ink3)}
+.sumt tbody th{font-weight:600}
+.sumt tbody th a{text-decoration:none;color:inherit}
+.sumt tbody th span{color:var(--pg-accent);font-family:var(--f-cond);margin-right:8px}
+.sumt tr:last-child>*{border-bottom:0}
+
+@media (max-width:820px){
+  .opt{grid-template-columns:minmax(0,1fr);padding-block:34px}
+  .mockcol{justify-self:center;width:100%;max-width:340px}
+  .pc{grid-template-columns:1fr}
+}
+
+/* ═══ rail mock: shared ═══════════════════════════════════════════════ */
+.rail{--r-gut:12px;position:relative;display:flex;flex-direction:column;width:100%;height:620px;background:var(--r-bg);color:var(--r-ink);border-radius:12px;overflow:hidden;font:13px/1.35 var(--f-body);border:1px solid var(--r-line);box-shadow:0 22px 44px -28px rgba(16,24,40,.6);isolation:isolate}
+.rail.light{--r-bg:#F5F7FA; --r-bg2:#FFFFFF; --r-ink:#1C2733; --r-ink2:#56677A; --r-ink3:#7D8EA0; --r-line:#E0E6ED;
+  --r-eyebrow:#1F5FBF; --r-input:#FFFFFF; --r-input-b:#C3CDD9; --r-accent:#1F5FBF; --r-hover:#EAF0F7; --r-sel:#E1EAF8;
+  --r-focus:#1F5FBF; --r-warn-bg:#FEF3C7; --r-warn-b:#F0CF7E; --r-warn:#7A4F00; --r-bad:#B42318; --r-ok:#1A7F37;
+  --r-tag:#EDF1F5; --r-tag-b:#D3DAE3; --r-pop:#FFFFFF; --r-shadow:rgba(16,24,40,.2); --r-sl-bg:#F0ECFF; --r-sl-b:#CDC3F3; --r-sl:#4A3AA7;
+  --r-up:#1F5FBF; --r-down:#C2410C; border-color:#D5DDE6}
+.rail-in{position:relative;display:flex;flex-direction:column;flex:1;min-height:0}
+.rail button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+.rail :focus-visible{outline:2px solid var(--r-focus);outline-offset:1px}
+.rail input{font:inherit;color:var(--r-ink)}
+.r-head{position:relative;flex:none;padding:12px var(--r-gut) 10px;border-bottom:1px solid var(--r-line);display:grid;gap:6px;z-index:5}
+.pick{display:flex;align-items:center;gap:9px;width:100%;min-height:40px;padding:6px 10px;border:1px solid var(--r-input-b);background:var(--r-input);border-radius:7px;cursor:pointer;text-align:left}
+.pick:hover{border-color:var(--r-focus)}
+.pick-name{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pick svg{width:15px;height:15px;color:var(--r-ink3);flex:none}
+.pick-sub{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--r-ink3)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;background:var(--c,#888)}
+.tag{display:inline-flex;align-items:center;gap:4px;font:600 9.5px/1 var(--f-cond);letter-spacing:.09em;text-transform:uppercase;padding:3px 6px;border-radius:999px;border:1px solid var(--r-tag-b);background:var(--r-tag);color:var(--r-ink2);white-space:nowrap;flex:none}
+.tag.snap,.tag.warn{background:var(--r-warn-bg);border-color:var(--r-warn-b);color:var(--r-warn)}
+.tag.sl{background:var(--r-sl-bg);border-color:var(--r-sl-b);color:var(--r-sl)}
+.tag svg{width:10px;height:10px}
+.pop{position:absolute;left:var(--r-gut);right:var(--r-gut);top:calc(100% - 6px);z-index:20;background:var(--r-pop);border:1px solid var(--r-input-b);border-radius:8px;box-shadow:0 16px 32px -12px var(--r-shadow);padding:6px;display:grid;gap:1px}
+.pop-label{font:600 10px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--r-ink3);padding:8px 8px 4px}
+.pop button{display:flex;align-items:center;gap:9px;padding:8px;border:0;background:none;border-radius:5px;text-align:left;cursor:pointer;min-height:36px}
+.pop button span:first-of-type{flex:1;min-width:0}
+.pop button:hover,.pop button[aria-checked="true"]{background:var(--r-sel)}
+.r-body{flex:1;min-height:0;overflow:auto;padding:10px var(--r-gut) 16px;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-content:start;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--r-tag-b) transparent}
+.eyebrow{font:600 10.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--r-ink3)}
+.r-foot{flex:none;border-top:1px solid var(--r-line);padding:10px var(--r-gut) 12px;display:grid;gap:6px;background:var(--r-bg);font-size:12px;color:var(--r-ink2)}
+.r-foot .row b{color:var(--r-ink);font:600 14px/1 var(--f-cond)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.grow{flex:1;min-width:0}
+.faint{color:var(--r-ink3)}
+.num{font-family:var(--f-cond);font-variant-numeric:tabular-nums}
+.stack{display:flex;height:8px;border-radius:3px;overflow:hidden;background:var(--r-tag)}
+.stack i{display:block;height:100%;flex:none}
+.hatch{background:repeating-linear-gradient(135deg,var(--c) 0 2px,transparent 2px 5px)!important}
+.wt{width:58px;height:28px;padding:0 7px;text-align:right;font:500 13px/1 var(--f-cond)!important;font-variant-numeric:tabular-nums;background:var(--r-input);border:1px solid var(--r-input-b);border-radius:4px;color:var(--r-ink);flex:none}
+.wt:hover{border-color:var(--r-focus)}
+.wt[readonly]{border-color:transparent;background:transparent;color:var(--r-ink2)}
+.ib{width:30px;height:30px;flex:none;display:grid;place-items:center;border:1px solid transparent;background:none;border-radius:6px;color:var(--r-ink2);cursor:pointer;padding:0}
+.ib:hover{background:var(--r-hover);color:var(--r-ink)}
+.ib[aria-pressed="true"]{background:var(--r-sel);color:var(--r-ink);border-color:var(--r-input-b)}
+.ib svg{width:16px;height:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--r-input-b);background:transparent;border-radius:6px;cursor:pointer;font:600 11px/1 var(--f-cond)!important;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.btn:hover{background:var(--r-hover)}
+.btn.primary{background:var(--r-accent);border-color:var(--r-accent);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+.btn svg{width:13px;height:13px}
+.say{position:absolute;left:10px;right:10px;bottom:10px;z-index:40;padding:10px 12px;border-radius:8px;background:var(--r-toast);color:#fff;font-size:12.5px;line-height:1.4;box-shadow:0 12px 28px -10px rgba(0,0,0,.6);opacity:0;transform:translateY(8px);transition:opacity .18s,transform .18s;pointer-events:none}
+.say.bad{background:var(--r-toast-bad)}
+.say.on{opacity:1;transform:none}
+.ro-note{display:flex;gap:8px;padding:9px 10px;border-radius:6px;background:var(--r-warn-bg);border:1px solid var(--r-warn-b);color:var(--r-warn);font-size:12px}
+.ro-note svg{width:14px;height:14px;flex:none;margin-top:1px}
+.search{position:relative;display:flex;align-items:center}
+.search svg{position:absolute;left:9px;width:15px;height:15px;color:var(--r-ink3);pointer-events:none}
+.search input{width:100%;height:34px;padding:0 10px 0 31px;border:1px solid var(--r-input-b);background:var(--r-input);border-radius:6px;font-size:13px}
+.search input::placeholder{color:var(--r-ink3)}
+.results{display:grid;gap:1px;border:1px solid var(--r-line);border-radius:6px;background:var(--r-bg2);overflow:hidden}
+.res{display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;background:none;text-align:left;cursor:pointer;width:100%}
+.res:hover{background:var(--r-hover)}
+.res span{flex:1;min-width:0;display:grid}
+.res b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res small{font:11px/1.3 var(--f-cond);color:var(--r-ink3)}
+.res-empty{padding:10px;font-size:12px;color:var(--r-ink3)}
+.sw{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--r-ink2)}
+.sw input{position:absolute;opacity:0;width:1px;height:1px}
+.sw .track{width:30px;height:17px;border-radius:999px;background:var(--r-tag-b);position:relative;flex:none;transition:background .15s}
+.sw .track::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw input:checked+.track{background:var(--r-accent)}
+.sw input:checked+.track::after{transform:translateX(13px)}
+.sw input:focus-visible+.track{outline:2px solid var(--r-focus);outline-offset:2px}
+.stp{display:inline-flex;align-items:center;gap:4px;flex:none}
+.stp button{width:30px;height:30px;border:1px solid var(--r-input-b);background:transparent;border-radius:6px;cursor:pointer;font:500 17px/1 var(--f-body);display:grid;place-items:center;padding:0}
+.stp button:hover{background:var(--r-hover)}
+.stp button:disabled{opacity:.4;cursor:default}
+
+/* tree */
+.tree{display:grid;gap:1px}
+.trow{display:flex;align-items:center;gap:6px;min-height:36px;padding:2px 2px 2px 0;border-radius:6px;position:relative}
+.trow:hover{background:var(--r-hover)}
+.trow.sel{background:var(--r-sel)}
+.trow.sel::before{content:"";position:absolute;left:-6px;top:5px;bottom:5px;width:3px;border-radius:2px;background:var(--r-eyebrow)}
+.trow.p{padding-left:18px}
+.tw{width:22px;height:22px;flex:none;display:grid;place-items:center;border:0;background:none;border-radius:4px;color:var(--r-ink3);cursor:pointer;padding:0}
+.tw svg{width:13px;height:13px;transition:transform .15s}
+.tw[aria-expanded="true"] svg{transform:rotate(90deg)}
+.tw.leaf{visibility:hidden}
+.tn{flex:1;min-width:0;display:grid;gap:2px;padding:3px 0;border:0;background:none;text-align:left;cursor:pointer}
+.tn b{display:flex;align-items:center;gap:6px;font-weight:500;min-width:0}
+.tn b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.trow.c .tn b{font-weight:600}
+.tn small{font:11px/1.3 var(--f-cond);color:var(--r-ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
+.trow.idx .tn b{font-style:italic;font-weight:400;color:var(--r-ink2)}
+.tv{min-width:58px;padding-right:8px;text-align:right;font:500 13px/1 var(--f-cond);color:var(--r-ink2);flex:none;font-variant-numeric:tabular-nums}
+.impl{display:flex;height:3px;border-radius:2px;overflow:hidden;background:var(--r-tag);margin-top:3px}
+.impl i{display:block;height:100%}
+.prox{width:6px;height:6px;border-radius:50%;background:var(--r-eyebrow);flex:none}
+.tsel{width:16px;height:16px;flex:none;accent-color:var(--r-accent);margin:0}
+.selbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border-radius:6px;background:var(--r-bg2);border:1px solid var(--r-line);font-size:12px}
+.selbar .grow b{font-family:var(--f-cond)}
+.dv{display:flex;align-items:center;gap:5px;flex:none;width:86px}
+.dbar{position:relative;width:40px;height:10px;flex:none}
+.dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--r-ink3)}
+.dbar i{position:absolute;top:1px;bottom:1px;border-radius:2px}
+.dv em{font:600 12px/1 var(--f-cond);font-style:normal;min-width:36px;text-align:right;color:var(--r-ink3);font-variant-numeric:tabular-nums}
+.dv em.up{color:var(--r-up)} .dv em.down{color:var(--r-down)}
+
+@media (pointer:coarse){.rail input{font-size:16px!important}.wt{width:64px;height:32px}}
+
+/* ═══ 1 · slim tree ═══ */
+.o1-tools{flex:none;display:flex;align-items:center;gap:4px;padding:8px var(--r-gut) 0}
+.o1-tools .search{flex:1}
+.o1-tools .search input{padding-left:10px}
+.o1-tools .eyebrow{padding-left:4px}
+.o1 .results{margin:8px var(--r-gut) 0}
+.o1 .r-body{padding-top:6px}
+
+/* ═══ 2 · weight bar ═══ */
+.o2-bar{position:relative;display:flex;height:46px;border-radius:7px;overflow:visible;background:var(--r-tag);touch-action:none;user-select:none;-webkit-user-select:none}
+.o2-seg{position:relative;height:100%;display:flex;align-items:center;justify-content:center;background:var(--c);overflow:hidden;cursor:pointer;min-width:0;border:0;padding:0}
+.o2-seg:first-child{border-radius:7px 0 0 7px}
+.o2-seg.un{background:transparent;cursor:default}
+.o2-seg.on{box-shadow:inset 0 0 0 2px #fff}
+.o2-seg .ix{position:absolute;top:0;right:0;bottom:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.55) 0 2px,transparent 2px 5px)}
+.o2-seg b{position:relative;font:600 12px/1 var(--f-cond);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+.o2-h{position:absolute;top:-5px;bottom:-5px;width:22px;margin-left:-11px;border:0;background:none;cursor:ew-resize;z-index:2;padding:0;touch-action:none}
+.o2-h::before{content:"";position:absolute;left:10px;top:0;bottom:0;width:2px;border-radius:1px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.o2-h::after{content:"";position:absolute;left:6px;top:50%;width:10px;height:18px;margin-top:-9px;border-radius:3px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.o2-h:focus-visible::after{box-shadow:0 0 0 3px var(--r-focus)}
+.o2-scale{display:flex;justify-content:space-between;font:11px/1 var(--f-cond);color:var(--r-ink3);margin-top:-6px}
+.o2-legend{display:flex;flex-wrap:wrap;gap:4px}
+.o2-legend button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px;border:1px solid var(--r-line);background:none;border-radius:999px;cursor:pointer;font-size:12px}
+.o2-legend button b{font:600 12px/1 var(--f-cond)}
+.o2-legend button[aria-pressed="true"]{background:var(--r-sel);border-color:var(--r-input-b)}
+.o2-detail{display:grid;gap:8px;padding:12px;border-radius:8px;background:var(--r-bg2);border:1px solid var(--r-line)}
+.o2-detail h3{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.o2-line{display:flex;align-items:center;gap:8px;min-height:34px}
+.o2-line .grow{display:grid}
+.o2-line small{font:11px/1.3 var(--f-cond);color:var(--r-ink3)}
+.o2-line .grow>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o2-line.ix .grow>span{font-style:italic;color:var(--r-ink2)}
+
+/* ═══ 3 · sliders ═══ */
+.o3-mode{flex:none;display:grid;gap:4px;padding:10px var(--r-gut);border-bottom:1px solid var(--r-line)}
+.o3-mode small{font-size:11.5px;color:var(--r-ink3)}
+.o3-row{display:grid;gap:4px;padding:4px 0 8px;border-bottom:1px solid var(--r-line)}
+.o3-row:last-child{border-bottom:0}
+.o3-top{display:flex;align-items:center;gap:4px}
+.o3-name{flex:1;min-width:0;display:flex;align-items:center;gap:7px;font-weight:600;white-space:nowrap;overflow:hidden}
+.o3-name span{overflow:hidden;text-overflow:ellipsis}
+.o3-track{position:relative;height:26px;margin-left:26px}
+.o3-fill{position:absolute;left:0;right:0;top:9px;height:8px;border-radius:4px;background:var(--r-tag);display:flex;overflow:hidden;pointer-events:none}
+.o3-fill i{display:block;height:100%;flex:none}
+.o3-fill .sol{background:var(--c)}
+.o3-track input[type=range]{position:absolute;inset:0;width:100%;height:26px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer;touch-action:pan-y}
+.o3-track input[type=range]::-webkit-slider-runnable-track{height:26px;background:transparent}
+.o3-track input[type=range]::-moz-range-track{height:26px;background:transparent}
+.o3-track input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:3px;border-radius:50%;background:#fff;border:3px solid var(--c);box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.o3-track input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--c);box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.o3-track input[type=range]:focus-visible{outline:none}
+.o3-track input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--r-focus)}
+.o3-prow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 8px;margin-left:26px;padding:4px 0 0}
+.o3-prow>span{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o3-prow .o3-track{grid-column:1/-1;margin-left:0;height:22px}
+.o3-prow .o3-fill{top:8px;height:6px}
+.o3-prow input[type=range]{height:22px}
+.o3-prow input[type=range]::-webkit-slider-runnable-track{height:22px}
+.o3-prow input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:3px;border-width:2px}
+.o3-ix{margin-left:26px;font:italic 12px/1.3 var(--f-body);color:var(--r-ink3)}
+.o3-scale{display:flex;justify-content:space-between;margin-left:26px;font:10.5px/1 var(--f-cond);color:var(--r-ink3)}
+.o3 .ib.sm{width:26px;height:26px}
+.o3 .ib.sm svg{width:14px;height:14px}
+
+/* ═══ 4 · tabs ═══ */
+.o4-tabs{flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--r-line);padding:0 6px}
+.o4-tabs button{position:relative;display:grid;justify-items:center;gap:3px;padding:9px 2px 8px;border:0;background:none;cursor:pointer;color:var(--r-ink3);font:600 10.5px/1 var(--f-cond)!important;letter-spacing:.1em;text-transform:uppercase}
+.o4-tabs button svg{width:17px;height:17px}
+.o4-tabs button[aria-selected="true"]{color:var(--r-ink)}
+.o4-tabs button[aria-selected="true"]::after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:2px;border-radius:2px;background:var(--r-eyebrow)}
+.o4-badge{position:absolute;top:5px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--r-eyebrow);color:#12233f;font:700 10px/16px var(--f-cond);letter-spacing:0}
+.chips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;height:28px;padding:0 10px;border:1px solid var(--r-line);border-radius:999px;background:none;cursor:pointer;font-size:12px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--r-sel);border-color:var(--r-input-b)}
+.o4-sleeve{display:grid;gap:6px;padding:10px;border-radius:7px;border:1px solid var(--r-line);background:var(--r-bg2)}
+.o4-sleeve .row b{font-weight:600}
+.o4-sleeve small{font:11.5px/1.35 var(--f-cond);color:var(--r-ink3)}
+.o4-sleeve .acts{display:flex;gap:6px}
+.o4-check{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:7px;background:var(--r-bg2);border:1px solid var(--r-line)}
+.o4-check svg{width:16px;height:16px;flex:none;margin-top:1px}
+.o4-check.ok svg{color:var(--r-ok)} .o4-check.warn svg{color:var(--r-eyebrow)}
+.o4-check div{display:grid;gap:2px}
+.o4-check small{color:var(--r-ink3);font-size:12px}
+
+/* ═══ 5 · dock ═══ */
+.o5{display:flex;flex:1;min-height:0}
+.o5-dock{flex:none;width:58px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0 10px;border-right:1px solid var(--r-line);background:#0E1C34}
+.o5-av{display:grid;justify-items:center;gap:3px;border:0;background:none;cursor:pointer;padding:0;width:52px}
+.o5-av i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 12px/1 var(--f-cond);font-style:normal;color:#fff;border:2px solid var(--c);background:transparent;letter-spacing:.02em}
+.o5-av.snapshot i{border-style:dashed}
+.o5-av.on i{background:var(--c);color:#0E1C34;box-shadow:0 0 0 3px rgba(255,255,255,.18)}
+.o5-av small{font:600 9.5px/1 var(--f-cond);letter-spacing:.04em;color:var(--r-ink3);max-width:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o5-av.on small{color:var(--r-ink)}
+.o5-av.add i{border:1.5px dashed var(--r-input-b);color:var(--r-ink3);font-size:18px;font-weight:400}
+.o5-sep{width:28px;height:1px;background:var(--r-line);margin:4px 0}
+.o5-panel{flex:1;min-width:0;display:flex;flex-direction:column}
+.o5-ph{flex:none;padding:12px var(--r-gut) 10px;border-bottom:1px solid var(--r-line);display:grid;gap:5px}
+.o5-name{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15.5px;min-width:0}
+.o5-name span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o5-sw{flex:none;padding:8px var(--r-gut) 0}
+.o5-canvas{flex:1;min-width:0;background:var(--r-canvas);padding:12px;display:grid;gap:10px;align-content:start}
+.o5-canvas p{font-size:12px;color:#56677A}
+.o5-card{height:96px;border-radius:7px;background:var(--r-canvas-card);border:1px solid var(--r-canvas-line);padding:10px;display:grid;gap:6px;align-content:start}
+.o5-card i{display:block;height:6px;border-radius:3px;background:#E3E9F0}
+.o5-card i:first-child{width:55%;background:#C9D3DE}
+
+/* ═══ 6 · stacked allocations (light) ═══ */
+.o6-ws{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;cursor:pointer;font-weight:600;font-size:15px;text-align:left}
+.o6-ws svg{width:14px;height:14px;color:var(--r-ink3)}
+.o6-card{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:8px;padding:10px;border-radius:9px;background:var(--r-bg2);border:1px solid var(--r-line)}
+.o6-card.open{border-color:var(--c);box-shadow:0 0 0 1px var(--c)}
+.o6-card.out{opacity:.6}
+.o6-top{display:flex;align-items:center;gap:4px}
+.o6-hd{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:0;background:none;padding:2px 0;cursor:pointer;text-align:left}
+.o6-hd .o6-n{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o6-hd b{font:600 13px/1 var(--f-cond)}
+.o6-hd svg{width:13px;height:13px;color:var(--r-ink3);transition:transform .15s}
+.o6-hd[aria-expanded="true"] svg{transform:rotate(90deg)}
+.o6-tree{border-top:1px solid var(--r-line);padding-top:6px;display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.o6-add{height:40px;border:1.5px dashed var(--r-input-b);background:none;border-radius:9px;cursor:pointer;color:var(--r-ink2);font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.o6-add svg{width:14px;height:14px}
+
+/* ═══ 7 · differences ═══ */
+.o7-seg{flex:none;display:flex;gap:3px;margin:8px var(--r-gut) 0;padding:3px;border-radius:7px;background:var(--r-bg2);border:1px solid var(--r-line)}
+.o7-seg button{flex:1;height:28px;border:0;background:none;border-radius:5px;cursor:pointer;font-size:12px;color:var(--r-ink2);white-space:nowrap;padding:0 4px}
+.o7-seg button[aria-checked="true"]{background:var(--r-sel);color:var(--r-ink);font-weight:600}
+.o7-key{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--r-ink3)}
+.o7-key i{display:inline-block;width:10px;height:8px;border-radius:2px;margin-right:4px}
+.o7-top{display:grid;gap:4px}
+.o7-top div{display:flex;justify-content:space-between;gap:8px}
+.o7-top em{font:600 12px/1.2 var(--f-cond);font-style:normal}
+.o7-top em.up{color:var(--r-up)} .o7-top em.down{color:var(--r-down)}
+
+/* ═══ 8 · grid (light) ═══ */
+.o8-hint{flex:none;display:flex;gap:10px;flex-wrap:wrap;padding:8px var(--r-gut);border-bottom:1px solid var(--r-line);font:11.5px/1.3 var(--f-cond);color:var(--r-ink3)}
+.o8-hint kbd{font:600 10.5px/1 var(--f-cond);padding:2px 5px;border:1px solid var(--r-input-b);border-radius:3px;background:var(--r-input);color:var(--r-ink2)}
+.o8 .r-body{padding:0;display:block}
+.o8t{width:100%;border-collapse:collapse;font-size:12.5px}
+.o8t th,.o8t td{padding:3px 6px;border-bottom:1px solid var(--r-line);text-align:left;font-weight:400;vertical-align:middle}
+.o8t thead th{position:sticky;top:0;z-index:1;background:var(--r-bg);font:600 10px/1.2 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--r-ink3);padding-block:8px}
+.o8t thead th:not(:first-child),.o8t td{text-align:right}
+.o8t tr.cat th{font-weight:600;background:var(--r-bg2)}
+.o8t tr.cat td{background:var(--r-bg2)}
+.o8t tr.cat th>div{display:flex;align-items:center;gap:4px;min-width:0;box-shadow:inset 3px 0 0 var(--c);margin-left:-6px;padding-left:4px}
+.o8t tr.p th>div{display:grid;padding-left:26px;min-width:0}
+.o8t th span,.o8t th small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;display:block}
+.o8t th small{font:10.5px/1.2 var(--f-cond);color:var(--r-ink3)}
+.o8t td{font-family:var(--f-cond);font-variant-numeric:tabular-nums;color:var(--r-ink2)}
+.o8t .wt{width:52px;height:26px;border-radius:3px}
+.o8t tfoot th,.o8t tfoot td{position:sticky;bottom:0;background:var(--r-bg);border-top:1px solid var(--r-input-b);font-weight:600;color:var(--r-ink);padding-block:9px}
+.o8t .over{color:var(--r-bad);font-weight:600}
+.o8t .wt:focus{background:#FFF6DD;border-color:#C9A23E;outline:none;box-shadow:0 0 0 2px rgba(201,162,62,.35)}
+
+/* ═══ 9 · waffle ═══ */
+.o9-waffle{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.o9-waffle i{aspect-ratio:1;border-radius:3px;background:var(--c);cursor:pointer;max-width:100%}
+.o9-waffle i.ix{background:repeating-linear-gradient(135deg,var(--c) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--c)}
+.o9-waffle i.un{background:transparent;box-shadow:inset 0 0 0 1px var(--r-tag-b);cursor:default}
+.o9-key{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--r-ink3)}
+.o9-key span{display:inline-flex;align-items:center;gap:5px}
+.o9-key i{width:10px;height:10px;border-radius:2px;--c:var(--r-ink2);background:var(--c)}
+.o9-key i.ix{background:repeating-linear-gradient(135deg,var(--c) 0 1.5px,transparent 1.5px 3.5px);box-shadow:inset 0 0 0 1px var(--c)}
+.o9-key i.un{background:transparent;box-shadow:inset 0 0 0 1px var(--r-tag-b)}
+.o9-list{display:grid;gap:2px}
+.o9-cat{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 6px;border:0;background:none;border-radius:6px;cursor:pointer;text-align:left;width:100%}
+.o9-cat:hover{background:var(--r-hover)}
+.o9-cat span{flex:1;min-width:0;display:grid}
+.o9-cat span b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o9-cat small{font:11px/1.3 var(--f-cond);color:var(--r-ink3)}
+.o9-cat>b{font:600 14px/1 var(--f-cond)}
+.o9-cat svg{width:13px;height:13px;color:var(--r-ink3)}
+.o9-back{display:inline-flex;align-items:center;gap:4px;border:0;background:none;padding:2px 0;cursor:pointer;color:var(--r-ink2);font-size:12.5px;justify-self:start}
+.o9-back svg{width:14px;height:14px}
+.o9-title{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px}
+.o9-in{animation:o9in .22s ease-out}
+@keyframes o9in{from{opacity:.4;transform:translateX(18px)}to{opacity:1;transform:none}}
+.o9-line{display:flex;align-items:center;gap:8px;min-height:44px;border-bottom:1px solid var(--r-line)}
+.o9-line:last-of-type{border-bottom:0}
+.o9-line .grow{display:grid}
+.o9-line .grow>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o9-line small{font:11px/1.3 var(--f-cond);color:var(--r-ink3)}
+.o9-line.ix .grow>span{font-style:italic;color:var(--r-ink2)}
+.o9-line.tgt{padding:8px 10px;border-radius:7px;background:var(--r-bg2);border:1px solid var(--r-line)}
+
+/* ═══ 10 · command ═══ */
+.o10-cmd{flex:none;display:grid;gap:7px;padding:10px var(--r-gut);border-bottom:1px solid var(--r-line)}
+.o10-in{display:flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--r-input-b);background:#0B1A31;border-radius:7px}
+.o10-in:focus-within{border-color:var(--r-focus);box-shadow:0 0 0 3px rgba(143,180,255,.22)}
+.o10-in span{font:500 15px/1 var(--f-mono);color:var(--r-eyebrow)}
+.o10-in input{flex:1;min-width:0;border:0;background:none;outline:none;font:13px/1 var(--f-mono)!important;color:#fff}
+.o10-in input::placeholder{color:var(--r-ink3)}
+.o10-prev{min-height:32px;font-size:12px;line-height:1.35;color:var(--r-ink2)}
+.o10-prev.err{color:var(--r-bad)}
+.o10-prev.warn{color:var(--r-eyebrow)}
+.o10-prev kbd{font:600 10px/1 var(--f-cond);padding:2px 5px;border:1px solid var(--r-input-b);border-radius:3px;margin-left:4px}
+.o10 .chip{font:12px/1 var(--f-mono)}
+.o10-hist{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.o10-hist li{display:grid;gap:2px;padding:7px 9px;border-radius:6px;background:var(--r-bg2);border:1px solid var(--r-line);font-size:12px;color:var(--r-ink2)}
+.o10-hist code{font:12px/1.2 var(--f-mono);color:var(--r-ink)}
+.o10-rows{display:grid;gap:0}
+.o10-r{display:flex;align-items:center;gap:8px;min-height:30px;padding:3px 6px;border:0;background:none;border-radius:5px;cursor:pointer;text-align:left;width:100%}
+.o10-r:hover{background:var(--r-hover)}
+.o10-r span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o10-r.c span{font-weight:600}
+.o10-r.p{padding-left:24px;color:var(--r-ink2)}
+.o10-r code{font:11px/1 var(--f-mono);color:var(--r-ink3)}
+.o10-r b{font:600 13px/1 var(--f-cond);min-width:38px;text-align:right}
+.o10-r.p b{font-weight:500}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="page">
+  <header class="hero">
+    <span class="eyebrow-pg">Portfolio Analytics · workspace · design options</span>
+    <h1>Builder rail options</h1>
+    <p>Ten designs for the rail on the left of the workspace. Every rail below works: it runs on sample data adapted from Strategic Core, and edits follow the mockup’s rules. A category’s target is modelled by its index until products implement it, and the total cannot pass 100% without leverage.</p>
+    <div class="must" role="note">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 10.5l3.2 3.2L15 7"/></svg>
+      <span><b>Your firm requirement is met in all ten.</b> The “Portfolio Management Group / Portfolio Analytics” heading is gone. The top of the rail now holds the allocation you are editing. In option 6 it holds the workspace name instead.</span>
+    </div>
+    <section class="rec" aria-labelledby="rec-h">
+      <h2 id="rec-h">My recommendation</h2>
+      <p>Start from <a href="#opt-1">option 1</a>: it keeps every behaviour the rail has today and fits more rows. Add the comparison switch from <a href="#opt-7">option 7</a>, which costs no space. When the rail is collapsed, use the allocation dock from <a href="#opt-5">option 5</a> so switching allocation still works. On a phone, the drill-down in <a href="#opt-9">option 9</a> is the clearest.</p>
+    </section>
+    <p class="fine">Each rail keeps its own edits; Reset restores the sample. Messages appear at the bottom of the rail. The page uses IBM Plex Sans in place of the house typefaces.</p>
+  </header>
+
+  <nav class="jump" id="jump" aria-label="Jump to an option"></nav>
+  <div id="options"></div>
+
+  <section class="summary" id="compare" aria-labelledby="sum-h">
+    <h2 id="sum-h">The ten side by side</h2>
+    <p class="fine">My assessment on a three-point scale. Build effort is relative to the current rail.</p>
+    <div class="tablewrap"><table class="sumt" id="sumt"></table></div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+/* ── sample data, adapted from the mockup's Strategic Core ───────────── */
+const CATS = [
+  { id:'eq',   name:'Public Equity', short:'Public Equity', color:'#2a78d6', alias:['public equity','public','equity','eq','pubeq'] },
+  { id:'ig',   name:'Investment Grade Fixed Income', short:'IG Fixed Income', color:'#1baf7a', alias:['ig fixed income','investment grade','ig','igfi','bonds'] },
+  { id:'ofi',  name:'Other Fixed Income', short:'Other FI', color:'#8bd0b0', alias:['other fixed income','other fi','ofi','high yield','hy'] },
+  { id:'hf',   name:'Hedge Funds', short:'Hedge Funds', color:'#e87ba4', alias:['hedge funds','hedge','hf'] },
+  { id:'pvt',  name:'Private Equity & Other Private Assets', short:'Private Equity', color:'#7b6ae0', alias:['private equity','private','privates','pvt'] },
+  { id:'ra',   name:'Real Assets', short:'Real Assets', color:'#eda100', alias:['real assets','real','ra'] },
+  { id:'cash', name:'Cash', short:'Cash', color:'#9aa7b6', alias:['cash'] }
+];
+const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+const INSTR = [
+  ['MRLC','Meridian US Large Cap ETF','ETF','eq'], ['NBIEX','Northbridge International Equity','Fund','eq'],
+  ['CSEMX','Castellan Emerging Markets Fund','Fund','eq'], ['HLSCX','Halcyon US Small Cap Fund','Fund','eq'],
+  ['DXUS','Developed ex-US Equity ETF','ETF','eq'], ['EMEQX','Emerging Markets Equity ETF','ETF','eq'],
+  ['SVTRX','Sovereign Treasury Fund','Fund','ig'], ['ASIGX','Ashworth Investment Grade Credit','Fund','ig'],
+  ['GGOVX','Global Government Bond ETF','ETF','ig'], ['ILBFX','Inflation-Linked Bond Fund','Fund','ig'],
+  ['ASHYX','Ashworth High Yield Fund','Fund','ofi'], ['LPC-II','Lantern Private Credit Fund II','Fund','ofi',1],
+  ['KMS','Kestrel Multi-Strategy Fund','Fund','hf'], ['AGM','Alder Global Macro Fund','Fund','hf'],
+  ['OBP-IV','Oakhurst Buyout Partners IV','Fund','pvt',1], ['TPE-VII','Tamar Private Equity VII','Fund','pvt',1],
+  ['HCRE','Harborview Core Real Estate','Fund','ra'], ['GREIT','Global REIT ETF','ETF','ra'],
+  ['PGLD','Physical Gold ETF','ETF','ra'], ['GIP','Greystone Infrastructure Partners','Fund','ra',1],
+  ['TMMXX','Treasury Money Market Fund','Fund','cash']
+].map(([id,name,type,cat,proxy]) => ({ id, name, type, cat, proxy: !!proxy }));
+const INS = Object.fromEntries(INSTR.map(i => [i.id, i]));
+const COREP = { MRLC:20, NBIEX:13, CSEMX:7, HLSCX:5, SVTRX:14, ASIGX:8, ASHYX:4, KMS:5, AGM:3, 'OBP-IV':6, 'TPE-VII':4, HCRE:4, TMMXX:4 };
+const SLV = { KMS:'Core Alternatives v1', AGM:'Core Alternatives v1' };
+const ALLOCS = [
+  { id:'core',   name:'Strategic Core', short:'Core', ini:'SC', kind:'live', color:'#2a78d6', bm:'Global 60/40', cats:{eq:45,ig:22,ofi:4,hf:8,pvt:10,ra:7,cash:4} },
+  { id:'income', name:'Income Tilt', short:'Income', ini:'IT', kind:'live', color:'#eb6834', bm:'Global 40/60', cats:{eq:30,ig:27,ofi:13,hf:5,pvt:10,ra:10,cash:5} },
+  { id:'growth', name:'Growth Tilt', short:'Growth', ini:'GT', kind:'live', color:'#1baf7a', bm:null, cats:{eq:55,ig:13,ofi:3,hf:6,pvt:15,ra:6,cash:2}, indexOnly:['hf'] },
+  { id:'snap',   name:'Strategic Core · Mar 2026', short:'Mar 26', ini:'SC', kind:'snapshot', color:'#eda100', bm:'Global 60/40', cats:{eq:44,ig:25,ofi:4,hf:8,pvt:8,ra:7,cash:4} }
+];
+const ALLOC = Object.fromEntries(ALLOCS.map(a => [a.id, a]));
+const BENCH = { eq:60, ig:40, ofi:0, hf:0, pvt:0, ra:0, cash:0 };
+const SLEEVES = [
+  { name:'Core Public Equity', v:2, cat:'eq', ps:[['MRLC',45],['NBIEX',30],['CSEMX',15],['HLSCX',10]] },
+  { name:'Global Equity ETF Mix', v:1, cat:'eq', ps:[['MRLC',60],['DXUS',28],['EMEQX',12]] },
+  { name:'Core Bonds', v:2, cat:'ig', ps:[['SVTRX',60],['ASIGX',25],['GGOVX',15]] },
+  { name:'Core Alternatives', v:1, cat:'hf', ps:[['KMS',62.5],['AGM',37.5]] },
+  { name:'Real Assets Blend', v:1, cat:'ra', ps:[['HCRE',50],['GREIT',20],['PGLD',30]] },
+  { name:'Income Mix', v:1, cat:'ofi', mixed:true, ps:[['ASHYX',40],['LPC-II',30],['ASIGX',30]] }
+];
+
+/* ── helpers ──────────────────────────────────────────────────────── */
+const EPS = 0.05;
+const r1 = v => Math.round(v * 10) / 10;
+const r2 = v => Math.round(v * 2) / 2;
+const f1 = v => { const x = r1(v); return (x < 0 ? '−' : '') + Math.abs(x).toFixed(1); };
+const sgn = v => { const x = r1(v); return x > 0 ? '+' + x.toFixed(1) : x < 0 ? '−' + Math.abs(x).toFixed(1) : '0.0'; };
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+const num = s => { const t = String(s).replace(/−/g, '-').replace('%', '').trim(); if (!t) return null; const v = Number(t); return Number.isFinite(v) ? v : null; };
+const sv = (p, w) => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="${w || 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ic = {
+  chev: sv('<path d="M7.5 4.5l5.5 5.5-5.5 5.5"/>'), down: sv('<path d="M5 7.5l5 5 5-5"/>'),
+  search: sv('<circle cx="8.8" cy="8.8" r="5.3"/><path d="M13 13l4 4"/>'),
+  check: sv('<rect x="3" y="3" width="14" height="14" rx="3"/><path d="M6.6 10.2l2.4 2.4 4.5-5"/>'),
+  expand: sv('<path d="M6 5l4 4 4-4M6 11l4 4 4-4"/>'), collapse: sv('<path d="M6 9l4-4 4 4M6 15l4-4 4 4"/>'),
+  plus: sv('<path d="M10 4v12M4 10h12"/>'),
+  lock: sv('<rect x="4.5" y="9" width="11" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 016 0V9"/>'),
+  unlock: sv('<rect x="4.5" y="9" width="11" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 015.6-1.5"/>'),
+  layers: sv('<path d="M10 3l7 4-7 4-7-4 7-4z"/><path d="M3 11l7 4 7-4"/>'),
+  back: sv('<path d="M12.5 4.5L7 10l5.5 5.5"/>'), undo: sv('<path d="M8 7h5a4 4 0 010 8H9"/><path d="M10 4L7 7l3 3"/>'),
+  eye: sv('<path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z"/><circle cx="10" cy="10" r="2.3"/>'),
+  eyeOff: sv('<path d="M2 10s3-5.5 8-5.5c1.6 0 3 .6 4.2 1.3M18 10s-3 5.5-8 5.5c-1.6 0-3-.6-4.2-1.3"/><path d="M3 17L17 3"/>'),
+  list: sv('<path d="M7 5h10M7 10h10M7 15h10M3.5 5h0M3.5 10h0M3.5 15h0"/>', 2),
+  colL: sv('<path d="M11 4l-6 6 6 6M16 4l-6 6 6 6"/>'), colR: sv('<path d="M9 4l6 6-6 6M4 4l6 6-6 6"/>'),
+  ok: sv('<circle cx="10" cy="10" r="7.5"/><path d="M6.6 10.2l2.4 2.4 4.4-4.8"/>'),
+  warn: sv('<path d="M10 3l8 14H2L10 3z"/><path d="M10 8.2v3.6M10 14.4v.2"/>'),
+  info: sv('<circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.3v.2"/>'),
+  build: sv('<path d="M4 5h6M4 10h12M4 15h9"/>', 2), shield: sv('<path d="M10 2.5l6 2.5v4.6c0 3.8-2.6 6.6-6 7.9-3.4-1.3-6-4.1-6-7.9V5l6-2.5z"/><path d="M7 10l2 2 4-4"/>')
+};
+const kindTag = a => a.kind === 'snapshot' ? '<span class="tag snap">Snapshot</span>' : '<span class="tag">Live</span>';
+
+/* ── the allocation model: same rules as the mockup ─────────────────── */
+class Model {
+  constructor(id) { this.load(id); }
+  load(id) {
+    const a = ALLOC[id]; this.a = a; this.ro = a.kind !== 'live'; this.hist = [];
+    this.cats = CATS.map(c => {
+      const t = a.cats[c.id] || 0, ct = ALLOC.core.cats[c.id] || 0;
+      let ps = Object.keys(COREP).filter(k => INS[k].cat === c.id)
+        .map(k => ({ id:k, w: id === 'core' ? COREP[k] : (ct ? r2(COREP[k] * t / ct) : 0), sl: (id === 'core' || id === 'snap') ? (SLV[k] || null) : null }));
+      if ((a.indexOnly || []).includes(c.id)) ps = [];
+      return Object.assign({}, c, { t, ps: ps.filter(p => p.w > 0) });
+    });
+  }
+  save() { this.hist.push(JSON.stringify(this.cats.map(c => ({ t:c.t, ps:c.ps })))); if (this.hist.length > 60) this.hist.shift(); }
+  undo() { if (!this.hist.length) return false; JSON.parse(this.hist.pop()).forEach((x, i) => { this.cats[i].t = x.t; this.cats[i].ps = x.ps; }); return true; }
+  cat(id) { return this.cats.find(c => c.id === id); }
+  prod(pid) { for (const c of this.cats) { const p = c.ps.find(q => q.id === pid); if (p) return { c, p }; } return null; }
+  impl(c) { return c.ps.reduce((s, p) => s + p.w, 0); }
+  rem(c) { return c.t - this.impl(c); }
+  total() { return this.cats.reduce((s, c) => s + c.t, 0); }
+  inProd() { return this.cats.reduce((s, c) => s + this.impl(c), 0); }
+  atIndex() { return this.cats.reduce((s, c) => s + Math.max(0, this.rem(c)), 0); }
+  nProd() { return this.cats.reduce((s, c) => s + c.ps.length, 0); }
+  roMsg() { return `${this.a.name} is a fixed snapshot. Make an editable copy to change it.`; }
+  setT(id, v) {
+    if (this.ro) return this.roMsg(); if (v < 0) return 'Enter a weight of 0 or more.';
+    v = r1(v); const c = this.cat(id), nt = this.total() - c.t + v;
+    if (nt > 100 + 1e-6) return `Not applied: ${this.a.name} would be ${f1(nt)}% allocated. Lower another category first.`;
+    this.save(); c.t = v; return null;
+  }
+  setW(pid, v) {
+    if (this.ro) return this.roMsg(); if (v < 0) return 'Enter a weight of 0 or more.';
+    const x = this.prod(pid); this.save(); x.p.w = r1(v); return null;
+  }
+  add(iid, cid, v) {
+    if (this.ro) return this.roMsg(); if (this.prod(iid)) return `${INS[iid].name} is already held.`;
+    this.save(); this.cat(cid).ps.push({ id:iid, w:r1(v || 0), sl:null }); return null;
+  }
+  move(a, b, v) {
+    if (this.ro) return this.roMsg(); const A = this.cat(a), B = this.cat(b);
+    if (v > A.t + 1e-9) return `${A.short} only has ${f1(A.t)}%.`;
+    this.save(); A.t = r1(A.t - v); B.t = r1(B.t + v); return null;
+  }
+  apply(s) {
+    if (this.ro) return this.roMsg(); const c = this.cat(s.cat);
+    if (c.t <= 0) return `Set a target for ${c.short} first.`;
+    this.save(); c.ps = s.ps.map(([id, w]) => ({ id, w: r1(w * c.t / 100), sl: `${s.name} v${s.v}` })); return null;
+  }
+}
+
+/* ── shared pieces ────────────────────────────────────────────────── */
+function wt(m, kind, id, v, label, extra) {
+  return `<input class="wt" inputmode="decimal" enterkeyhint="done" data-edit="${kind}" data-id="${esc(id)}" data-m="${m.a.id}" data-fkey="${m.a.id}:${kind}:${esc(id)}" value="${f1(v)}" aria-label="${esc(label)} weight, % of portfolio"${m.ro ? ' readonly' : ''}${extra || ''}>`;
+}
+function stepper(m, kind, id, v, label) {
+  const k = `${m.a.id}:${kind}:${id}`;
+  return `<span class="stp"><button type="button" data-act="step" data-kind="${kind}" data-id="${esc(id)}" data-m="${m.a.id}" data-d="-0.5" data-fkey="dn:${esc(k)}" aria-label="Lower ${esc(label)} by 0.5"${m.ro || v <= 0 ? ' disabled' : ''}>−</button>${wt(m, kind, id, v, label)}<button type="button" data-act="step" data-kind="${kind}" data-id="${esc(id)}" data-m="${m.a.id}" data-d="0.5" data-fkey="up:${esc(k)}" aria-label="Raise ${esc(label)} by 0.5"${m.ro ? ' disabled' : ''}>+</button></span>`;
+}
+function head(ctx, o) {
+  o = o || {}; const m = ctx.m, a = m.a, st = ctx.st;
+  return `<div class="r-head">
+    <button type="button" class="pick" data-act="menu" aria-haspopup="menu" aria-expanded="${!!st.menu}" aria-label="Editing ${esc(a.name)}. Switch allocation"><i class="dot" style="--c:${a.color}"></i><span class="pick-name">${esc(a.name)}</span>${kindTag(a)}${ic.down}</button>
+    ${o.sub === false ? '' : `<div class="pick-sub">${a.bm ? `<span>vs ${esc(a.bm)}</span>` : '<span class="tag warn">No benchmark</span>'}<span>·</span><span>${m.nProd()} products</span><span>·</span><span>${CATS.filter(c => m.cat(c.id).t > 0).length} categories</span></div>`}
+    ${st.menu ? `<div class="pop" role="menu" aria-label="Allocations"><div class="pop-label">In the comparison</div>${ALLOCS.map(x => `<button type="button" role="menuitemradio" aria-checked="${x.id === a.id}" data-act="pick" data-id="${x.id}"><i class="dot" style="--c:${x.color}"></i><span>${esc(x.name)}</span>${kindTag(x)}</button>`).join('')}</div>` : ''}
+  </div>`;
+}
+function roNote(m) { return m.ro ? `<div class="ro-note">${ic.lock}<span>Fixed snapshot: weights are frozen. Make an editable copy to change them.</span></div>` : ''; }
+function stackHTML(m) {
+  return `<div class="stack" aria-hidden="true">${m.cats.map(c => { const im = Math.min(m.impl(c), c.t), rm = Math.max(0, m.rem(c)); return (im > 0 ? `<i style="width:${im}%;background:${c.color}"></i>` : '') + (rm > EPS ? `<i class="hatch" style="width:${rm}%;--c:${c.color}"></i>` : ''); }).join('')}</div>`;
+}
+function footHTML(m) {
+  const t = m.total(), un = 100 - t;
+  return `<div class="r-foot"><div class="row"><span>Allocated</span><b>${f1(t)}%</b></div>${stackHTML(m)}<div class="row faint"><span>In products ${f1(m.inProd())}%</span><span>At index level ${f1(m.atIndex())}%</span></div>${un > EPS ? `<div class="faint">${f1(un)}% unallocated: it earns nothing and carries no risk.</div>` : ''}</div>`;
+}
+function catSub(m, c) {
+  const im = m.impl(c), rm = m.rem(c), n = c.ps.length;
+  if (!n) return c.t > 0 ? 'No products · modelled at index level' : 'Empty';
+  const sl = n && c.ps.every(p => p.sl && p.sl === c.ps[0].sl) ? c.ps[0].sl + ' · ' : '';
+  return `${sl}${n} product${n === 1 ? '' : 's'} · ${f1(im)}% in products${rm > EPS ? ` · ${f1(rm)}% index` : rm < -EPS ? ` · over by ${f1(-rm)}%` : ''}`;
+}
+function prodSub(m, c, p) { const i = INS[p.id]; return `${i.type} · ${i.id} · ${c.t ? f1(p.w / c.t * 100) : '—'}% of ${c.short}${p.sl ? ' · from ' + p.sl : ''}`; }
+function isOpen(st, m, cid) { return !!st.open[m.a.id + ':' + cid]; }
+/* the category → product tree, used by several options */
+function treeHTML(m, st, o) {
+  o = o || {};
+  const subMode = o.sub || 'all', diff = o.diff;
+  let h = `<div class="tree" role="tree" aria-label="Categories and products of ${esc(m.a.name)}">`;
+  for (const c of m.cats) {
+    const open = isOpen(st, m, c.id), rm = m.rem(c), im = m.impl(c), hasKids = c.ps.length > 0 || rm > EPS;
+    const showSub = subMode === 'all' || (subMode === 'sel' && st.sel === c.id);
+    const nSel = o.select ? c.ps.filter(p => st.picked.has(p.id)).length : 0;
+    h += `<div class="trow c${st.sel === c.id ? ' sel' : ''}" role="treeitem" aria-expanded="${open}" style="--c:${c.color}">
+      <button type="button" class="tw${hasKids ? '' : ' leaf'}" data-act="tog" data-id="${c.id}" data-m="${m.a.id}" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(c.short)}">${ic.chev}</button>
+      ${o.select && c.ps.length ? `<input type="checkbox" class="tsel" data-act="pickcat" data-id="${c.id}" aria-label="Select all of ${esc(c.short)}"${nSel === c.ps.length ? ' checked' : ''}${nSel && nSel < c.ps.length ? ' data-ind="1"' : ''}>` : ''}
+      <button type="button" class="tn" data-act="sel" data-id="${c.id}"><b><i class="dot"></i><span>${esc(c.short)}</span>${rm < -EPS ? '<span class="tag warn">Over</span>' : ''}</b>${showSub ? `<small>${esc(catSub(m, c))}</small>` : ''}${o.bar && c.t > 0 ? `<span class="impl" aria-hidden="true"><i style="width:${Math.min(im, c.t) / c.t * 100}%;background:var(--c)"></i>${rm > EPS ? `<i class="hatch" style="width:${rm / c.t * 100}%"></i>` : ''}</span>` : ''}</button>
+      ${diff ? diffHTML(diff('cat', c.id)) : ''}${wt(m, 'cat', c.id, c.t, c.short)}
+    </div>`;
+    if (open) {
+      for (const p of c.ps) {
+        const i = INS[p.id], key = p.id;
+        h += `<div class="trow p${st.sel === key ? ' sel' : ''}" role="treeitem" style="--c:${c.color}">
+          ${o.select ? `<input type="checkbox" class="tsel" data-act="pickp" data-id="${p.id}" aria-label="Select ${esc(i.name)}"${st.picked.has(p.id) ? ' checked' : ''}>` : ''}
+          <button type="button" class="tn" data-act="sel" data-id="${key}"><b><span>${esc(i.name)}</span>${i.proxy ? '<i class="prox" title="History before inception uses a proxy"></i>' : ''}</b>${subMode === 'all' || st.sel === key ? `<small>${esc(prodSub(m, c, p))}</small>` : ''}</button>
+          ${diff ? diffHTML(diff('prod', p.id, c.id)) : ''}${wt(m, 'prod', p.id, p.w, i.name)}
+        </div>`;
+      }
+      if (rm > EPS) h += `<div class="trow p idx" role="treeitem"><span class="tn" style="cursor:default"><b><span>${esc(c.short)} index</span></b><small>unimplemented remainder · modelled by the index</small></span>${diff ? '<span class="dv"></span>' : ''}<span class="tv">${f1(rm)}</span></div>`;
+    }
+  }
+  return h + '</div>';
+}
+function diffHTML(d) {
+  if (d == null) return '<span class="dv" title="The reference has no product-level weights"><span class="dbar"></span><em>·</em></span>';
+  const a = Math.min(Math.abs(d), 20) / 20 * 50, cls = d > EPS ? 'up' : d < -EPS ? 'down' : '';
+  return `<span class="dv"><span class="dbar" aria-hidden="true">${a > 0 ? `<i style="${d > 0 ? 'left:50%' : 'right:50%'};width:${a}%;background:var(--r-${cls || 'ink3'})"></i>` : ''}</span><em class="${cls}">${sgn(d)}</em></span>`;
+}
+function searchHits(q, m, cat) {
+  q = (q || '').trim().toLowerCase();
+  return INSTR.filter(i => (!cat || i.cat === cat) && (!q || i.id.toLowerCase().includes(q) || i.name.toLowerCase().includes(q) || CAT[i.cat].short.toLowerCase().includes(q) || i.type.toLowerCase() === q));
+}
+function resultsHTML(q, m, cat, limit) {
+  const hits = searchHits(q, m, cat).slice(0, limit || 6);
+  if (!hits.length) return `<div class="results"><div class="res-empty">Nothing matches “${esc(q)}”. Try an identifier such as GREIT.</div></div>`;
+  return `<div class="results" role="listbox" aria-label="Products">${hits.map(i => { const held = !!m.prod(i.id); return `<button type="button" class="res" role="option" data-act="add" data-id="${i.id}"><span><b>${esc(i.name)}</b><small>${i.type} · ${i.id} · ${CAT[i.cat].short}</small></span>${held ? '<span class="tag">Held</span>' : `<span class="tag">${ic.plus}Add</span>`}</button>`; }).join('')}</div>`;
+}
+function changeMsg(m, kind, id, from, to) {
+  if (kind === 'cat') { const c = m.cat(id), rm = m.rem(c); return `${c.short} target ${f1(from)} → ${f1(to)}. Products unchanged; ${rm > EPS ? `${f1(rm)}% now sits at index level` : rm < -EPS ? `products are over the target by ${f1(-rm)}%` : 'fully in products'}.`; }
+  const x = m.prod(id), rm = m.rem(x.c);
+  return `${INS[id].name} ${f1(from)} → ${f1(to)}. ${x.c.short} target unchanged; ${rm > EPS ? `index remainder now ${f1(rm)}%` : rm < -EPS ? `products over the target by ${f1(-rm)}%` : 'fully implemented'}.`;
+}
+function setVal(ctx, m, kind, id, v) {
+  const cur = kind === 'cat' ? m.cat(id).t : m.prod(id).p.w;
+  if (v === null) { ctx.say('Enter a number, for example 12.5.', 'bad'); ctx.render(); return false; }
+  if (Math.abs(r1(v) - cur) < 1e-9) { ctx.render(); return false; }
+  const err = kind === 'cat' ? m.setT(id, v) : m.setW(id, v);
+  if (err) { ctx.say(err, 'bad'); ctx.render(); return false; }
+  ctx.say(changeMsg(m, kind, id, cur, r1(v))); ctx.render(); return true;
+}
+
+/* common actions, shared by every option */
+const COMMON = {
+  menu: c => { c.st.menu = !c.st.menu; c.render(); },
+  pick: (c, t) => { c.use(t.dataset.id); c.st.menu = false; c.render(); c.say(`Editing ${c.m.a.name}.`); },
+  tog: (c, t) => { const k = (t.dataset.m || c.m.a.id) + ':' + t.dataset.id; c.st.open[k] = !c.st.open[k]; c.render(); },
+  sel: (c, t) => { c.st.sel = c.st.sel === t.dataset.id ? null : t.dataset.id; c.render(); },
+  step: (c, t) => { const m = c.mm(t), k = t.dataset.kind, id = t.dataset.id, cur = k === 'cat' ? m.cat(id).t : m.prod(id).p.w; setVal(c, m, k, id, Math.max(0, r2(cur + Number(t.dataset.d)))); },
+  expandAll: c => { c.m.cats.forEach(x => c.st.open[c.m.a.id + ':' + x.id] = true); c.render(); },
+  collapseAll: c => { c.m.cats.forEach(x => c.st.open[c.m.a.id + ':' + x.id] = false); c.render(); },
+  add: (c, t) => {
+    const i = INS[t.dataset.id], m = c.m;
+    if (m.prod(i.id)) { const x = m.prod(i.id); c.st.open[m.a.id + ':' + x.c.id] = true; c.st.sel = i.id; c.st.q = ''; c.st.search = false; if (c.st.tab) c.st.tab = 'build'; c.render(); c.say(`${i.name} is already held in ${x.c.short}.`); return; }
+    const err = m.add(i.id, i.cat, 0); if (err) { c.say(err, 'bad'); return; }
+    c.st.open[m.a.id + ':' + i.cat] = true; c.st.sel = i.id; c.st.q = ''; c.st.search = false; if (c.st.tab) c.st.tab = 'build';
+    c.st.focus = `${m.a.id}:prod:${i.id}`; c.render(); c.say(`Added ${i.name} to ${CAT[i.cat].short} at 0.0%. Type its weight; it comes out of the index remainder.`);
+  },
+  undo: c => { if (c.m.undo()) { c.render(); c.say('Undone.'); } else c.say('Nothing to undo.'); }
+};
+
+/* ── the ten options ─────────────────────────────────────────────── */
+const OPTS = [];
+
+/* 1 · Slim tree */
+OPTS.push({
+  key:'slim', name:'Slim tree', theme:'navy',
+  idea:'The current tree, tightened. The allocation picker becomes the header, search, select and expand share one row of icons, and each row’s detail line appears only when you select it.',
+  how:['The header is the allocation you are editing; tap it to switch.', 'Each category has a thin bar under its name: solid is in products, hatched is still at index level.', 'A row’s identifier and share of its category show when you select it.', 'Search opens in place from the magnifier and closes after you add.'],
+  tryit:'Lower Meridian US Large Cap ETF to 15: Public Equity’s target stays at 45.0 and 5.0% moves to its index. Then tap the magnifier and type <b>reit</b>.',
+  good:['Keeps every behaviour of today’s rail', 'Roughly a third more rows fit'], cost:['Detail is hidden until a row is selected', 'Icon buttons need tooltips to be learnt'],
+  collapsed:'A 56px strip with the allocation’s colour dot and an add button, as today.',
+  score:{ edit:3, glance:2, compare:1, phone:2, effort:'Low' },
+  init: st => { st.open['core:eq'] = true; },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, allOpen = m.cats.every(c => isOpen(st, m, c.id));
+    const pk = [...st.picked].filter(id => m.prod(id)), sum = pk.reduce((s, id) => s + m.prod(id).p.w, 0);
+    return head(ctx) + `<div class="o1-tools">
+        <button type="button" class="ib" data-act="o1search" aria-pressed="${!!st.search}" aria-label="Add an investment" title="Add an investment">${ic.search}</button>
+        ${st.search ? `<div class="search"><input type="search" data-q data-fkey="q" placeholder="Name, identifier or category" value="${esc(st.q || '')}" autocomplete="off" aria-label="Search products to add"></div>` : '<span class="eyebrow grow">Portfolio</span>'}
+        ${m.ro ? '' : `<button type="button" class="ib" data-act="o1selmode" aria-pressed="${!!st.selMode}" aria-label="Select products to save as a sleeve" title="Select products">${ic.check}</button>`}
+        <button type="button" class="ib" data-act="${allOpen ? 'collapseAll' : 'expandAll'}" aria-label="${allOpen ? 'Collapse all' : 'Expand all'}" title="${allOpen ? 'Collapse all' : 'Expand all'}">${allOpen ? ic.collapse : ic.expand}</button>
+      </div>
+      ${st.search && st.q ? resultsHTML(st.q, m) : ''}
+      <div class="r-body">${roNote(m)}
+        ${st.selMode ? `<div class="selbar" role="status"><span class="grow"><b>${pk.length}</b> selected · <b>${f1(sum)}%</b></span><button type="button" class="btn" data-act="o1save"${pk.length ? '' : ' disabled'}>${ic.layers}Save as sleeve</button><button type="button" class="btn primary" data-act="o1save" data-cmp="1"${pk.length ? '' : ' disabled'}>Save &amp; compare</button></div>` : ''}
+        ${treeHTML(m, st, { sub:'sel', bar:true, select: st.selMode })}
+      </div>` + footHTML(m);
+  },
+  on: {
+    o1search: c => { c.st.search = !c.st.search; c.st.q = ''; if (c.st.search) c.st.focus = 'q'; c.render(); },
+    o1selmode: c => { c.st.selMode = !c.st.selMode; c.st.picked.clear(); if (c.st.selMode) c.m.cats.forEach(x => { if (x.ps.length) c.st.open[c.m.a.id + ':' + x.id] = true; }); c.render(); },
+    pickp: (c, t) => { const s = c.st.picked; s.has(t.dataset.id) ? s.delete(t.dataset.id) : s.add(t.dataset.id); c.render(); },
+    pickcat: (c, t) => { const cat = c.m.cat(t.dataset.id), s = c.st.picked, all = cat.ps.every(p => s.has(p.id)); cat.ps.forEach(p => all ? s.delete(p.id) : s.add(p.id)); c.render(); },
+    o1save: (c, t) => {
+      const ids = [...c.st.picked].filter(id => c.m.prod(id)), cats = new Set(ids.map(id => c.m.prod(id).c.id));
+      const name = cats.size === 1 ? CAT[[...cats][0]].short + ' selection' : 'Mixed selection';
+      c.st.selMode = false; c.st.picked.clear(); c.render();
+      c.say(t.dataset.cmp ? `Saved “${name}” v1 and added it to the comparison as a read-only column.` : `Saved “${name}” v1 to the sleeve repository, rescaled to 100%.`);
+    }
+  }
+});
+
+/* 2 · Weight bar */
+OPTS.push({
+  key:'bar', name:'Weight bar', theme:'navy',
+  idea:'The whole portfolio as one bar. Drag a divider to move weight between the two categories either side of it; tap a category to work on its products below.',
+  how:['A divider moves weight between its two neighbours in 0.5% steps, so the total does not change.', 'The last divider borders the unallocated space: dragging it frees weight or uses it up.', 'Steppers below set the category target and each product; the hatched part of a segment is at index level.', 'Dividers also move with the arrow keys.'],
+  tryit:'Drag the divider between Public Equity and IG Fixed Income. Then tap Real Assets and raise Harborview.',
+  good:['The shape of the allocation is always in view', 'Moving weight between two categories is a single gesture'], cost:['Only neighbours can trade weight; order is fixed', 'Small categories are hard to grab; the chips and steppers cover them'],
+  collapsed:'The bar turns vertical in the 56px strip and keeps its colours.',
+  score:{ edit:2, glance:3, compare:1, phone:2, effort:'Medium' },
+  init: st => { st.cat = 'eq'; },
+  segs(m) { const s = m.cats.filter(c => c.t > EPS).map(c => ({ id:c.id, t:c.t, color:c.color, rm:Math.max(0, m.rem(c)) })); s.push({ id:'__un', t:Math.max(0, 100 - m.total()) }); return s; },
+  barHTML(ctx) {
+    const m = ctx.m, segs = this.segs(m); let cum = 0, hs = '';
+    const body = segs.map((s, k) => {
+      const lab = s.id === '__un' ? 'Unallocated' : CAT[s.id].short;
+      const html = s.id === '__un' ? `<div class="o2-seg un" style="flex:0 0 ${s.t}%" aria-hidden="true"></div>` :
+        `<div class="o2-seg${ctx.st.cat === s.id ? ' on' : ''}" data-act="o2cat" data-id="${s.id}" style="flex:0 0 ${s.t}%;--c:${s.color};background:${s.color}" title="${esc(lab)} ${f1(s.t)}%">${s.rm > EPS ? `<span class="ix" style="width:${s.rm / s.t * 100}%"></span>` : ''}${s.t >= 7 ? `<b>${f1(s.t)}</b>` : ''}</div>`;
+      cum += s.t;
+      if (k < segs.length - 1) { const nx = segs[k + 1], nl = nx.id === '__un' ? 'unallocated' : CAT[nx.id].short; hs += `<button type="button" class="o2-h" data-h="${k}" style="left:${cum}%" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${r1(s.t)}" aria-label="Divider between ${esc(lab)} and ${esc(nl)}. Arrow keys move 0.5%"></button>`; }
+      return html;
+    }).join('');
+    return body + hs;
+  },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, c = m.cat(st.cat) || m.cats[0], rm = m.rem(c);
+    return head(ctx) + `<div class="r-body">${roNote(m)}
+      <div class="row"><span class="eyebrow">Category targets</span><span class="faint num" data-o2tot>${f1(m.total())}% allocated</span></div>
+      <div class="o2-bar" data-bar>${this.barHTML(ctx)}</div>
+      <div class="o2-scale" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
+      <div class="o2-legend">${m.cats.map(x => `<button type="button" data-act="o2cat" data-id="${x.id}" aria-pressed="${x.id === c.id}"><i class="dot" style="--c:${x.color}"></i>${esc(x.short)} <b data-o2v="${x.id}">${f1(x.t)}</b></button>`).join('')}</div>
+      <div class="o2-detail" style="--c:${c.color}">
+        <h3><i class="dot"></i>${esc(c.name)}</h3>
+        <div class="o2-line"><span class="grow"><span>Category target</span><small>% of the total portfolio</small></span>${stepper(m, 'cat', c.id, c.t, c.short)}</div>
+        ${c.t > 0 ? `<div class="stack" aria-hidden="true">${c.ps.map((p, i) => `<i style="width:${Math.min(p.w, c.t) / c.t * 100}%;background:${c.color};opacity:${1 - i * 0.18}"></i>`).join('')}${rm > EPS ? `<i class="hatch" style="width:${rm / c.t * 100}%;--c:${c.color}"></i>` : ''}</div>` : ''}
+        ${c.ps.map(p => `<div class="o2-line"><span class="grow"><span>${esc(INS[p.id].name)}</span><small>${esc(prodSub(m, c, p))}</small></span>${stepper(m, 'prod', p.id, p.w, INS[p.id].name)}</div>`).join('')}
+        ${rm > EPS ? `<div class="o2-line ix"><span class="grow"><span>${esc(c.short)} index</span><small>unimplemented · modelled by the index</small></span><span class="tv">${f1(rm)}</span></div>` : rm < -EPS ? `<div class="o2-line"><span class="tag warn">Products over target by ${f1(-rm)}%</span></div>` : ''}
+        ${!c.ps.length && c.t > 0 ? '<div class="faint">No products yet. The whole target is modelled by the category index.</div>' : ''}
+      </div></div>` + footHTML(m);
+  },
+  on: { o2cat: (c, t) => { if (c.dragged) { c.dragged = false; return; } c.st.cat = t.dataset.id; c.render(); } },
+  setup(ctx) {
+    const self = this; let drag = null;
+    const pair = k => { const s = self.segs(ctx.m); return [s[k], s[k + 1]]; };
+    const apply = (a, b, a0, b0, d) => { d = Math.max(-a0, Math.min(b0, d)); d = r2(d); const A = ctx.m.cat(a.id); A.t = r1(a0 + d); if (b.id !== '__un') ctx.m.cat(b.id).t = r1(b0 - d); };
+    const paint = () => { const bar = ctx.el.querySelector('[data-bar]'); bar.innerHTML = self.barHTML(ctx); ctx.el.querySelectorAll('[data-o2v]').forEach(e => e.textContent = f1(ctx.m.cat(e.dataset.o2v).t)); const tt = ctx.el.querySelector('[data-o2tot]'); if (tt) tt.textContent = f1(ctx.m.total()) + '% allocated'; };
+    ctx.el.addEventListener('pointerdown', e => {
+      const h = e.target.closest('.o2-h'); if (!h) return;
+      if (ctx.m.ro) { ctx.say(ctx.m.roMsg(), 'bad'); return; }
+      e.preventDefault(); const bar = h.parentElement, k = +h.dataset.h, [a, b] = pair(k);
+      ctx.m.save(); drag = { k, a, b, a0:a.t, b0:b.t, x:e.clientX, w:bar.getBoundingClientRect().width, bar, moved:false };
+      bar.setPointerCapture(e.pointerId);
+    });
+    ctx.el.addEventListener('pointermove', e => { if (!drag) return; const d = (e.clientX - drag.x) / drag.w * 100; if (Math.abs(d) >= 0.25) drag.moved = true; apply(drag.a, drag.b, drag.a0, drag.b0, d); paint(); });
+    const end = () => { if (!drag) return; const { a, b, a0, moved } = drag; drag = null; ctx.dragged = moved; if (!moved) { ctx.m.hist.pop(); return; }
+      const A = ctx.m.cat(a.id); ctx.render(); ctx.say(`${A.short} ${f1(a0)} → ${f1(A.t)} · ${b.id === '__un' ? 'unallocated' : CAT[b.id].short} ${b.id === '__un' ? f1(100 - ctx.m.total()) : f1(ctx.m.cat(b.id).t)}. Total ${f1(ctx.m.total())}%.`); setTimeout(() => { ctx.dragged = false; }, 0); };
+    ctx.el.addEventListener('pointerup', end); ctx.el.addEventListener('pointercancel', end);
+    ctx.el.addEventListener('keydown', e => {
+      const h = e.target.closest('.o2-h'); if (!h || !['ArrowLeft','ArrowRight','ArrowDown','ArrowUp'].includes(e.key)) return;
+      e.preventDefault(); if (ctx.m.ro) { ctx.say(ctx.m.roMsg(), 'bad'); return; }
+      const k = +h.dataset.h, [a, b] = pair(k), d = (e.key === 'ArrowRight' || e.key === 'ArrowUp') ? 0.5 : -0.5;
+      ctx.m.save(); apply(a, b, a.t, b.t, d); ctx.st.focus = 'h' + k; ctx.render();
+      const f = ctx.el.querySelector(`.o2-h[data-h="${k}"]`); if (f) f.focus({ preventScroll:true });
+      ctx.say(`${CAT[a.id].short} ${f1(ctx.m.cat(a.id).t)}% · ${b.id === '__un' ? 'unallocated ' + f1(100 - ctx.m.total()) : CAT[b.id].short + ' ' + f1(ctx.m.cat(b.id).t)}%`);
+    });
+  }
+});
+
+/* 3 · Sliders */
+OPTS.push({
+  key:'sliders', name:'Sliders with balancing', theme:'navy',
+  idea:'Every category is a slider. Lock the ones you want to keep and turn on balancing so the unlocked ones absorb a change and the total stays at 100%.',
+  how:['The solid part of a track is in products; the hatched part is at index level.', 'With balancing on, unlocked categories grow or shrink in proportion to their size.', 'With balancing off, a slider stops when the portfolio reaches 100%.', 'Expand a category for product sliders, scaled to the category’s target. The typed value beside each slider stays exact.'],
+  tryit:'Lock Cash, turn on balancing, then drag Public Equity to the right.',
+  good:['Fast for rough what-ifs', 'Large touch targets on a phone'], cost:['A drag is imprecise; the typed value carries precision', 'Balancing hides where the weight came from unless the change is announced'],
+  collapsed:'Little use collapsed: the strip shows the allocation’s colour dot only.',
+  score:{ edit:2, glance:2, compare:1, phone:3, effort:'Medium' },
+  init: st => { st.locks = new Set(); st.bal = false; },
+  MAX: 60,
+  rowHTML(ctx, c) {
+    const m = ctx.m, st = ctx.st, im = Math.min(m.impl(c), c.t), rm = Math.max(0, m.rem(c)), open = isOpen(st, m, c.id), lock = st.locks.has(c.id), M = this.MAX;
+    return `<div class="o3-row" data-row="${c.id}" style="--c:${c.color}">
+      <div class="o3-top"><button type="button" class="tw${c.ps.length || rm > EPS ? '' : ' leaf'}" data-act="tog" data-id="${c.id}" data-m="${m.a.id}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} products of ${esc(c.short)}">${ic.chev}</button>
+        <span class="o3-name"><i class="dot"></i><span>${esc(c.short)}</span></span>
+        <button type="button" class="ib sm" data-act="o3lock" data-id="${c.id}" aria-pressed="${lock}" aria-label="${lock ? 'Unlock' : 'Lock'} ${esc(c.short)}" title="${lock ? 'Locked: balancing leaves it alone' : 'Lock'}">${lock ? ic.lock : ic.unlock}</button>
+        ${wt(m, 'cat', c.id, c.t, c.short)}</div>
+      <div class="o3-track"><div class="o3-fill"><i class="sol" style="width:${im / M * 100}%"></i><i class="hatch" style="width:${rm / M * 100}%"></i></div>
+        <input type="range" min="0" max="${M}" step="0.5" value="${c.t}" data-range="cat" data-id="${c.id}" aria-label="${esc(c.short)} target, % of portfolio"${m.ro ? ' disabled' : ''}></div>
+      ${open ? c.ps.map(p => `<div class="o3-prow" data-prow="${p.id}"><span>${esc(INS[p.id].name)}</span>${wt(m, 'prod', p.id, p.w, INS[p.id].name)}
+          <div class="o3-track"><div class="o3-fill"><i class="sol" style="width:${c.t ? Math.min(p.w, c.t) / c.t * 100 : 0}%"></i></div><input type="range" min="0" max="${Math.max(c.t, 0.5)}" step="0.5" value="${p.w}" data-range="prod" data-id="${p.id}" aria-label="${esc(INS[p.id].name)}, % of portfolio"${m.ro ? ' disabled' : ''}></div></div>`).join('') + (rm > EPS ? `<div class="o3-ix" data-ix="${c.id}">${f1(rm)}% at index level</div>` : '') : ''}
+    </div>`;
+  },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st;
+    return head(ctx) + `<div class="o3-mode"><label class="sw"><input type="checkbox" data-act="o3bal"${st.bal ? ' checked' : ''}><span class="track"></span><span>Keep the total at 100%</span></label><small>${st.bal ? 'Unlocked categories absorb a change in proportion.' : 'Off: a slider stops when the total reaches 100%.'}</small></div>
+      <div class="r-body">${roNote(m)}<div class="o3-scale" aria-hidden="true"><span>0</span><span>20</span><span>40</span><span>60%</span></div>${m.cats.map(c => this.rowHTML(ctx, c)).join('')}</div><div data-foot>${footHTML(m)}</div>`;
+  },
+  on: {
+    o3lock: (c, t) => { const s = c.st.locks; s.has(t.dataset.id) ? s.delete(t.dataset.id) : s.add(t.dataset.id); c.render(); },
+    o3bal: (c, t) => { c.st.bal = t.checked; c.st.focus = null; c.render(); const f = c.el.querySelector('[data-act="o3bal"]'); if (f) f.focus({ preventScroll:true }); }
+  },
+  setup(ctx) {
+    const self = this; let note = '';
+    const paint = active => {
+      const m = ctx.m, M = self.MAX;
+      m.cats.forEach(c => {
+        const row = ctx.el.querySelector(`[data-row="${c.id}"]`); if (!row) return;
+        const im = Math.min(m.impl(c), c.t), rm = Math.max(0, m.rem(c));
+        row.querySelector('.o3-track .sol').style.width = im / M * 100 + '%'; row.querySelector('.o3-track .hatch').style.width = rm / M * 100 + '%';
+        const r = row.querySelector('[data-range="cat"]'); if (r !== active) r.value = c.t;
+        row.querySelector('[data-edit="cat"]').value = f1(c.t);
+        c.ps.forEach(p => { const pr = row.querySelector(`[data-prow="${p.id}"]`); if (!pr) return; pr.querySelector('.sol').style.width = (c.t ? Math.min(p.w, c.t) / c.t * 100 : 0) + '%'; pr.querySelector('[data-edit]').value = f1(p.w); });
+        const ix = row.querySelector('[data-ix]'); if (ix) ix.textContent = f1(rm) + '% at index level';
+      });
+      ctx.el.querySelector('[data-foot]').innerHTML = footHTML(m);
+    };
+    ctx.el.addEventListener('input', e => {
+      const r = e.target.closest('[data-range]'); if (!r) return; const m = ctx.m;
+      if (!r.dataset.saved) { m.save(); r.dataset.saved = '1'; r.dataset.from = r.dataset.range === 'cat' ? m.cat(r.dataset.id).t : m.prod(r.dataset.id).p.w; }
+      let v = Number(r.value);
+      if (r.dataset.range === 'prod') { m.prod(r.dataset.id).p.w = v; paint(r); return; }
+      const c = m.cat(r.dataset.id);
+      if (ctx.st.bal) {
+        const others = m.cats.filter(o => o !== c && !ctx.st.locks.has(o.id) && o.t > 0), pool = others.reduce((s, o) => s + o.t, 0);
+        let d = v - c.t; if (d > pool) { d = pool; v = c.t + pool; r.value = v; }
+        if (pool > 0) { others.forEach(o => { o.t = Math.max(0, o.t - d * o.t / pool); }); }
+        c.t = v; m.cats.forEach(o => o.t = r1(o.t));
+        const drift = r1(100 - m.total()); if (Math.abs(drift) > 0 && Math.abs(drift) < 0.5 && others.length) { const big = others.reduce((a, b) => a.t > b.t ? a : b); big.t = r1(big.t + drift); }
+        note = others.length ? `Balanced across ${others.length} unlocked categor${others.length === 1 ? 'y' : 'ies'}.` : 'Every other category is locked.';
+      } else {
+        const max = 100 - (m.total() - c.t); if (v > max) { v = r2(Math.floor(max * 2) / 2); r.value = v; note = 'Stopped at 100% allocated.'; } else note = '';
+        c.t = v;
+      }
+      paint(r);
+    });
+    ctx.el.addEventListener('change', e => {
+      const r = e.target.closest('[data-range]'); if (!r) return; const m = ctx.m, id = r.dataset.id, from = Number(r.dataset.from);
+      const to = r.dataset.range === 'cat' ? m.cat(id).t : m.prod(id).p.w; const fk = `rng:${r.dataset.range}:${id}`;
+      ctx.render(); const f = ctx.el.querySelector(`[data-range="${r.dataset.range}"][data-id="${id}"]`); if (f) f.focus({ preventScroll:true });
+      ctx.say((r.dataset.range === 'cat' ? `${CAT[id].short} target ${f1(from)} → ${f1(to)}. ` : `${INS[id].name} ${f1(from)} → ${f1(to)}. `) + note + ` Total ${f1(m.total())}%.`);
+      note = '';
+    });
+  }
+});
+
+/* 4 · Tabs */
+OPTS.push({
+  key:'tabs', name:'Tabbed rail', theme:'navy',
+  idea:'Splits the rail’s four jobs into tabs: Build, Add, Sleeves and Check. Each tab gets the whole height of the rail.',
+  how:['Build is the category and product tree.', 'Add searches the product universe, with category filters.', 'Sleeves lists the repository with Apply and Compare.', 'Check lists what needs attention: unallocated weight, categories at index level, proxy histories, products over target. Its badge counts them.'],
+  tryit:'Open Sleeves and apply Real Assets Blend. Then open Check and see the index-level item disappear.',
+  good:['Sleeves get a home in the rail', 'Each job has room on a phone'], cost:['Search and the tree are never in view together', 'One more tap to add a product'],
+  collapsed:'The four tab icons stack in the strip; each opens the rail on its tab.',
+  score:{ edit:3, glance:1, compare:1, phone:3, effort:'Medium' },
+  init: st => { st.tab = 'build'; st.open['core:eq'] = true; st.f = ''; },
+  issues(m) {
+    const out = [], t = m.total();
+    if (100 - t > EPS) out.push({ k:'warn', t:`${f1(100 - t)}% unallocated`, s:'It earns nothing and carries no risk.' });
+    m.cats.filter(c => m.rem(c) > EPS).forEach(c => out.push({ k:'warn', t:`${c.short}: ${f1(m.rem(c))}% at index level`, s: c.ps.length ? 'Part of the target is not in products yet.' : 'No products; the whole target uses the index.' }));
+    m.cats.filter(c => m.rem(c) < -EPS).forEach(c => out.push({ k:'warn', t:`${c.short}: products over target by ${f1(-m.rem(c))}%`, s:'Raise the target or lower a product.' }));
+    const px = m.cats.flatMap(c => c.ps.filter(p => INS[p.id].proxy).map(p => p.id));
+    if (px.length) out.push({ k:'warn', t:`${px.length} product${px.length === 1 ? '' : 's'} with proxy history`, s: px.join(', ') + ': an index stands in before inception.' });
+    return out;
+  },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, iss = this.issues(m);
+    const tabs = [['build', 'Build', ic.build], ['add', 'Add', ic.search], ['sleeves', 'Sleeves', ic.layers], ['check', 'Check', ic.shield]];
+    let panel = '';
+    if (st.tab === 'build') panel = roNote(m) + treeHTML(m, st, { sub:'all' });
+    if (st.tab === 'add') panel = `<div class="search">${ic.search}<input type="search" data-q data-fkey="q" placeholder="Name, identifier or type" value="${esc(st.q || '')}" autocomplete="off" aria-label="Search products"></div>
+      <div class="chips" role="group" aria-label="Filter by category"><button type="button" class="chip" data-act="o4f" data-id="" aria-pressed="${!st.f}">All</button>${CATS.map(c => `<button type="button" class="chip" data-act="o4f" data-id="${c.id}" aria-pressed="${st.f === c.id}">${esc(c.short)}</button>`).join('')}</div>
+      ${resultsHTML(st.q || '', m, st.f, 30)}`;
+    if (st.tab === 'sleeves') panel = `<p class="faint" style="font-size:12px">Apply copies a sleeve’s products into its category at the category’s target. Compare adds it as a read-only column.</p>` + SLEEVES.map((s, i) => `<div class="o4-sleeve"><div class="row"><b>${esc(s.name)}</b><span class="tag sl">v${s.v}</span></div><small>${esc(CAT[s.cat].short)}${s.mixed ? ' · mixed' : ''} · ${s.ps.map(p => p[0] + ' ' + p[1]).join(' · ')}</small><div class="acts"><button type="button" class="btn" data-act="o4apply" data-i="${i}"${s.mixed || m.ro ? ' disabled' : ''}>Apply</button><button type="button" class="btn" data-act="o4cmp" data-i="${i}">Compare</button></div></div>`).join('');
+    if (st.tab === 'check') panel = (iss.length ? iss : [{ k:'ok', t:'Nothing needs attention', s:'Fully allocated, fully implemented, full histories.' }]).map(x => `<div class="o4-check ${x.k}">${x.k === 'ok' ? ic.ok : ic.warn}<div><b>${esc(x.t)}</b><small>${esc(x.s)}</small></div></div>`).join('') +
+      `<div class="o4-check ok">${ic.ok}<div><b>${f1(m.total())}% allocated</b><small>In products ${f1(m.inProd())}% · at index level ${f1(m.atIndex())}% · gross ${f1(m.total())}%</small></div></div>
+      <label class="sw"><input type="checkbox" data-act="o4lev"${st.lev ? ' checked' : ''}${m.ro ? ' disabled' : ''}><span class="track"></span><span>Enable shorts and leverage</span></label>`;
+    return head(ctx) + `<div class="o4-tabs" role="tablist" aria-label="Builder">${tabs.map(([id, l, i]) => `<button type="button" role="tab" aria-selected="${st.tab === id}" data-act="o4tab" data-id="${id}">${i}<span>${l}</span>${id === 'check' && iss.length ? `<span class="o4-badge" aria-label="${iss.length} items">${iss.length}</span>` : ''}</button>`).join('')}</div>
+      <div class="r-body" role="tabpanel">${panel}</div>` + footHTML(m);
+  },
+  on: {
+    o4tab: (c, t) => { c.st.tab = t.dataset.id; if (t.dataset.id === 'add') c.st.focus = 'q'; c.render(); },
+    o4f: (c, t) => { c.st.f = t.dataset.id; c.render(); },
+    o4apply: (c, t) => { const s = SLEEVES[+t.dataset.i], err = c.m.apply(s); if (err) { c.say(err, 'bad'); return; } c.st.tab = 'build'; c.st.open[c.m.a.id + ':' + s.cat] = true; c.render(); c.say(`Applied ${s.name} v${s.v} to ${CAT[s.cat].short}: products replaced, target unchanged.`); },
+    o4cmp: (c, t) => { const s = SLEEVES[+t.dataset.i]; c.say(`${s.name} v${s.v} added to the comparison as a read-only column.`); },
+    o4lev: (c, t) => { c.st.lev = t.checked; c.say(t.checked ? 'Shorts and leverage on: negative weights and totals above 100% are accepted.' : 'Shorts and leverage off.'); }
+  }
+});
+
+/* 5 · Dock */
+OPTS.push({
+  key:'dock', name:'Allocation dock', theme:'navy',
+  idea:'A narrow dock of allocation avatars sits beside the builder panel. Switching allocation is one tap, and still works when the panel is closed.',
+  how:['Each allocation is a coloured avatar; a dashed ring marks a snapshot.', 'The panel shows the allocation you tapped. Edits are kept per allocation.', 'Collapse hides the panel and keeps the dock, so the cards gain width and you can still switch.', 'The magnifier opens search at the top of the panel.'],
+  tryit:'Tap Income, change a weight, tap Core and back again. Then collapse the panel with the arrows at the bottom of the dock.',
+  good:['The collapsed rail stays useful', 'Every allocation is always in view'], cost:['Avatars need learning when names are similar', 'The dock costs 58px of width'],
+  collapsed:'This option is its own collapsed state: the dock stays.',
+  score:{ edit:3, glance:2, compare:2, phone:1, effort:'Medium' },
+  init: st => { st.open['core:eq'] = true; },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, a = m.a;
+    const dock = `<nav class="o5-dock" aria-label="Allocations">${ALLOCS.map(x => `<button type="button" class="o5-av ${x.kind}${x.id === a.id ? ' on' : ''}" style="--c:${x.color}" data-act="pick" data-id="${x.id}" aria-label="${esc(x.name)}${x.kind === 'snapshot' ? ', snapshot' : ''}" aria-current="${x.id === a.id}" title="${esc(x.name)}"><i>${x.ini}</i><small>${esc(x.short)}</small></button>`).join('')}
+      <button type="button" class="o5-av add" data-act="o5new" aria-label="New allocation" title="New allocation"><i>+</i></button><span class="o5-sep"></span>
+      ${st.col ? '' : `<button type="button" class="ib" data-act="o5search" aria-pressed="${!!st.search}" aria-label="Add an investment" title="Add an investment">${ic.search}</button>`}
+      <span class="grow"></span><button type="button" class="ib" data-act="o5col" aria-label="${st.col ? 'Open the builder panel' : 'Collapse the builder panel'}" title="${st.col ? 'Open' : 'Collapse'}">${st.col ? ic.colR : ic.colL}</button></nav>`;
+    if (st.col) return `<div class="o5">${dock}<div class="o5-canvas" aria-hidden="true"><p>Collapsed: the cards take the freed width. Tap an avatar to edit that allocation.</p><div class="o5-card"><i></i><i></i><i></i></div><div class="o5-card"><i></i><i></i></div><div class="o5-card"><i></i><i></i><i></i></div></div></div>`;
+    return `<div class="o5">${dock}<section class="o5-panel" aria-label="Builder">
+      <div class="o5-ph"><span class="eyebrow">Editing</span><div class="o5-name"><i class="dot" style="--c:${a.color}"></i><span>${esc(a.name)}</span></div><div class="pick-sub">${kindTag(a)}${a.bm ? `<span>vs ${esc(a.bm)}</span>` : '<span class="tag warn">No benchmark</span>'}</div></div>
+      ${st.search ? `<div class="o5-sw"><div class="search">${ic.search}<input type="search" data-q data-fkey="q" placeholder="Add: name or identifier" value="${esc(st.q || '')}" autocomplete="off" aria-label="Search products to add"></div></div>${st.q ? `<div class="o5-sw">${resultsHTML(st.q, m, '', 5)}</div>` : ''}` : ''}
+      <div class="r-body">${roNote(m)}${treeHTML(m, st, { sub:'sel', bar:true })}</div>${footHTML(m)}</section></div>`;
+  },
+  on: {
+    o5col: c => { c.st.col = !c.st.col; c.render(); const f = c.el.querySelector('[data-act="o5col"]'); if (f) f.focus({ preventScroll:true }); },
+    o5search: c => { c.st.search = !c.st.search; c.st.q = ''; if (c.st.search) c.st.focus = 'q'; c.render(); },
+    o5new: c => c.say('New allocation: from scratch, a template, a clone or an import.'),
+    pick: (c, t) => { c.use(t.dataset.id); c.st.open[c.m.a.id + ':eq'] = c.st.open[c.m.a.id + ':eq'] !== false; c.render(); c.say(`Editing ${c.m.a.name}.`); }
+  }
+});
+
+/* 6 · Stacked allocations */
+OPTS.push({
+  key:'stack', name:'All allocations, stacked', theme:'light',
+  idea:'The rail lists every allocation in the workspace, each with its category bar. Open one to edit it in place. This version also tries a light rail.',
+  how:['The header names the workspace where the brand used to be.', 'Each card shows the total allocated and the category mix, so differences show before you open anything.', 'The eye adds an allocation to the comparison or takes it out.', 'One allocation is open at a time.'],
+  tryit:'Compare the four bars. Open Growth Tilt and lower Public Equity, then hide Income Tilt from the comparison.',
+  good:['The comparison is visible in the rail itself', 'Can replace both the Editing picker and the comparison strip'], cost:['A long tree pushes the other allocations down', 'A light rail breaks from the navy house style'],
+  collapsed:'One coloured dot per allocation, as in option 5.',
+  score:{ edit:2, glance:3, compare:3, phone:2, effort:'Medium' },
+  init: st => { st.exp = 'core'; st.out = new Set(); st.open['core:eq'] = true; },
+  render(ctx) {
+    const st = ctx.st; ALLOCS.forEach(a => ctx.models[a.id] = ctx.models[a.id] || new Model(a.id));
+    const nIn = ALLOCS.length - st.out.size;
+    return `<div class="r-head"><span class="eyebrow">Workspace</span><button type="button" class="o6-ws" data-act="o6ws">Global Multi-Asset Review 2027 ${ic.down}</button><div class="pick-sub"><span>${ALLOCS.length} allocations · ${nIn} compared · USD</span></div></div>
+      <div class="r-body">${ALLOCS.map(a => { const mm = ctx.models[a.id], open = st.exp === a.id, out = st.out.has(a.id);
+        return `<div class="o6-card${open ? ' open' : ''}${out ? ' out' : ''}" style="--c:${a.color}">
+          <div class="o6-top"><button type="button" class="o6-hd" data-act="o6exp" data-id="${a.id}" aria-expanded="${open}">${ic.chev}<i class="dot"></i><span class="o6-n">${esc(a.name)}</span>${a.kind === 'snapshot' ? '<span class="tag snap">Snap</span>' : ''}<b>${f1(mm.total())}%</b></button>
+          <button type="button" class="ib" data-act="o6cmp" data-id="${a.id}" aria-pressed="${!out}" aria-label="${out ? 'Add' : 'Remove'} ${esc(a.name)} ${out ? 'to' : 'from'} the comparison" title="${out ? 'Not in the comparison' : 'In the comparison'}">${out ? ic.eyeOff : ic.eye}</button></div>
+          ${stackHTML(mm)}
+          ${open ? `<div class="o6-tree">${roNote(mm)}${treeHTML(mm, st, { sub:'sel' })}<div class="row faint" style="font-size:11.5px"><span>In products ${f1(mm.inProd())}%</span><span>At index level ${f1(mm.atIndex())}%</span></div></div>` : ''}
+        </div>`; }).join('')}
+        <button type="button" class="o6-add" data-act="o6new">${ic.plus}Add allocation</button></div>`;
+  },
+  on: {
+    o6exp: (c, t) => { c.st.exp = c.st.exp === t.dataset.id ? null : t.dataset.id; if (c.st.exp && c.st.open[c.st.exp + ':eq'] === undefined) c.st.open[c.st.exp + ':eq'] = true; c.render(); },
+    o6cmp: (c, t) => { const s = c.st.out, id = t.dataset.id; if (!s.has(id) && ALLOCS.length - s.size <= 1) { c.say('Keep at least one allocation in the comparison.', 'bad'); return; } s.has(id) ? s.delete(id) : s.add(id); c.render(); c.say(`${ALLOC[id].name} ${s.has(id) ? 'removed from' : 'added to'} the comparison. Every card updates.`); },
+    o6ws: c => c.say('Switch workspace: opens the workspace list.'),
+    o6new: c => c.say('New allocation: from scratch, a template, a clone or an import.')
+  }
+});
+
+/* 7 · Differences */
+OPTS.push({
+  key:'diff', name:'Weights with differences', theme:'navy',
+  idea:'The tree with a reference. A switch at the top shows each row’s difference from the benchmark or from another allocation, as a small diverging bar beside the weight.',
+  how:['Weights is the plain tree.', 'vs Global 60/40 shows category differences. The benchmark has no products, so product rows show a dot.', 'vs Income Tilt shows differences down to product level.', 'With a reference on, the footer names the three largest differences.'],
+  tryit:'Choose vs Income Tilt and lower Public Equity to 40. Watch its bar and the footer.',
+  good:['Answers “how is this different?” while you edit', 'Costs no space: it is a switch'], cost:['Two numbers per row is tight at narrow widths', 'The reference must stay obvious or the bars get misread'],
+  collapsed:'Unchanged from today.',
+  score:{ edit:3, glance:2, compare:3, phone:2, effort:'Medium' },
+  init: st => { st.ref = 'bm'; st.open['core:eq'] = true; },
+  ref(ctx) { const r = ctx.st.ref; if (r === 'bm') return { name:'Global 60/40', cat: id => BENCH[id] || 0, prod: () => null }; if (r === 'income') { const im = ctx.models.income = ctx.models.income || new Model('income'); return { name:'Income Tilt', cat: id => im.cat(id).t, prod: id => { const x = im.prod(id); return x ? x.p.w : 0; } }; } return null; },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, R = this.ref(ctx);
+    const diff = R ? (k, id) => { if (k === 'cat') return m.cat(id).t - R.cat(id); const v = R.prod(id); return v == null ? null : m.prod(id).p.w - v; } : null;
+    const tops = R ? m.cats.map(c => ({ c, d: c.t - R.cat(c.id) })).filter(x => Math.abs(x.d) > EPS).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 3) : [];
+    const opts = [['none', 'Weights'], ['bm', 'vs 60/40'], ['income', 'vs Income Tilt']];
+    return head(ctx) + `<div class="o7-seg" role="radiogroup" aria-label="Show differences">${opts.map(([id, l]) => `<button type="button" role="radio" aria-checked="${st.ref === id}" data-act="o7ref" data-id="${id}">${l}</button>`).join('')}</div>
+      <div class="r-body">${roNote(m)}${R ? `<div class="o7-key"><span>${esc(m.a.name)} minus ${esc(R.name)}, pp</span><span><i style="background:var(--r-up)"></i>more</span><span><i style="background:var(--r-down)"></i>less</span></div>` : ''}${treeHTML(m, st, { sub: R ? 'none' : 'sel', diff })}</div>` +
+      (R ? `<div class="r-foot"><span class="eyebrow">Largest differences vs ${esc(R.name)}</span><div class="o7-top">${tops.length ? tops.map(x => `<div><span><i class="dot" style="--c:${x.c.color}"></i> ${esc(x.c.short)}</span><em class="${x.d > 0 ? 'up' : 'down'}">${sgn(x.d)} pp</em></div>`).join('') : '<div class="faint">No differences at category level.</div>'}</div><div class="row faint"><span>Allocated ${f1(m.total())}%</span><span>Reference ${f1(m.cats.reduce((s, c) => s + R.cat(c.id), 0))}%</span></div></div>` : footHTML(m));
+  },
+  on: { o7ref: (c, t) => { c.st.ref = t.dataset.id; c.render(); } }
+});
+
+/* 8 · Grid */
+OPTS.push({
+  key:'grid', name:'Spreadsheet grid', theme:'light',
+  idea:'A spreadsheet. Weight, index remainder and share of category in columns, with the arrow keys, Enter and paste for fast entry. Also shown as a light rail.',
+  how:['Categories are bold rows with a colour edge; products sit under them.', '↑ and ↓ move between weight cells and commit as they go; Esc puts the old value back.', 'Pasting a column of numbers fills the cells from the focused one downwards.', 'Totals stay pinned at the foot of the table.'],
+  tryit:'Focus Meridian’s weight, press ↓ twice, type 10 and press Enter. Or copy “10 8 5” on separate lines and paste.',
+  good:['Fastest for people who type weights from a file', 'Every number is visible at once'], cost:['Dense, and poor on a phone', 'Wants a wider rail than today’s'],
+  collapsed:'Unchanged from today.',
+  score:{ edit:3, glance:2, compare:1, phone:1, effort:'Low' },
+  init: st => { CATS.forEach(c => st.open['core:' + c.id] = true); },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st;
+    const rows = m.cats.map(c => { const rm = m.rem(c), im = m.impl(c), open = isOpen(st, m, c.id);
+      return `<tr class="cat" style="--c:${c.color}"><th scope="row"><div><button type="button" class="tw${c.ps.length ? '' : ' leaf'}" data-act="tog" data-id="${c.id}" data-m="${m.a.id}" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'} ${esc(c.short)}">${ic.chev}</button><span>${esc(c.short)}</span></div></th><td>${wt(m, 'cat', c.id, c.t, c.short)}</td><td>${rm > EPS ? f1(rm) : rm < -EPS ? `<span class="over">−${f1(-rm)}</span>` : '—'}</td><td>${c.t ? f1(Math.min(im, c.t) / c.t * 100) : '—'}</td></tr>` +
+        (open ? c.ps.map(p => `<tr class="p"><th scope="row"><div><span>${esc(INS[p.id].name)}</span><small>${INS[p.id].type} · ${p.id}${p.sl ? ' · ' + esc(p.sl) : ''}</small></div></th><td>${wt(m, 'prod', p.id, p.w, INS[p.id].name)}</td><td></td><td>${c.t ? f1(p.w / c.t * 100) : '—'}</td></tr>`).join('') : ''); }).join('');
+    return head(ctx, { sub:false }) + `<div class="o8-hint"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> commit</span><span><kbd>Esc</kbd> revert</span><span>paste a column</span></div>
+      <div class="r-body">${m.ro ? `<div style="padding:10px 12px">${roNote(m)}</div>` : ''}<table class="o8t"><thead><tr><th scope="col">Category / product</th><th scope="col">Weight</th><th scope="col">Index</th><th scope="col">% cat.</th></tr></thead><tbody>${rows}</tbody>
+      <tfoot><tr><th scope="row">Allocated</th><td>${f1(m.total())}</td><td>${f1(m.atIndex())}</td><td></td></tr></tfoot></table></div>`;
+  },
+  keys(ctx, e, inp) {
+    const list = [...ctx.el.querySelectorAll('[data-edit]')], i = list.indexOf(inp);
+    const go = di => { const nx = list[i + di]; const fk = nx ? nx.dataset.fkey : inp.dataset.fkey; ctx.st.focus = fk; ctx.commit(inp); if (ctx.st.focus) { const f = ctx.el.querySelector(`[data-fkey="${CSS.escape(fk)}"]`); if (f) { f.focus({ preventScroll:false }); f.select(); } ctx.st.focus = null; } };
+    if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); go(1); return true; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); go(-1); return true; }
+    return false;
+  },
+  setup(ctx) {
+    ctx.el.addEventListener('paste', e => {
+      const inp = e.target.closest('[data-edit]'); if (!inp) return;
+      const vals = (e.clipboardData || window.clipboardData).getData('text').split(/[\r\n\t]+/).map(s => s.trim()).filter(Boolean);
+      if (vals.length < 2) return; e.preventDefault();
+      const list = [...ctx.el.querySelectorAll('[data-edit]')], i0 = list.indexOf(inp); let n = 0, bad = '';
+      vals.forEach((s, k) => { const el = list[i0 + k]; if (!el) return; const v = num(s); if (v === null) { bad = bad || `“${s}” is not a number`; return; } const err = el.dataset.edit === 'cat' ? ctx.m.setT(el.dataset.id, v) : ctx.m.setW(el.dataset.id, v); if (err) bad = bad || err; else n++; });
+      ctx.render(); ctx.say(`Pasted ${n} of ${vals.length} weights.${bad ? ' ' + bad : ''}`, bad ? 'bad' : '');
+    });
+  }
+});
+
+/* 9 · Waffle drill-down */
+OPTS.push({
+  key:'waffle', name:'Waffle and drill-down', theme:'navy',
+  idea:'A 10 × 10 grid where each square is 1% of the portfolio. Tap a category to drill into its products, with large steppers; Back returns to the whole.',
+  how:['Solid squares are in products, hatched squares are at index level, empty squares are unallocated.', 'Inside a category the grid is 100% of that category, shaded by product.', 'Steppers move in 0.5% steps; the value can also be typed.', 'Only one level is on screen at a time.'],
+  tryit:'Tap Real Assets, raise Harborview by two steps, then go back and look at the grid.',
+  good:['The clearest layout on a phone', 'Easy to read for people new to the tool'], cost:['One category at a time', 'Slow for many edits in a row'],
+  collapsed:'A small waffle in the strip works as a thumbnail of the mix.',
+  score:{ edit:1, glance:3, compare:1, phone:3, effort:'Medium' },
+  init: st => { st.lvl = null; },
+  cells(parts) {
+    const tot = parts.reduce((s, p) => s + p.v, 0) || 1, raw = parts.map(p => p.v / tot * 100), base = raw.map(Math.floor);
+    let left = 100 - base.reduce((s, v) => s + v, 0);
+    raw.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { base[i]++; left--; } });
+    return parts.map((p, i) => Array(base[i]).fill(p)).flat();
+  },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, c = st.lvl && m.cat(st.lvl);
+    if (!c) {
+      const parts = []; m.cats.forEach(x => { const im = Math.min(m.impl(x), x.t), rm = Math.max(0, m.rem(x)); if (im > 0) parts.push({ id:x.id, color:x.color, v:im }); if (rm > EPS) parts.push({ id:x.id, color:x.color, v:rm, ix:true }); });
+      const un = 100 - m.total(); if (un > EPS) parts.push({ v:un, un:true });
+      const cells = this.cells(parts.length ? parts : [{ v:100, un:true }]);
+      return head(ctx) + `<div class="r-body">${roNote(m)}
+        <div class="o9-waffle" aria-hidden="true">${cells.map(p => p.un ? '<i class="un"></i>' : `<i class="${p.ix ? 'ix' : ''}" style="--c:${p.color};${p.ix ? '' : `background:${p.color}`}" data-act="o9go" data-id="${p.id}"></i>`).join('')}</div>
+        <div class="o9-key"><span><i></i>In products</span><span><i class="ix"></i>At index level</span><span><i class="un"></i>Unallocated</span></div>
+        <div class="o9-list">${m.cats.map(x => `<button type="button" class="o9-cat" data-act="o9go" data-id="${x.id}" style="--c:${x.color}"><i class="dot"></i><span><b>${esc(x.short)}</b><small>${esc(catSub(m, x))}</small></span><b>${f1(x.t)}</b>${ic.chev}</button>`).join('')}</div></div>` + footHTML(m);
+    }
+    const rm = m.rem(c), shades = [1, .72, .52, .38, .28];
+    const parts = c.ps.map((p, i) => ({ color:c.color, op:shades[i] || .25, v:p.w })); if (rm > EPS) parts.push({ color:c.color, v:rm, ix:true }); if (!parts.length) parts.push({ v:100, un:true });
+    const cells = this.cells(parts);
+    return `<div class="r-head"><button type="button" class="o9-back" data-act="o9back">${ic.back}${esc(m.a.name)}</button><div class="o9-title" style="--c:${c.color}"><i class="dot"></i>${esc(c.name)}</div><div class="pick-sub">${esc(catSub(m, c))}</div></div>
+      <div class="r-body o9-in" style="--c:${c.color}">${roNote(m)}
+        <div class="o9-line tgt"><span class="grow"><span>Category target</span><small>% of the total portfolio</small></span>${stepper(m, 'cat', c.id, c.t, c.short)}</div>
+        <div class="o9-waffle" aria-hidden="true">${cells.map(p => p.un ? '<i class="un"></i>' : p.ix ? `<i class="ix" style="--c:${p.color}"></i>` : `<i style="background:${p.color};opacity:${p.op}"></i>`).join('')}</div>
+        <div>${c.ps.map((p, i) => `<div class="o9-line"><i class="dot" style="--c:${c.color};opacity:${shades[i] || .25}"></i><span class="grow"><span>${esc(INS[p.id].name)}</span><small>${esc(prodSub(m, c, p))}</small></span>${stepper(m, 'prod', p.id, p.w, INS[p.id].name)}</div>`).join('')}
+        ${rm > EPS ? `<div class="o9-line ix"><span class="dot" style="background:repeating-linear-gradient(135deg,${c.color} 0 1.5px,transparent 1.5px 3.5px)"></span><span class="grow"><span>${esc(c.short)} index</span><small>unimplemented · modelled by the index</small></span><span class="tv">${f1(rm)}</span></div>` : ''}
+        ${rm < -EPS ? `<div class="o9-line"><span class="tag warn">Products over target by ${f1(-rm)}%</span></div>` : ''}</div>
+        <button type="button" class="btn" data-act="o9sleeve">${ic.layers}Apply a sleeve to ${esc(c.short)}</button>
+      </div>` + footHTML(m);
+  },
+  on: {
+    o9go: (c, t) => { c.st.lvl = t.dataset.id; c.render(); const b = c.el.querySelector('.o9-back'); if (b) b.focus({ preventScroll:true }); },
+    o9back: c => { const id = c.st.lvl; c.st.lvl = null; c.render(); const b = c.el.querySelector(`.o9-cat[data-id="${id}"]`); if (b) b.focus({ preventScroll:true }); },
+    o9sleeve: c => { const cat = c.m.cat(c.st.lvl), s = SLEEVES.find(x => x.cat === cat.id && !x.mixed); if (!s) { c.say(`No sleeve is filed under ${cat.short} yet.`); return; } const err = c.m.apply(s); if (err) { c.say(err, 'bad'); return; } c.render(); c.say(`Applied ${s.name} v${s.v}: products replaced, target unchanged.`); }
+  }
+});
+
+/* 10 · Command */
+OPTS.push({
+  key:'cmd', name:'Command line', theme:'navy',
+  idea:'A command line drives the edits and the list below is for reading. The line previews each change in words before you press Enter.',
+  how:['“hf 10” sets a category target; “MRLC +1.5” changes a product.', '“move 2 from eq to ig” shifts weight and keeps the total.', '“add GREIT 2 to real assets” adds a product out of the index remainder.', 'Tap any row to put it in the command line. “undo” reverses the last change.'],
+  tryit:'Type <b>hf 12</b> and read the preview before pressing Enter. Then try <b>move 2 from eq to ig</b>, and <b>undo</b>.',
+  good:['Very fast for experienced users', 'Every change is written down'], cost:['Invisible until learnt; it needs the list beside it', 'Awkward on a phone keyboard'],
+  collapsed:'The command line opens with / from anywhere in the workspace.',
+  score:{ edit:3, glance:1, compare:1, phone:1, effort:'High' },
+  init: st => { st.cmd = ''; st.log = []; },
+  findCat(s) { s = s.trim().toLowerCase(); return CATS.find(c => c.alias.includes(s)) || CATS.find(c => c.alias.some(a => a.startsWith(s))) || CATS.find(c => c.name.toLowerCase().includes(s)) || null; },
+  findIns(s) { s = s.trim().toLowerCase(); return INSTR.find(i => i.id.toLowerCase() === s) || (s.length >= 3 ? INSTR.find(i => i.name.toLowerCase().startsWith(s)) : null) || null; },
+  parse(m, s) {
+    const l = s.trim().toLowerCase().replace(/−/g, '-'); if (!l) return null; let r;
+    if (l === 'undo') return m.hist.length ? { desc:'Undo the last change.', run: () => m.undo() ? null : 'Nothing to undo.' } : { err:'Nothing to undo yet.' };
+    if ((r = l.match(/^move\s+([\d.]+)\s*%?\s+from\s+(.+?)\s+to\s+(.+)$/))) {
+      const a = this.findCat(r[2]), b = this.findCat(r[3]), v = Number(r[1]);
+      if (!a || !b) return { err:`No category matches “${!a ? r[2] : r[3]}”.` }; if (a === b) return { err:'Pick two different categories.' };
+      const A = m.cat(a.id), B = m.cat(b.id); if (v > A.t) return { err:`${a.short} only has ${f1(A.t)}%.` };
+      return { desc:`${a.short} ${f1(A.t)} → ${f1(A.t - v)} · ${b.short} ${f1(B.t)} → ${f1(B.t + v)}. Total unchanged.`, run: () => m.move(a.id, b.id, v) };
+    }
+    if ((r = l.match(/^add\s+(\S+)(?:\s+([\d.]+))?(?:\s+to\s+(.+))?$/))) {
+      const i = this.findIns(r[1]); if (!i) return { err:`No product matches “${r[1]}”. Try GREIT, PGLD or DXUS.` };
+      if (m.prod(i.id)) return { err:`${i.name} is already held. Type “${i.id} <weight>” to change it.` };
+      const c = r[3] ? this.findCat(r[3]) : CAT[i.cat]; if (!c) return { err:`No category matches “${r[3]}”.` };
+      const v = r[2] ? Number(r[2]) : 0, rm = m.rem(m.cat(c.id));
+      return { desc:`Add ${i.name} to ${c.short} at ${f1(v)}%. Index remainder ${f1(rm)} → ${f1(rm - v)}.`, warn: rm - v < -EPS, run: () => m.add(i.id, c.id, v) };
+    }
+    if ((r = l.match(/^(.+?)\s+([+-]?)([\d.]+)\s*%?$/))) {
+      const who = r[1], rel = r[2], n = Number(r[3]), i = this.findIns(who), held = i && m.prod(i.id);
+      if (held) { const cur = held.p.w, v = rel ? cur + (rel === '+' ? n : -n) : n, rm = m.rem(held.c);
+        return { desc:`${i.name} ${f1(cur)} → ${f1(v)}. ${held.c.short} target unchanged; index remainder ${f1(rm)} → ${f1(rm - (v - cur))}.`, warn: rm - (v - cur) < -EPS, run: () => m.setW(i.id, v) }; }
+      const c = this.findCat(who);
+      if (c) { const C = m.cat(c.id), cur = C.t, v = rel ? cur + (rel === '+' ? n : -n) : n, tot = m.total() - cur + v;
+        return { desc:`${c.short} target ${f1(cur)} → ${f1(v)}. Allocated ${f1(tot)}%${tot > 100 + 1e-6 ? ', over 100: this will be rejected.' : '.'}`, warn: tot > 100 + 1e-6, run: () => m.setT(c.id, v) }; }
+      if (i) return { err:`${i.name} is not held. Use “add ${i.id} ${n}”.` };
+      return { err:`No category or product matches “${who}”.` };
+    }
+    return { err:'Not understood. Try “hf 10”, “move 2 from eq to ig”, “add GREIT 2” or “undo”.' };
+  },
+  prevHTML(ctx) {
+    const p = this.parse(ctx.m, ctx.st.cmd || '');
+    if (!p) return { cls:'', html:'Type a command. The change is described here before anything happens.' };
+    if (p.err) return { cls:'err', html: esc(p.err) };
+    return { cls: p.warn ? 'warn' : '', html: esc(p.desc) + '<kbd>Enter</kbd>' };
+  },
+  render(ctx) {
+    const m = ctx.m, st = ctx.st, pv = this.prevHTML(ctx);
+    const alias = c => ({ eq:'eq', ig:'ig', ofi:'ofi', hf:'hf', pvt:'private', ra:'ra', cash:'cash' }[c.id]);
+    return head(ctx) + `<div class="o10-cmd"><label class="eyebrow" for="o10-in-${ctx.n}">Command</label>
+      <div class="o10-in"><span aria-hidden="true">›</span><input id="o10-in-${ctx.n}" data-cmd data-fkey="cmd" value="${esc(st.cmd)}" placeholder="hf 10 · move 2 from eq to ig" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-describedby="o10-pv-${ctx.n}"></div>
+      <div class="o10-prev ${pv.cls}" id="o10-pv-${ctx.n}" data-prev aria-live="polite">${pv.html}</div>
+      <div class="chips">${['hf 12', 'move 2 from eq to ig', 'add GREIT 2', 'MRLC +1.5', 'undo'].map(x => `<button type="button" class="chip" data-act="o10ex" data-x="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+      <div class="r-body">${roNote(m)}
+        ${st.log.length ? `<div class="row"><span class="eyebrow">Done</span><button type="button" class="btn" data-act="o10undo">${ic.undo}Undo last</button></div><ul class="o10-hist">${st.log.slice(-3).reverse().map(x => `<li><code>› ${esc(x.cmd)}</code><span>${esc(x.desc)}</span></li>`).join('')}</ul>` : ''}
+        <span class="eyebrow">${esc(m.a.name)}</span>
+        <div class="o10-rows">${m.cats.map(c => `<button type="button" class="o10-r c" data-act="o10ex" data-x="${alias(c)} ${f1(c.t)}" style="--c:${c.color}"><i class="dot"></i><span>${esc(c.short)}</span><code>${alias(c)}</code><b>${f1(c.t)}</b></button>` + c.ps.map(p => `<button type="button" class="o10-r p" data-act="o10ex" data-x="${p.id} ${f1(p.w)}"><span>${esc(INS[p.id].name)}</span><code>${p.id}</code><b>${f1(p.w)}</b></button>`).join('') + (m.rem(c) > EPS ? `<div class="o10-r p" style="cursor:default"><span><i>${esc(c.short)} index</i></span><b>${f1(m.rem(c))}</b></div>` : '')).join('')}</div>
+      </div>` + footHTML(m);
+  },
+  run(ctx) {
+    const p = this.parse(ctx.m, ctx.st.cmd || ''); if (!p) return;
+    if (p.err) { ctx.say(p.err, 'bad'); return; }
+    const err = p.run(); if (err) { ctx.say(err, 'bad'); return; }
+    ctx.st.log.push({ cmd: ctx.st.cmd.trim(), desc: p.desc.replace(/\.$/, '') }); ctx.st.cmd = ''; ctx.st.focus = 'cmd'; ctx.render(); ctx.say('Done: ' + p.desc);
+  },
+  on: {
+    o10ex: (c, t) => { c.st.cmd = t.dataset.x; c.st.focus = 'cmd'; c.render(); },
+    o10undo: c => { if (c.m.undo()) { c.st.log.push({ cmd:'undo', desc:'Reversed the last change' }); c.render(); c.say('Undone.'); } }
+  },
+  setup(ctx) {
+    const self = this;
+    ctx.el.addEventListener('input', e => { if (!e.target.matches('[data-cmd]')) return; ctx.st.cmd = e.target.value; const pv = self.prevHTML(ctx), el = ctx.el.querySelector('[data-prev]'); el.className = 'o10-prev ' + pv.cls; el.innerHTML = pv.html; });
+    ctx.el.addEventListener('keydown', e => { if (e.target.matches('[data-cmd]') && e.key === 'Enter') { e.preventDefault(); self.run(ctx); } });
+  }
+});
+
+/* ── mounting ────────────────────────────────────────────────────── */
+const dots = v => `<span class="dots" role="img" aria-label="${v} of 3">${[1, 2, 3].map(i => `<i class="${i <= v ? 'on' : ''}"></i>`).join('')}</span>`;
+const SCORE_LABELS = [['edit', 'Editing speed'], ['glance', 'Overview'], ['compare', 'Comparison'], ['phone', 'Phone']];
+const host = document.getElementById('options'), jump = document.getElementById('jump');
+jump.innerHTML = OPTS.map((o, i) => `<a href="#opt-${i + 1}"><b>${i + 1}</b>${esc(o.name)}</a>`).join('') + '<a href="#compare">Side by side</a>';
+host.innerHTML = OPTS.map((o, i) => `<section class="opt" id="opt-${i + 1}" aria-labelledby="opt-${i + 1}-h">
+  <div class="opt-head"><h2 id="opt-${i + 1}-h"><span class="n">${i + 1}</span>${esc(o.name)}</h2><p>${esc(o.idea)}</p></div>
+  <div class="mockcol"><div class="mock" data-mock="${i}"></div><div class="mock-tools"><span>${o.theme === 'light' ? 'Light rail' : 'Navy rail'} · sample data</span><button type="button" data-reset="${i}">Reset</button></div></div>
+  <div class="notes">
+    <div class="try"><b>Try:</b> ${o.tryit}</div>
+    <div><h3>How it works</h3><ul>${o.how.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>
+    <div class="pc"><div><h3 class="good">Good for</h3><ul>${o.good.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div><div><h3>Costs</h3><ul>${o.cost.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div></div>
+    <p class="collapsed"><b>When collapsed:</b> ${esc(o.collapsed)}</p>
+    <div class="scores">${SCORE_LABELS.map(([k, l]) => `<span>${l} ${dots(o.score[k])}</span>`).join('')}<span>Build effort: ${o.score.effort}</span></div>
+  </div></section>`).join('');
+document.getElementById('sumt').innerHTML = `<thead><tr><th scope="col">Option</th>${SCORE_LABELS.map(([, l]) => `<th scope="col">${l}</th>`).join('')}<th scope="col">Build effort</th><th scope="col">Best at</th></tr></thead><tbody>${OPTS.map((o, i) => `<tr><th scope="row"><a href="#opt-${i + 1}"><span>${i + 1}</span>${esc(o.name)}</a></th>${SCORE_LABELS.map(([k]) => `<td>${dots(o.score[k])}</td>`).join('')}<td>${o.score.effort}</td><td>${esc(o.good[0])}</td></tr>`).join('')}</tbody>`;
+
+function mount(opt, n) {
+  const holder = host.querySelector(`[data-mock="${n}"]`);
+  holder.innerHTML = `<div class="rail${opt.theme === 'light' ? ' light' : ''} o${n + 1}"><div class="rail-in"></div><div class="say" role="status" aria-live="polite"></div></div>`;
+  const inner = holder.querySelector('.rail-in'), sayEl = holder.querySelector('.say');
+  const ctx = { n, opt, el: holder, models: {}, st: null, t: 0 };
+  ctx.use = id => { ctx.models[id] = ctx.models[id] || new Model(id); ctx.m = ctx.models[id]; };
+  ctx.mm = el => (el && el.dataset.m && ctx.models[el.dataset.m]) || ctx.m;
+  ctx.reset = () => { ctx.models = {}; ctx.use('core'); ctx.st = { open: {}, picked: new Set(), menu: false, sel: null, q: '' }; if (opt.init) opt.init(ctx.st); };
+  ctx.say = (msg, tone) => { sayEl.textContent = msg; sayEl.className = 'say on ' + (tone || ''); clearTimeout(ctx.t); ctx.t = setTimeout(() => { sayEl.className = 'say ' + (tone || ''); }, 4200); };
+  ctx.render = () => {
+    const a = document.activeElement; let fk = null, caret = null;
+    if (a && holder.contains(a)) { fk = a.dataset.fkey || null; try { caret = a.selectionStart; } catch (_) { caret = null; } }
+    if (ctx.st.focus) { fk = ctx.st.focus; ctx.st.focus = null; caret = null; }
+    inner.innerHTML = opt.render(ctx);
+    inner.querySelectorAll('[data-ind]').forEach(cb => { cb.indeterminate = true; });
+    if (fk) { const f = inner.querySelector(`[data-fkey="${CSS.escape(fk)}"]`); if (f) { f.focus({ preventScroll: true }); if (f.dataset.edit) f.select(); else if (f.setSelectionRange && f.type !== 'checkbox') { const p = caret == null ? f.value.length : caret; try { f.setSelectionRange(p, p); } catch (_) {} } } }
+  };
+  ctx.commit = inp => { const m = ctx.mm(inp); return setVal(ctx, m, inp.dataset.edit, inp.dataset.id, num(inp.value)); };
+  holder.addEventListener('click', e => {
+    const t = e.target.closest('[data-act]');
+    if (ctx.st.menu && !e.target.closest('.pop') && !(t && t.dataset.act === 'menu')) { ctx.st.menu = false; if (!t) { ctx.render(); return; } }
+    if (!t || !holder.contains(t) || t.disabled) return;
+    if (t.tagName === 'INPUT' && t.type === 'checkbox' && !(opt.on && opt.on[t.dataset.act])) return;
+    const fn = (opt.on && opt.on[t.dataset.act]) || COMMON[t.dataset.act];
+    if (fn) fn(ctx, t, e);
+  });
+  holder.addEventListener('change', e => { const inp = e.target.closest('[data-edit]'); if (inp && !inp.readOnly) ctx.commit(inp); });
+  holder.addEventListener('input', e => { if (e.target.matches('[data-q]')) { ctx.st.q = e.target.value; ctx.render(); } });
+  holder.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && ctx.st.menu) { ctx.st.menu = false; ctx.st.focus = null; ctx.render(); const p = holder.querySelector('.pick'); if (p) p.focus({ preventScroll: true }); return; }
+    const inp = e.target.closest('[data-edit]'); if (!inp || inp.readOnly) return;
+    if (opt.keys && opt.keys(ctx, e, inp)) return;
+    if (e.key === 'Enter') { e.preventDefault(); ctx.commit(inp); }
+    if (e.key === 'Escape') { const m = ctx.mm(inp); inp.value = f1(inp.dataset.edit === 'cat' ? m.cat(inp.dataset.id).t : m.prod(inp.dataset.id).p.w); inp.select(); }
+  });
+  document.addEventListener('click', e => { if (ctx.st.menu && !e.composedPath().includes(holder)) { ctx.st.menu = false; ctx.render(); } });
+  if (opt.setup) opt.setup(ctx);
+  host.querySelector(`[data-reset="${n}"]`).addEventListener('click', () => { ctx.reset(); ctx.render(); ctx.say('Sample data restored.'); });
+  ctx.reset(); ctx.render();
+}
+OPTS.forEach(mount);
+})();
+</script>

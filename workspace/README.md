@@ -22,10 +22,39 @@ Edits are kept in the browser's `localStorage` so a demo survives a reload.
 list) simulate save failures, analytics failures and a slow service, and reset
 the sample data.
 
-Keyboard: `/` focuses the investment search, `b` collapses the builder, `s`
+Keyboard: `/` opens the builder's Add tab with the search focused, `b` collapses the builder, `s`
 opens the scenario drawer, `a` opens the card repository, `⌘Z` / `⇧⌘Z` undo
 and redo, arrow keys move a focused card (with `⇧`, resize it), `?` lists the
 rest.
+
+## The builder rail
+
+The rail is split: the header and tabs are navy, the panel below them is
+white so the tree reads like the cards (its colours are `--rail-*` tokens in
+`css/tokens.css`, redefined for the panel under "Split rail" in
+`css/workspace.css`). The rail has no brand heading. Its header names the allocation being edited
+(a selector, with its kind, history basis and benchmark), and four tabs split
+the rail's jobs so each gets the full height:
+
+- **Build**: the category tree below, with select mode for sleeves. Weights
+  are typed: no stepper buttons. A typed value is marked pending until
+  `Enter` applies it (one edit, one recalculation); `Esc` discards it, `↑`/`↓`
+  move between weights, and pending values survive leaving the field.
+- **Add**: investment search with category filter chips. A chip on its own
+  browses that category; results say when a product is already held.
+- **Sleeves**: the repository in the rail, grouped by category, with *Apply*
+  (opens the apply dialog for the sleeve's category), *Compare* (adds it as a
+  column) and a link to the repository screen. Tags show where a sleeve is
+  applied or compared.
+- **Check**: what needs attention, each with its fix: unallocated weight,
+  categories at index level (*Find products*, *Apply a sleeve*), products over
+  target, limited histories, a missing benchmark. The count is the tab's
+  badge. The weight summary and the shorts & leverage switch live here too.
+
+A footer under every tab keeps the category bar (solid in products, hatched at
+index level) and the allocated total in view. Collapsed, the rail keeps the
+four tab icons (with the badge); each opens the rail on its tab. On a phone the
+rail is an overlay with the same tabs.
 
 ## The three ideas
 
@@ -48,6 +77,16 @@ edit weights as a new version, rename, re-file, archive. *Apply a sleeve* on a
 category copies a version's products in at the category target (or only into
 the index remainder) and tags them with the sleeve and version. Sleeves are
 copies, not links: editing a sleeve never changes an allocation.
+
+**A sleeve can also be compared on its own.** *Save & compare* on the
+selection bar, *Save as sleeve and compare* on a category, *Compare a sleeve*
+in the comparison strip's Add menu, the link in the apply dialog, and *Add to
+a workspace* in the repository all add a sleeve version to the workspace as
+its own column: a read-only allocation of kind `sleeve`, fully invested at the
+sleeve's weights, so every card shows the sleeve's own analytics next to the
+portfolios. The column is pinned to its version; when the repository has a
+newer one, the rail and the column's menu offer to show it. *Make an editable
+copy* turns it into a live allocation.
 
 **The analytics area is a collection of cards.** Each card is one piece of
 analysis from a catalogue of fourteen types (allocations side by side, the
@@ -88,7 +127,7 @@ js/ui/cardtypes.js    the catalogue of card types
 js/ui/ddcard.js       the Drivers & Differences card
 js/ui/context.js      the context bar and context line
 js/ui/shell.js        routing, workspace list, context header, comparison strip, demo controls
-js/ui/builder.js      the navy rail: active allocation, search, the category tree, selection, weights, leverage
+js/ui/builder.js      the rail: header, Build/Add/Sleeves/Check tabs, the category tree, selection, weights, leverage
 js/ui/sleeves.js      create and apply sleeves; the sleeve repository screen
 js/ui/drawer.js       scenarios, scope, assumption matrix, correlation matrix and pair editor
 js/ui/dialogs.js      new allocation (blank/template/clone/import), add investment, snapshot, versions, export
@@ -121,7 +160,7 @@ two adapters:
 | `deleteWorkspace(id)` | `DELETE /workspaces/:id` | `{}` |
 | `getUniverse()` | `GET /universe` | categories, asset classes, factors, benchmarks, templates, instruments |
 | `getAssumptions()` | `GET /assumptions` | the platform base case |
-| `searchInvestments(q, {limit})` | `GET /investments?q=` | `SearchResult[]` (instruments, sleeves, portfolios) |
+| `searchInvestments(q, {limit, category})` | `GET /investments?q=&category=` | `SearchResult[]` (instruments, sleeves, portfolios) |
 | `listSleeves()` | `GET /sleeves` | `Sleeve[]` |
 | `saveSleeve(sleeve)` | `PUT /sleeves/:id` | `Sleeve` (create, rename, re-file, or add a version) |
 | `archiveSleeve(id, archived)` | `PATCH /sleeves/:id` | `Sleeve` |
@@ -190,6 +229,10 @@ Conventions a service must keep (the UI relies on them):
 - **Scenario precedence.** Holding override → asset-class override → factor
   premium. An invalid (non-PSD) correlation matrix makes scenario results
   unavailable and leaves base results untouched.
+- **Compared sleeves.** A sleeve column is the sleeve on its own at 100%,
+  not the sleeve inside a portfolio, and it has no benchmark until one is
+  assigned. It is read-only and pinned to a version, like a snapshot; it is
+  not in a scenario's scope until added to it.
 - **Undo scope.** Allocation edits, comparison membership, scenarios, and
   adding, removing or changing a card are undoable. Moving or resizing a card
   and display preferences are remembered but not undone.
@@ -211,7 +254,8 @@ way real ones do; it is not a production model.
 
 `node verify-workspace.mjs` drives the page in headless Chrome: it exercises
 the main flows (category and product edits, sleeves from a category and a
-selection, applying a sleeve, cards: settings, follow-row, data tables,
+selection, saving a sleeve and comparing it, comparing a repository sleeve and
+loading its newer version, applying a sleeve, cards: settings, follow-row, data tables,
 adding from the repository, moving, resizing, removing, undo; the context
 bar; persistence; the sleeve repository; failure states; three viewports),
 asserts on what the user would see, reports console errors, and writes

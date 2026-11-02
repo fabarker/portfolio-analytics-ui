@@ -27,6 +27,7 @@
     history: { past: [], future: [] },
     railOpen: false, drawerOpen: false, drawerTab: 'assumptions', selectedPair: null,
     selectMode: false, selection: [],      /* product holding ids chosen for a sleeve */
+    railTab: 'build',                       /* builder tab: build · add · sleeves · check */
     rowFilter: '', sort: null, addCardOpen: false
   };
 
@@ -41,7 +42,7 @@
     S.session.history = { past: [], future: [] };
     S.session.save = { state: 'saved', at: ws.updatedAt, error: null };
     S.session.drawerOpen = false; S.session.railOpen = false; S.session.rowFilter = ''; S.session.sort = null; S.session.selectedPair = null;
-    S.session.selectMode = false; S.session.selection = []; S.session.addCardOpen = false;
+    S.session.selectMode = false; S.session.selection = []; S.session.addCardOpen = false; S.session.railTab = 'build';
     if (!ws.prefs.selectedRow) ws.prefs.selectedRow = 'public_equity';
     S.session.revision++;
     emit('load');

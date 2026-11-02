@@ -9,6 +9,7 @@
   var PA = window.PA, U = PA.util, esc = U.esc, S = PA.store, UI = PA.ui, D = PA.data, E = PA.engine, I = U.icon, F = U.fmt;
   var Dg = UI.dialogs = {};
 
+  Dg.nextColor = function () { return nextColor(); };
   function nextColor() { var used = S.ws.allocations.map(function (a) { return a.color; }); for (var i = 1; i <= 6; i++) if (used.indexOf('cat-' + i) < 0) return 'cat-' + i; return 'cat-' + ((S.ws.allocations.length % 6) + 1); }
   function mkHoldings(pairs) { return pairs.map(function (p) { return { id: U.uid('h'), instrumentId: p[0], weight: p[1] }; }); }
   function targetsFor(holdings) { var t = {}; holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) t[c] = U.round((t[c] || 0) + h.weight, 4); }); return t; }
@@ -87,7 +88,7 @@
 
   /* ── add investment ──────────────────────────────────────────────── */
   Dg.addInvestment = function (result, alloc) {
-    if (!alloc || alloc.kind === 'snapshot') { UI.toast('Choose a live allocation to add investments.'); return; }
+    if (!alloc || alloc.kind !== 'live') { UI.toast('Choose a live allocation to add investments. Snapshots and compared sleeves are read-only.'); return; }
     if (result.kind === 'sleeve') { UI.sleeves.apply(alloc, result.sleeve.categoryId, result.sleeve); return; }
     var isGroup = result.kind !== 'instrument', ins = result.instrument, cat = ins ? D.categoryOf(ins.id) : null;
     var tree = cat ? E.tree(alloc).filter(function (t) { return t.id === cat.id; })[0] : null, existing = ins ? alloc.holdings.filter(function (h) { return h.instrumentId === ins.id; })[0] : null, remaining = 100 - E.allocated(alloc);
@@ -137,7 +138,8 @@
       } }] });
   };
   Dg.draftFromSnapshot = function (snap) {
-    UI.prompt({ title: 'Create draft from snapshot', sub: 'A new editable allocation with the snapshot’s weights. The snapshot itself stays fixed.', label: 'Draft name', value: snap.name.replace(/ · .*$/, '') + ' draft', confirmLabel: 'Create draft' }).then(function (name) {
+    var isSleeve = snap.kind === 'sleeve';
+    UI.prompt({ title: isSleeve ? 'Make an editable copy' : 'Create draft from snapshot', sub: isSleeve ? 'A new live allocation with the sleeve’s products and weights, tagged with the sleeve and version. The sleeve and its column stay as they are.' : 'A new editable allocation with the snapshot’s weights. The snapshot itself stays fixed.', label: 'Draft name', value: snap.name.replace(/ · .*$/, '') + ' draft', confirmLabel: 'Create draft' }).then(function (name) {
       if (!name) return;
       createAllocation({ name: name, benchmarkId: snap.benchmarkId, compare: true, origin: 'restored from snapshot', holdings: U.clone(snap.holdings).map(function (h) { h.id = U.uid('h'); return h; }), categories: U.clone(E.categoryTargets(snap)), leverage: snap.leverage, detail: 'From ' + snap.name });
     });
@@ -183,7 +185,7 @@
   };
 
   Dg.shortcuts = function () {
-    var rows = [['/', 'Focus the investment search'], ['b', 'Collapse or expand the builder'], ['s', 'Open or close the scenario drawer'], ['a', 'Open or close the card repository'], ['⌘Z · ⇧⌘Z', 'Undo · redo'], ['Esc', 'Close a dialog, menu, sheet or drawer'], ['↑ ↓ in the tree', 'Move between rows; ← → collapse and expand; Enter edits the weight; Space selects in select mode'], ['⌘-click a product', 'Add it to the sleeve selection'], ['← → ↑ ↓ on a card', 'Move it; with ⇧, resize it'], ['← → on a chart', 'Move the crosshair; ⇧ jumps a year'], ['?', 'This list']];
+    var rows = [['/', 'Open the builder’s Add tab and focus the search'], ['b', 'Collapse or expand the builder'], ['s', 'Open or close the scenario drawer'], ['a', 'Open or close the card repository'], ['⌘Z · ⇧⌘Z', 'Undo · redo'], ['Esc', 'Close a dialog, menu, sheet or drawer'], ['↑ ↓ in the tree', 'Move between rows; ← → collapse and expand; Enter edits the weight; Space selects in select mode'], ['⌘-click a product', 'Add it to the sleeve selection'], ['← → ↑ ↓ on a card', 'Move it; with ⇧, resize it'], ['← → on a chart', 'Move the crosshair; ⇧ jumps a year'], ['?', 'This list']];
     UI.openDialog({ title: 'Keyboard shortcuts', body: '<table class="tbl" style="font-size:13px"><tbody>' + rows.map(function (r) { return '<tr><td style="width:40%"><kbd>' + esc(r[0]) + '</kbd></td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</tbody></table>', actions: [{ label: 'Close', primary: true }] });
   };
 })();

@@ -63,21 +63,21 @@
 
 /* ── builder tree additions ──────────────────────────────────────────── */
 .tree li.depth-0{position:relative}
-.tree li.depth-0 > .tree-row.depth-0:not(.is-root) .tname b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cat,#9aa7b6);margin-right:7px;vertical-align:1px}
+.tree li.depth-0 > .tree-row.depth-0:not(.is-root) .tname b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--cat,#9aa7b6);margin-right:7px;vertical-align:1px;box-shadow:0 0 0 1px var(--rail-swatch-ring,transparent)}
 .tree-row.is-root{margin-bottom:4px;border-bottom:1px solid var(--rail-line);border-radius:0;padding-bottom:6px}
 .tree-row.is-root .tname b{font-size:14px}
 .tree-row.is-index .tname b{font-style:italic;font-weight:400;color:var(--rail-ink-2)}
-.tree-row.is-index{background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.035) 6px 8px)}
-.tree-row .tsel{width:15px;height:15px;margin:0 2px 0 0;accent-color:var(--rail-eyebrow);flex:none;cursor:pointer}
+.tree-row.is-index{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--rail-index-stripe) 6px 8px)}
+.tree-row .tsel{width:15px;height:15px;margin:0 2px 0 0;accent-color:var(--rail-mark);flex:none;cursor:pointer}
 .tree-row .tval{font-family:var(--f-num);font-size:13px;color:var(--rail-ink-2);width:64px;text-align:right;padding-right:7px;font-variant-numeric:tabular-nums;cursor:help}
-.tree-row.is-over .tw-input{border-color:#F3C46B;box-shadow:0 0 0 2px rgba(243,196,107,.2)}
+.tree-row.is-over .tw-input{border-color:var(--rail-warn);box-shadow:0 0 0 2px rgba(243,196,107,.25)}
 .tree-row .tmenu:empty{visibility:hidden}
-.sleeve-tag{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-num);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F3C46B;background:#3a3010;border:1px solid #6b561c;border-radius:var(--radius-pill);padding:0 6px 0 4px;margin-right:2px;vertical-align:middle;white-space:nowrap;line-height:1.5}
+.sleeve-tag{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-num);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--rail-stag-ink);background:var(--rail-stag-bg);border:1px solid var(--rail-stag-line);border-radius:var(--radius-pill);padding:0 6px 0 4px;margin-right:2px;vertical-align:middle;white-space:nowrap;line-height:1.5}
 .sleeve-tag svg{width:11px;height:11px}
-.selbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--radius-sm);background:#3a3010;border:1px solid #8A6D1E;color:#F3C46B;font-size:12.5px;position:sticky;top:-14px;z-index:2;margin-bottom:6px}
+.selbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:var(--radius-sm);background:var(--rail-warn-bg);border:1px solid var(--rail-warn-line);color:var(--rail-warn);font-size:12.5px;position:sticky;top:-14px;z-index:2;margin-bottom:6px}
 .selbar b{font-family:var(--f-num);font-weight:700}
 .selbar .spacer{flex:1}
-.selbar .btn{border-color:#8A6D1E;color:#F3C46B}
+.selbar .btn{border-color:var(--rail-warn-line);color:var(--rail-warn)}
 .selbar .btn-primary{background:#B8862B;border-color:#B8862B;color:#1b1500}
 .selbar .btn-primary:hover:not(:disabled){background:#d19a32;border-color:#d19a32}
 
@@ -117,3 +117,11 @@
   .card-head{cursor:default}
   .card-resize,.card-grip{display:none}
 }
+
+/* a sleeve compared as its own column */
+.tag-sleeve{background:#EEEAF8;border-color:#C9C0EA;color:#3F3290}
+.rail .tag-sleeve{background:var(--rail-sl-bg);border-color:var(--rail-sl-line);color:var(--rail-sl-ink)}
+.rail-readonly.is-sleeve{background:var(--rail-sl-bg);border-color:var(--rail-sl-line);color:var(--rail-sl-ink)}
+.rail-readonly.is-sleeve .btn{border-color:var(--rail-sl-line);color:var(--rail-sl-ink);background:transparent}
+.rail-readonly.is-sleeve .btn-primary{background:var(--rail-sl-action);border-color:var(--rail-sl-action);color:#fff}
+.sleeve-newer{margin-top:8px;padding:6px 8px;border-radius:var(--radius-sm);background:var(--rail-hover-strong)}

@@ -12,7 +12,7 @@
                            sharedBenchmarkId:string, referencePortfolioId:string|null},
                scenarios:Scenario[], activeScenarioId:string|null,
                cards:Card[], prefs:Prefs, activity:Activity[]}
-   Allocation {id, name, kind:'live'|'snapshot', color:'cat-1'…'cat-6',
+   Allocation {id, name, kind:'live'|'snapshot'|'sleeve', color:'cat-1'…'cat-6',
                benchmarkId:string|null, leverage:boolean,
                history:{basis:'actual'|'backtest', inception:'YYYY-MM'},
                edited:boolean          true once a live allocation with actual
@@ -26,6 +26,10 @@
                (target minus products) is modelled by its index basket.
                sleeveRef {sleeveId, version, name} tags products that came
                from a repository sleeve.
+               kind 'sleeve' is a repository sleeve version compared as its
+               own column: read-only, fully invested at the sleeve's weights,
+               with sleeve:{id, version, name, categoryId, mixed}. It is pinned
+               to that version until the user loads a newer one.
    Card       {id, type, x, y, w, h, settings:{}, followRow:boolean, name?}
                position and size on a 12-column grid; type names a catalogue
                entry (js/ui/cardtypes.js)

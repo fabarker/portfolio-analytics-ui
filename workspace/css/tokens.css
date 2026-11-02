@@ -73,6 +73,35 @@
   --rail-focus:#8FB4FF;
   --rail-hover:#1B3156;
   --rail-selected:#22406B;
+  /* states on the navy surfaces; the rail's white panel redefines all of
+     these (see "Split rail" in workspace.css) */
+  --rail-input-hover:#6E8FBE;
+  --rail-hover-strong:rgba(255,255,255,.08);
+  --rail-focus-ring:rgba(143,180,255,.25);
+  --rail-disabled-bg:#16284A;
+  --rail-tag-bg:#223A60;
+  --rail-tag-line:#3A5478;
+  --rail-warn:#F3C46B;
+  --rail-warn-bg:#3a3010;
+  --rail-warn-line:#8A6D1E;
+  --rail-bad:#F6A8A0;
+  --rail-ok:#8FD3A8;
+  --rail-track:#2A3F63;
+  --rail-switch:#3A5075;
+  --rail-hatch:rgba(18,35,63,.55);
+  --rail-mark:#F3C46B;
+  --rail-index-stripe:rgba(255,255,255,.035);
+  --rail-ro-bg:#2A3A16;
+  --rail-ro-line:#4E6A1F;
+  --rail-ro-ink:#D7E8A8;
+  --rail-sl-bg:#24224A;
+  --rail-sl-line:#4A3FA0;
+  --rail-sl-ink:#DCD6FF;
+  --rail-sl-action:#6A5CD0;
+  --rail-stag-bg:#3a3010;
+  --rail-stag-line:#6b561c;
+  --rail-stag-ink:#F3C46B;
+  --rail-scroll:#3A5075;
 
   /* charts */
   --viz-axis:#C3CDD8;

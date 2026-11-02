@@ -1,0 +1,489 @@
+<title>Rail colour studies</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Ten colour treatments for the tabbed builder rail of the Portfolio Analytics workspace, each live, with measured contrast.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a quiet neutral page; each study is a live rail beside a sliver of the
+   white workspace, with its notes and measured contrast alongside. */
+:root{
+  --pg:#f2f3f5; --surface:#ffffff; --ink:#15181e; --ink-2:#4a5160; --ink-3:#6c7381; --line:#dde0e6; --accent:#12233f; --accent-ink:#ffffff;
+  --ok:#1a7f37; --ok-bg:#e6f4ea; --mid:#8a5a00; --mid-bg:#fdf3dc; --bad:#b42318; --bad-bg:#fdecea;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --pg:#0e1014; --surface:#171a20; --ink:#eceef2; --ink-2:#a8aeb9; --ink-3:#858c99; --line:#2a2f38; --accent:#F3C46B; --accent-ink:#1a1405;
+  --ok:#7ad79a; --ok-bg:#15301f; --mid:#f2c46b; --mid-bg:#33280f; --bad:#f4a09a; --bad-bg:#3a1714; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --pg:#0e1014; --surface:#171a20; --ink:#eceef2; --ink-2:#a8aeb9; --ink-3:#858c99; --line:#2a2f38; --accent:#F3C46B; --accent-ink:#1a1405;
+  --ok:#7ad79a; --ok-bg:#15301f; --mid:#f2c46b; --mid-bg:#33280f; --bad:#f4a09a; --bad-bg:#3a1714; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--pg);color:var(--ink);font:15px/1.55 var(--f-body);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px;display:grid;gap:28px}
+h1,h2,h3{text-wrap:balance;margin:0}
+h1{font:600 clamp(28px,4.4vw,42px)/1.1 var(--f-cond);letter-spacing:-.01em}
+h2{font:600 24px/1.2 var(--f-cond)}
+.eyebrow{font:600 11.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.lede{max-width:68ch;color:var(--ink-2);margin:10px 0 0}
+.lede b{color:var(--ink)}
+.note{display:grid;gap:6px;padding:14px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--line);max-width:80ch}
+.note p{margin:0;color:var(--ink-2)} .note b{color:var(--ink)}
+.note a,.summary a{color:var(--ink);font-weight:600;text-decoration-color:var(--ink-3);text-underline-offset:3px}
+.note a:hover,.summary a:hover{text-decoration-color:var(--ink)}
+
+/* contact sheet: paint chips that jump to each study */
+.sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.chipcard{display:grid;grid-template-rows:auto auto;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:var(--surface);color:inherit;text-decoration:none}
+.chipcard:hover{border-color:var(--ink-3)}
+.chipcard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.paint{display:grid;grid-template-columns:3fr 1fr;height:58px}
+.paint .main{display:flex;align-items:flex-end;gap:4px;padding:8px}
+.paint .main i{display:block;width:16px;height:4px;border-radius:2px}
+.paint .side{display:grid;grid-template-rows:1fr 1fr 1fr}
+.chipcard .lab{display:flex;align-items:baseline;gap:8px;padding:7px 10px 8px;font-size:13px;font-weight:500}
+.chipcard .lab span{font:500 11.5px/1 var(--f-mono);color:var(--ink-3)}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--pg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:none;padding:6px 11px;font:600 12px/1 var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.bar .hint{font-size:12.5px;color:var(--ink-3)}
+
+/* a study */
+.study{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:22px;align-items:start;padding:22px;border-radius:14px;background:var(--surface);border:1px solid var(--line);scroll-margin-top:80px}
+.study.ref{border-style:dashed}
+.study-head{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+.study-head .num{font:500 13px/1 var(--f-mono);color:var(--ink-3)}
+.study-head p{margin:0;flex-basis:100%;max-width:72ch;color:var(--ink-2)}
+.stage{display:flex;height:640px;border-radius:10px;overflow:hidden;border:1px solid var(--line);min-width:0}
+.notes{display:grid;gap:14px;min-width:0}
+.notes h3{font:600 12px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.notes ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px;color:var(--ink-2);font-size:14px}
+.tokens{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:6px}
+.tokens span{display:grid;gap:4px;font:400 10.5px/1.2 var(--f-mono);color:var(--ink-3);min-width:0}
+.tokens i{display:block;height:26px;border-radius:5px;border:1px solid var(--line)}
+.ct{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.ct td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.ct td:nth-child(2){text-align:right;font:500 12.5px/1 var(--f-mono);font-variant-numeric:tabular-nums;padding-right:8px;white-space:nowrap}
+.ct td:last-child{text-align:right;width:1%;white-space:nowrap}
+.pill{display:inline-block;padding:2px 7px;border-radius:999px;font:600 10.5px/1.4 var(--f-cond);letter-spacing:.06em;text-transform:uppercase}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.mid{background:var(--mid-bg);color:var(--mid)} .pill.bad{background:var(--bad-bg);color:var(--bad)}
+.score{display:flex;flex-wrap:wrap;gap:6px}
+.score span{font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-2)}
+
+/* ── the rail (all colour from the study's --r-* tokens) ── */
+.rail{flex:none;width:330px;display:flex;flex-direction:column;background:var(--r-bg);color:var(--r-ink);font-size:13px;min-width:0;border-right:1px solid var(--r-edge)}
+.rail button,.rail input{font:inherit;color:inherit}
+.r-head{display:flex;gap:8px;align-items:flex-start;padding:12px 12px 10px 16px;background:var(--r-hbg);color:var(--r-hink)}
+.r-head .main{flex:1;min-width:0;display:grid;gap:4px}
+.r-eye{display:flex;align-items:center;gap:7px;font:700 10.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--r-heye)}
+.r-eye i{width:9px;height:9px;border-radius:50%;background:#2a78d6;box-shadow:0 0 0 2px var(--r-hring)}
+.r-pick{display:flex;align-items:center;gap:6px;border:1px solid transparent;border-radius:6px;background:none;padding:3px 6px;margin-left:-7px;font:500 17px/1.2 var(--f-body)!important;cursor:pointer;text-align:left}
+.r-pick:hover{border-color:var(--r-hline)}
+.r-pick svg{width:13px;height:13px;color:var(--r-hink3)}
+.r-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--r-hink2)}
+.r-meta .tag{border-color:var(--r-hline);color:var(--r-hink2);background:transparent}
+.r-ib{flex:none;width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--r-hline);border-radius:6px;background:none;color:var(--r-hink2);cursor:pointer}
+.r-ib svg{width:14px;height:14px}
+.r-tabs{display:grid;grid-template-columns:repeat(4,1fr);padding:0 8px 0 12px;background:var(--r-hbg);border-bottom:1px solid var(--r-hline)}
+.r-tab{position:relative;display:grid;justify-items:center;gap:4px;padding:8px 2px 9px;border:0;background:none;cursor:pointer;color:var(--r-hink3)!important;font:700 10.5px/1 var(--f-cond)!important;letter-spacing:.12em;text-transform:uppercase}
+.r-tab svg{width:18px;height:18px}
+.r-tab:hover{color:var(--r-hink)!important}
+.r-tab[aria-selected="true"]{color:var(--r-hink)!important}
+.r-tab[aria-selected="true"]::after{content:"";position:absolute;left:20%;right:20%;bottom:-1px;height:2px;border-radius:2px;background:var(--r-acc)}
+.r-tab:focus-visible{outline:2px solid var(--r-focus);outline-offset:-2px}
+.r-badge{position:absolute;top:4px;left:calc(50% + 5px);min-width:17px;height:17px;padding:0 5px;border-radius:999px;background:var(--r-badge);color:var(--r-badge-ink);font:700 10px/17px var(--f-cond);letter-spacing:0}
+.r-body{flex:1;overflow:auto;padding:12px 12px 16px 16px;display:grid;gap:12px;align-content:start;scrollbar-color:var(--r-line) transparent}
+.r-sec{display:grid;gap:7px}
+.r-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.r-lab{font:700 10.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--r-ink3)}
+.r-tools{display:flex;gap:2px}
+.r-tools button{border:0;background:none;padding:4px 6px;border-radius:4px;font:700 10.5px/1 var(--f-cond)!important;letter-spacing:.1em;text-transform:uppercase;color:var(--r-ink2)!important;cursor:pointer}
+.r-tools button:hover{background:var(--r-hover)}
+.tag{display:inline-flex;align-items:center;gap:4px;height:19px;padding:0 7px;border-radius:999px;border:1px solid var(--r-line2);background:var(--r-tag);color:var(--r-ink2);font:700 9.5px/1 var(--f-cond);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.tag.warn{background:var(--r-warn-bg);border-color:var(--r-warn-b);color:var(--r-warn)}
+.tag svg{width:10px;height:10px}
+.tree{display:grid;gap:1px}
+.tr{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;min-height:34px;padding:2px 2px 2px 0;border-radius:5px;position:relative}
+.tr:hover{background:var(--r-hover)}
+.tr.sel{background:var(--r-sel)}
+.tr.sel::before{content:"";position:absolute;left:-9px;top:4px;bottom:4px;width:3px;border-radius:2px;background:var(--r-acc)}
+.tr .nm{display:flex;align-items:center;gap:5px;min-width:0}
+.tw{flex:none;width:20px;height:20px;display:grid;place-items:center;border:0;background:none;color:var(--r-ink3);cursor:pointer;border-radius:3px}
+.tw svg{width:11px;height:11px;transition:transform .15s}
+.tw[aria-expanded="true"] svg{transform:rotate(90deg)}
+.tw.leaf{visibility:hidden}
+.tx{display:grid;min-width:0;gap:1px}
+.tx b{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.tx b .sw{flex:none;width:8px;height:8px;border-radius:2px;box-shadow:0 0 0 1px var(--r-swring)}
+.tx small{font:400 11px/1.3 var(--f-mono);color:var(--r-ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr.d1{padding-left:16px}
+.tr.d1 .tx b{font-weight:500}
+.tr.ix .tx b{font-style:italic;font-weight:400;color:var(--r-ink2)}
+.tr .val{display:flex;align-items:center;gap:3px}
+.wt{width:60px;height:27px;padding:0 6px;border-radius:5px;border:1px solid var(--r-inb);background:var(--r-inbg);color:var(--r-inink)!important;text-align:right;font:500 13px/1 var(--f-mono)!important;font-variant-numeric:tabular-nums}
+.wt:hover{border-color:var(--r-ink3)}
+.wt:focus{outline:none;border-color:var(--r-focus);box-shadow:0 0 0 3px var(--r-focus-ring)}
+.wt.pend{border-style:dashed;border-color:var(--r-warn);color:var(--r-warn)!important;background:var(--r-warn-bg)}
+.wt.bad{border-color:var(--r-badc);box-shadow:0 0 0 3px var(--r-bad-ring)}
+.ro{width:60px;text-align:right;font:400 13px/1 var(--f-mono);color:var(--r-ink2);padding-right:7px;font-style:italic}
+.pct{font:400 11px/1 var(--f-mono);color:var(--r-ink3);width:11px}
+.dots{width:20px;height:22px;display:grid;place-items:center;color:var(--r-ink3);opacity:0}
+.tr:hover .dots,.tr.sel .dots{opacity:1}
+.dots svg{width:13px;height:13px}
+.r-hint{font-size:11.5px;line-height:1.45;color:var(--r-ink3)}
+.r-hint kbd{font:500 10.5px/1 var(--f-mono);padding:1px 4px;border-radius:3px;border:1px solid var(--r-line2);color:var(--r-ink2)}
+.r-err{font-size:12px;color:var(--r-badc)}
+.r-err:empty{display:none}
+.r-pend{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:6px;border:1px dashed var(--r-warn-b);background:var(--r-warn-bg);color:var(--r-warn);font-size:12px;line-height:1.4}
+.r-pend svg{width:14px;height:14px;flex:none;margin-top:1px}
+.r-search{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:6px;border:1px solid var(--r-inb);background:var(--r-inbg);color:var(--r-ink3)}
+.r-search svg{width:15px;height:15px;flex:none}
+.r-search input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--r-inink)!important}
+.r-search input::placeholder{color:var(--r-ink3)}
+.r-search:focus-within{border-color:var(--r-focus);box-shadow:0 0 0 3px var(--r-focus-ring)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{height:26px;padding:0 9px;border-radius:999px;border:1px solid var(--r-line2);background:none;color:var(--r-ink2)!important;font-size:12px!important;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip i{width:7px;height:7px;border-radius:2px;box-shadow:0 0 0 1px var(--r-swring)}
+.chip[aria-pressed="true"]{background:var(--r-sel);border-color:var(--r-ink3);color:var(--r-ink)!important}
+.results{display:grid;border:1px solid var(--r-line);border-radius:6px;background:var(--r-bg2);overflow:hidden}
+.res{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--r-line)}
+.res:last-child{border-bottom:0}
+.res span{display:grid;gap:2px;min-width:0}
+.res b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res small{font:400 11px/1.3 var(--f-mono);color:var(--r-ink3)}
+.card{display:grid;gap:6px;padding:10px 11px;border-radius:7px;border:1px solid var(--r-line);background:var(--r-bg2)}
+.card .top{display:flex;align-items:center;gap:8px}
+.card .top b{flex:1;min-width:0;font-weight:600;font-size:13.5px}
+.card .top .sw{width:8px;height:8px;border-radius:2px;box-shadow:0 0 0 1px var(--r-swring)}
+.card small{font-size:11.5px;color:var(--r-ink3)}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.btn{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:5px;border:1px solid var(--r-btnb);background:transparent;color:var(--r-ink)!important;font:700 10.5px/1 var(--f-cond)!important;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.btn:hover{background:var(--r-hover)}
+.btn.pri{background:var(--r-pri);border-color:var(--r-pri);color:var(--r-pri-ink)!important}
+.btn svg{width:12px;height:12px}
+.btn:focus-visible,.chip:focus-visible,.r-tools button:focus-visible,.tw:focus-visible{outline:2px solid var(--r-focus);outline-offset:1px}
+.chk{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:7px;border:1px solid var(--r-line);background:var(--r-bg2)}
+.chk>svg{width:15px;height:15px;flex:none;margin-top:1px;color:var(--r-warn)}
+.chk.ok>svg{color:var(--r-ok)}
+.chk div{display:grid;gap:3px;min-width:0}
+.chk b{font-weight:600}
+.chk small{font-size:12px;color:var(--r-ink3);line-height:1.4}
+.sum{display:grid;gap:6px;padding:10px 12px;border-radius:7px;border:1px solid var(--r-line);background:var(--r-bg2);font-size:12.5px}
+.sum .r-row b{font:500 12.5px/1 var(--f-mono)}
+.sum .r-row{color:var(--r-ink2)}
+.switch{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer}
+.switch .trk{width:34px;height:19px;border-radius:999px;background:var(--r-line2);position:relative;flex:none}
+.switch .trk::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--r-knob)}
+.r-foot{flex:none;display:grid;gap:7px;padding:10px 14px 12px 16px;border-top:1px solid var(--r-line);background:var(--r-fbg);font-size:12px;color:var(--r-ink3)}
+.r-foot b{font:500 12px/1 var(--f-mono);color:var(--r-ink)}
+.r-foot .warnt{color:var(--r-warn)}
+.cbar{height:6px;border-radius:3px;overflow:hidden;display:flex;background:var(--r-line)}
+.cbar i{display:block;height:100%}
+.cbar i.ix{background-image:repeating-linear-gradient(135deg,var(--r-hatch) 0 2px,transparent 2px 5px)}
+
+/* the sliver of workspace beside the rail (always the light app surface) */
+.ws{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;padding:12px;background:#f6f8fa;color:#14213a;font-size:12.5px;overflow:hidden}
+.ws .wh{display:flex;align-items:center;gap:8px;height:30px;padding:0 4px;font:600 15px/1 var(--f-cond);color:#14213a;white-space:nowrap}
+.ws .wh small{font:500 11px/1 var(--f-mono);color:#5a6a82;margin-left:auto}
+.ws .mem{display:flex;gap:6px;overflow:hidden}
+.ws .mem span{flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;border:1px solid #d5dde7;background:#fff;font-weight:600;white-space:nowrap}
+.ws .mem span.on{border-color:#12233f;box-shadow:0 0 0 1px #12233f}
+.ws .mem i{width:8px;height:8px;border-radius:50%}
+.ws .wc{background:#fff;border:1px solid #dde4ec;border-radius:8px;padding:10px 12px;display:grid;gap:4px}
+.ws .wc h4{margin:0;font:600 13.5px/1.2 var(--f-body);color:#14213a}
+.ws .wc .sub{font-size:11px;color:#5a6a82;margin-bottom:4px}
+.ws .wc .ln{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid #eef2f6;font-variant-numeric:tabular-nums}
+.ws .wc .ln b{font:500 12px/1 var(--f-mono)}
+.ws .status{font:500 11px/1 var(--f-mono);color:#5a6a82}
+.ws .status.busy{color:#1f5fbf}
+.ws .status.done{color:#1a7f37}
+
+.summary{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.summary table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+.summary th,.summary td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+.summary th{font:600 11.5px/1.2 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);background:var(--pg)}
+.summary td.n{font:500 12.5px/1 var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.summary tr:last-child td{border-bottom:0}
+.minis{display:flex;gap:3px}
+.minis i{width:14px;height:14px;border-radius:3px;border:1px solid var(--line)}
+footer{font-size:13px;color:var(--ink-3);max-width:80ch}
+
+@media (max-width:900px){
+  .study{grid-template-columns:minmax(0,1fr);padding:14px}
+  .ws{display:none}
+  .stage{height:600px;border:0;border-radius:10px}
+  .rail{width:100%;border-right:0}
+  .bar{position:static}
+}
+@media (prefers-reduced-motion:reduce){.tw svg{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Portfolio Analytics · builder rail</div>
+    <h1>Rail colour studies</h1>
+    <p class="lede">Ten colour treatments for the tabbed rail we agreed on (Build, Add, Sleeves, Check), plus today’s navy for reference. Every rail below works: switch tabs, expand categories, and type a weight. <b>Weights are typed only: no stepper buttons, and nothing recalculates until you press Enter</b>. Esc discards a typed value; ↑ and ↓ move between fields. The strip of workspace beside each rail shows the recalculation when you apply.</p>
+  </header>
+
+  <div class="note">
+    <p><b>What stays fixed.</b> The seven category colours (Public Equity blue, IG Fixed Income green and so on) are unchanged in every study, because the cards and charts use them to mean the same thing. Only the rail’s own surfaces, text, accent and states change. The contrast figures are measured from each palette (WCAG ratios), so a weak pairing shows up as a flag, not an opinion. One finding holds across all of them: on every dark rail the Private Equity purple is the faint swatch, and on the light rails five of the seven category colours fall below 3:1. That is a property of the category palette, so each swatch gets a hairline ring here.</p>
+    <p><b>Chosen: <a href="#s9">9 · Split</a>.</b> Applied to the workspace mockup on 2 November 2026, with a hairline ring on every category swatch.</p>
+    <p><b>My recommendation was</b> for a real change of character: <a href="#s1">1 · Graphite &amp; Saffron</a>. It is the most neutral ground for the category colours: every text pairing passes AA and six of the seven category colours clear 3:1. If you want a change that still feels like the house: <a href="#s9">9 · Split</a> keeps the navy header and gives the tree a white body that reads as part of the card area, but the lighter category colours go faint on white, so it depends on the swatch rings. <a href="#s7">7 · Stone &amp; Navy</a> is the light option with the same caveat.</p>
+  </div>
+
+  <nav class="sheet" id="sheet" aria-label="Jump to a study"></nav>
+
+  <div class="bar" role="group" aria-label="Show every rail on one tab">
+    <span class="eyebrow">Show every rail on</span>
+    <div class="seg" id="allTabs"></div>
+    <span class="hint">Or switch each rail on its own.</span>
+  </div>
+
+  <div id="studies" style="display:grid;gap:22px"></div>
+
+  <section style="display:grid;gap:12px" aria-labelledby="sumh">
+    <h2 id="sumh">The ten side by side</h2>
+    <div class="summary"><table id="sumtable"></table></div>
+  </section>
+
+  <footer>Sample data adapted from the mockup’s Strategic Core allocation; fictional products. IBM Plex stands in for the house typefaces. Contrast: AA needs 4.5:1 for text and 3:1 for controls and the accent; “Category colours” counts how many of the seven category swatches reach 3:1 against the rail. Every swatch gets a hairline ring so the weak ones stay findable.</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  /* ── palettes ─────────────────────────────────────────────────────── */
+  /* Each theme sets the rail body; the header defaults to the body unless a
+     theme gives its own (the Split study). */
+  var DARK_WARN = { warn: '#F3C46B', warnBg: '#3a3010', warnB: '#8A6D1E' };
+  var LIGHT_WARN = { warn: '#8a5a00', warnBg: '#fdf3dc', warnB: '#e2c27a' };
+  var THEMES = [
+    { id: 's0', num: 'Today', name: 'Navy & Gold', ref: true, idea: 'The current rail: the Proposal Tool navy with its gold eyebrow. Shown for comparison.',
+      bg: '#12233f', bg2: '#172b4c', ink: '#ffffff', ink2: '#B6C2D2', ink3: '#8496AE', line: '#233754', line2: '#3A5478', hover: '#1B3156', sel: '#22406B', acc: '#F3C46B', inbg: '#1D2F4B', inb: '#52739C', pri: '#2A6AD0', priInk: '#ffffff', focus: '#8FB4FF', dark: true,
+      good: ['Matches the Proposal Tool', 'Familiar to current users'], watch: ['Private Equity purple is hard to see on navy (1.8:1)', 'Heavy beside the white cards'] },
+    { id: 's1', num: '1', name: 'Graphite & Saffron', idea: 'A warm near-black, no hue of its own, so the category colours carry all the colour. Saffron marks the active tab, the selected row and the badge.',
+      bg: '#17181b', bg2: '#1f2125', ink: '#f3f1ec', ink2: '#b8b5ae', ink3: '#8d8a83', line: '#2b2d32', line2: '#45474e', hover: '#222429', sel: '#2d2b25', acc: '#f2a93b', inbg: '#202227', inb: '#4c4e55', pri: '#f2a93b', priInk: '#1a1204', focus: '#f6c46f', dark: true, warn: '#ffd27a', warnBg: '#3a2e12', warnB: '#8a6a22',
+      good: ['Most neutral ground for the category colours', 'Feels like an instrument, not a brand panel'], watch: ['Saffron and the pending-edit yellow are near; the pending state also uses a dashed border'] },
+    { id: 's2', num: '2', name: 'Deep Teal & Coral', idea: 'A deep blue-green with a coral accent. Calm for long editing sessions, with a warm accent that reads instantly.',
+      bg: '#0d2b2e', bg2: '#12363a', ink: '#effaf8', ink2: '#a9c9c5', ink3: '#7aa29d', line: '#1d4448', line2: '#336266', hover: '#123a3e', sel: '#174a4e', acc: '#ff8a65', inbg: '#103236', inb: '#41807c', pri: '#2ab3a4', priInk: '#04201d', focus: '#7fe3d6', dark: true,
+      good: ['Distinct from every other Poros screen', 'Coral accent is unmistakable'], watch: ['Private Equity purple is faint, as on every dark rail', 'Teal sits between the blue and green categories, so the swatches need their ring'] },
+    { id: 's3', num: '3', name: 'Forest & Brass', idea: 'A dark green with brass details: the private-bank register, quieter than navy.',
+      bg: '#142219', bg2: '#1a2b20', ink: '#f1efe4', ink2: '#bcc1ac', ink3: '#8e9a80', line: '#263a2c', line2: '#3e5745', hover: '#1b2f22', sel: '#24402e', acc: '#d4b062', inbg: '#18291e', inb: '#557560', pri: '#d4b062', priInk: '#1c1606', focus: '#e6cf8f', dark: true,
+      good: ['Traditional without being navy', 'Brass ties to the existing gold eyebrow'], watch: ['The ground is in the same hue family as the two fixed-income greens', 'Private Equity purple is faint'] },
+    { id: 's4', num: '4', name: 'Aubergine & Peach', idea: 'A deep plum with a soft peach accent. The boldest of the dark options while staying low in saturation.',
+      bg: '#231628', bg2: '#2c1c33', ink: '#f8f0f6', ink2: '#cbb6c9', ink3: '#9e889e', line: '#3a2842', line2: '#56405f', hover: '#2e1e36', sel: '#3d2847', acc: '#ffb38a', inbg: '#2a1b31', inb: '#76597f', pri: '#ffb38a', priInk: '#2a1206', focus: '#ffc9ab', dark: true,
+      good: ['Memorable and unlike any finance default', 'Warm accent works on the plum'], watch: ['Private Equity purple almost disappears into the plum (2.0:1, same hue)'] },
+    { id: 's5', num: '5', name: 'Oxblood & Cream', idea: 'A deep red-brown with cream text and a brass accent, like a leather-bound ledger.',
+      bg: '#2b1214', bg2: '#36191b', ink: '#f6ecdc', ink2: '#d4bfa9', ink3: '#a98d7a', line: '#4a2427', line2: '#6a3a3c', hover: '#3a1b1e', sel: '#4a2226', acc: '#e2b86b', inbg: '#331719', inb: '#83524f', pri: '#e2b86b', priInk: '#2b1606', focus: '#f0d39b', dark: true,
+      good: ['Very distinctive', 'Cream text is easy on the eye'], watch: ['A red ground can read as a warning in a finance tool', 'Hedge Funds pink is in the same hue family as the ground'] },
+    { id: 's6', num: '6', name: 'Indigo & Mint', idea: 'A blue-violet ink with a mint accent. Close to today’s family but cooler and more saturated.',
+      bg: '#1a1d3a', bg2: '#21254a', ink: '#f1f2ff', ink2: '#b6bae2', ink3: '#878cbb', line: '#2c3060', line2: '#454b85', hover: '#23285a', sel: '#2c3270', acc: '#6ee7b7', inbg: '#1f2347', inb: '#5a62a8', pri: '#6ee7b7', priInk: '#062419', focus: '#a5f3d0', dark: true,
+      good: ['Feels like a newer version of navy', 'Mint accent is clearly not a category colour'], watch: ['Mint is near the fixed-income greens in hue, so keep it to tabs and the badge'] },
+    { id: 's7', num: '7', name: 'Stone & Navy', idea: 'A warm light stone with navy as the accent: the house navy kept, used as ink instead of as a wall.', light: true,
+      bg: '#eeebe4', bg2: '#f8f6f1', ink: '#1b2433', ink2: '#4b5466', ink3: '#5f6676', line: '#dcd7cc', line2: '#c9c2b3', hover: '#e6e2d9', sel: '#e0dbcd', acc: '#12233f', badge: '#b45309', badgeInk: '#ffffff', inbg: '#ffffff', inb: '#bfb8a8', pri: '#12233f', priInk: '#ffffff', focus: '#2a6ad0', edge: '#d6d1c5',
+      good: ['Light, but still clearly a separate panel', 'Navy keeps the family resemblance'], watch: ['Five of the seven category colours fall below 3:1 on stone (Other FI mint is weakest)', 'Warmer than the cool white cards'] },
+    { id: 's8', num: '8', name: 'Mist & Cobalt', idea: 'A cool pale blue-grey with a cobalt accent. The lightest touch: the rail becomes part of the page.', light: true,
+      bg: '#edf2f7', bg2: '#ffffff', ink: '#0f1b2d', ink2: '#44546a', ink3: '#5f6e84', line: '#d6e0ea', line2: '#b8c6d6', hover: '#e1e9f2', sel: '#d6e4f6', acc: '#1f6feb', badge: '#1f6feb', badgeInk: '#ffffff', inbg: '#ffffff', inb: '#b3c2d3', pri: '#1f6feb', priInk: '#ffffff', focus: '#1f6feb', edge: '#d6e0ea',
+      good: ['Calmest with the white cards', 'Best for long reading of numbers'], watch: ['Least separation between rail and cards', 'Cobalt is close to Public Equity blue', 'Light category colours are faint on a light ground'] },
+    { id: 's9', num: '9', name: 'Split: Navy head, White body', idea: 'The header and tabs stay navy; the panel underneath is white. The identity stays at the top, and the tree reads like the cards.', light: true,
+      hbg: '#12233f', hink: '#ffffff', hink2: '#B6C2D2', hink3: '#8FA2BC', hline: '#2E4466', heye: '#F3C46B', hring: 'rgba(255,255,255,.18)',
+      bg: '#ffffff', bg2: '#f5f7fa', ink: '#14213a', ink2: '#4a5872', ink3: '#66748b', line: '#e3e8ef', line2: '#c3cedb', hover: '#f1f4f8', sel: '#e6eefb', acc: '#F3C46B', badge: '#F3C46B', badgeInk: '#12233f', inbg: '#ffffff', inb: '#c3cedb', pri: '#2A6AD0', priInk: '#ffffff', focus: '#2a6ad0', fbg: '#f5f7fa', edge: '#dde4ec', selBar: '#2A6AD0',
+      good: ['Smallest step from today', 'Dense numbers on white, like the cards'], watch: ['Two surfaces in one panel need a clean seam', 'Light category colours are faint on the white body'] },
+    { id: 's10', num: '10', name: 'High Contrast', idea: 'Black, white and signal yellow, with a cyan focus ring. Built for accessibility and bright rooms; also a sensible user preference.',
+      bg: '#000000', bg2: '#0f0f0f', ink: '#ffffff', ink2: '#e6e6e6', ink3: '#c2c2c2', line: '#3d3d3d', line2: '#8a8a8a', hover: '#1a1a1a', sel: '#262626', acc: '#ffd400', inbg: '#000000', inb: '#bdbdbd', pri: '#ffd400', priInk: '#000000', focus: '#00e5ff', dark: true, warn: '#ffd400', warnBg: '#262000', warnB: '#ffd400',
+      good: ['Every pairing passes AA', 'Works as an accessibility setting beside any default'], watch: ['Severe as a default', 'Private Equity purple is still the weakest swatch (2.5:1)'] }
+  ];
+  THEMES.forEach(function (t) {
+    var w = t.light ? LIGHT_WARN : DARK_WARN;
+    t.warn = t.warn || w.warn; t.warnBg = t.warnBg || w.warnBg; t.warnB = t.warnB || w.warnB;
+    t.hbg = t.hbg || t.bg; t.hink = t.hink || t.ink; t.hink2 = t.hink2 || t.ink2; t.hink3 = t.hink3 || t.ink3; t.hline = t.hline || t.line; t.heye = t.heye || t.acc; t.hring = t.hring || (t.light ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.14)');
+    t.badge = t.badge || t.acc; t.badgeInk = t.badgeInk || t.priInk; t.fbg = t.fbg || t.bg; t.edge = t.edge || t.bg; t.selBar = t.selBar || t.acc;
+  });
+  var vars = function (t) {
+    var m = { bg: t.bg, bg2: t.bg2, ink: t.ink, ink2: t.ink2, ink3: t.ink3, line: t.line, line2: t.line2, hover: t.hover, sel: t.sel, acc: t.acc, inbg: t.inbg, inb: t.inb, inink: t.ink, pri: t.pri, 'pri-ink': t.priInk, focus: t.focus, 'focus-ring': hexA(t.focus, .28), btnb: t.line2,
+      warn: t.warn, 'warn-bg': t.warnBg, 'warn-b': t.warnB, badc: t.light ? '#b42318' : '#f6a8a0', 'bad-ring': t.light ? 'rgba(180,35,24,.18)' : 'rgba(246,168,160,.25)', ok: t.light ? '#1a7f37' : '#8fd3a8',
+      hbg: t.hbg, hink: t.hink, hink2: t.hink2, hink3: t.hink3, hline: t.hline, heye: t.heye, hring: t.hring, badge: t.badge, 'badge-ink': t.badgeInk, fbg: t.fbg, edge: t.edge, tag: t.bg2, knob: t.light ? '#ffffff' : t.ink, hatch: t.light ? 'rgba(255,255,255,.6)' : 'rgba(0,0,0,.45)', swring: t.light ? 'rgba(0,0,0,.28)' : 'rgba(255,255,255,.35)' };
+    return Object.keys(m).map(function (k) { return '--r-' + k + ':' + m[k]; }).join(';') + ';--r-sel-bar:' + t.selBar;
+  };
+
+  /* ── contrast (WCAG 2) ────────────────────────────────────────────── */
+  function rgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join(''); return [0, 2, 4].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function hexA(h, a) { var c = rgb(h); return 'rgba(' + c.join(',') + ',' + a + ')'; }
+  function lum(h) { return rgb(h).map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce(function (s, v, i) { return s + v * [0.2126, 0.7152, 0.0722][i]; }, 0); }
+  function ratio(a, b) { var x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  function grade(r, need) { if (need === 'count') return r >= 6 ? ['ok', 'Good'] : r >= 5 ? ['mid', 'Fair'] : ['bad', 'Weak']; return r >= need ? ['ok', need === 3 ? 'AA UI' : 'AA'] : r >= 3 ? ['mid', 'Large only'] : ['bad', 'Fails']; }
+
+  /* ── sample allocation (Strategic Core) ───────────────────────────── */
+  var CAT0 = [
+    { id: 'eq', name: 'Public Equity', c: '#2a78d6', t: 45, ps: [['Meridian US Large Cap ETF', 'ETF · MRLC', 20], ['Northbridge International Equity', 'Fund · NBIEX', 13], ['Castellan Emerging Markets', 'Fund · CSEMX', 7], ['Halcyon US Small Cap', 'Fund · HLSCX', 5]] },
+    { id: 'ig', name: 'IG Fixed Income', c: '#1baf7a', t: 22, ps: [['Sovereign Treasury Fund', 'Fund · SVTRX', 14], ['Ashworth Investment Grade', 'Fund · ASIGX', 8]] },
+    { id: 'ofi', name: 'Other Fixed Income', c: '#8bd0b0', t: 4, ps: [['Ashworth High Yield', 'Fund · ASHYX', 4]] },
+    { id: 'hf', name: 'Hedge Funds', c: '#e87ba4', t: 8, sl: 'Core Alternatives v1', ps: [['Kestrel Multi-Strategy', 'Fund · KMS', 5], ['Alder Global Macro', 'Fund · AGM', 3]] },
+    { id: 'pe', name: 'Private Equity', c: '#4a3aa7', t: 10, ps: [['Oakhurst Buyout Partners IV', 'Fund · OBP-IV', 6, 1], ['Tamar Private Equity VII', 'Fund · TPE-VII', 4, 1]] },
+    { id: 'ra', name: 'Real Assets', c: '#eda100', t: 7, ps: [['Harborview Core Real Estate', 'Fund · HCRE', 4]] },
+    { id: 'cash', name: 'Cash', c: '#9aa7b6', t: 4, ps: [['Treasury Bills 0–3M', 'Index · TBILL', 4]] }
+  ];
+  var SLEEVES = [['Core Public Equity', 'eq', 'v2', '4 products · MRLC 44% · NBIEX 29% · CSEMX 16% · +1'], ['Core Bonds', 'ig', 'v1', '2 products · SVTRX 60% · ASIGX 40%'], ['Core Alternatives', 'hf', 'v1', '2 products · KMS 63% · AGM 38%', 'Applied here v1'], ['Real Assets Blend', 'ra', 'v1', '3 products · HCRE 50% · GREIT 30% · GINFX 20%']];
+  var RESULTS = [['Harborview Core Real Estate', 'Fund · HCRE · Real Estate · quarterly', 'Held 4.0%'], ['Global REIT ETF', 'ETF · GREIT · Real Estate · daily', 'ETF'], ['Global Infrastructure ETF', 'ETF · GINFX · Infrastructure · daily', 'ETF'], ['Greystone Infrastructure Partners', 'Fund · GIP · Infrastructure · quarterly', 'Proxy', 1], ['Real Assets Blend', 'Sleeve · Real Assets · 3 products', 'Sleeve']];
+  var CHIPS = [['', 'All'], ['eq', 'Public Equity'], ['ig', 'IG Fixed Income'], ['ofi', 'Other FI'], ['hf', 'Hedge Funds'], ['pe', 'Private Equity'], ['ra', 'Real Assets'], ['cash', 'Cash']];
+  var COLOR = {}; CAT0.forEach(function (c) { COLOR[c.id] = c.c; });
+
+  var sv = function (b, w) { return '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="' + (w || 1.7) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + b + '</svg>'; };
+  var IC = { build: sv('<path d="M4 5h6M4 10h12M4 15h9"/>', 1.9), search: sv('<circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/>'), layers: sv('<path d="M10 3l7 3.5-7 3.5-7-3.5z"/><path d="M3 10l7 3.5 7-3.5"/><path d="M3 13.5l7 3.5 7-3.5"/>'), shield: sv('<path d="M10 2.5l6 2.5v4.6c0 3.8-2.6 6.6-6 7.9-3.4-1.3-6-4.1-6-7.9V5l6-2.5z"/><path d="M7 10l2 2 4-4"/>'),
+    chev: sv('<path d="M7 4l6 6-6 6"/>', 2), down: sv('<path d="M5 8l5 5 5-5"/>', 2), more: sv('<circle cx="10" cy="4" r="1.3" fill="currentColor"/><circle cx="10" cy="10" r="1.3" fill="currentColor"/><circle cx="10" cy="16" r="1.3" fill="currentColor"/>'), collapse: sv('<path d="M11 4l-6 6 6 6M16 4l-6 6 6 6"/>', 1.8),
+    warn: sv('<path d="M10 3l8 14H2z"/><path d="M10 8v4M10 14.5v.5"/>'), ok: sv('<circle cx="10" cy="10" r="7"/><path d="M6.8 10.2l2.2 2.2 4.2-4.6"/>'), info: sv('<circle cx="10" cy="10" r="7"/><path d="M10 9v5M10 6.5v.5"/>'), check: sv('<path d="M4 10l4 4 8-8"/>'), plus: sv('<path d="M10 4v12M4 10h12"/>'), folder: sv('<path d="M3 6a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'), ext: sv('<path d="M11 4h5v5"/><path d="M16 4l-7 7"/><path d="M14 11v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"/>') };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var f1 = function (v) { return (Math.round(v * 10) / 10).toFixed(1); };
+  var EPS = 1e-9;
+
+  /* ── one live rail ───────────────────────────────────────────────── */
+  function Rail(theme, el, ws) {
+    this.t = theme; this.el = el; this.ws = ws; this.tab = 'build'; this.cat = 'ra'; this.pend = {}; this.err = ''; this.sel = 'eq';
+    this.cats = JSON.parse(JSON.stringify(CAT0)); this.open = { eq: true, ra: true };
+    el.setAttribute('style', vars(theme));
+    var self = this;
+    el.addEventListener('click', function (e) { self.click(e); });
+    el.addEventListener('input', function (e) { var i = e.target; if (!i.dataset.k) return; if (i.value.trim() === i.dataset.saved) delete self.pend[i.dataset.k]; else self.pend[i.dataset.k] = i.value; i.classList.toggle('pend', self.pend[i.dataset.k] !== undefined); i.classList.remove('bad'); self.err = ''; self.paintPend(); });
+    el.addEventListener('keydown', function (e) { self.key(e); });
+    el.addEventListener('focusin', function (e) { if (e.target.dataset && e.target.dataset.k) setTimeout(function () { if (document.activeElement === e.target) e.target.select(); }, 0); });
+    this.render();
+  }
+  Rail.prototype.impl = function (c) { return c.ps.reduce(function (s, p) { return s + p[2]; }, 0); };
+  Rail.prototype.total = function () { return this.cats.reduce(function (s, c) { return s + c.t; }, 0); };
+  Rail.prototype.issues = function () {
+    var self = this, out = [], tot = this.total();
+    if (100 - tot > EPS) out.push({ t: f1(100 - tot) + '% unallocated', s: 'It earns nothing and carries no risk. Raise a category target or add a product.', a: ['Show in Build'] });
+    this.cats.forEach(function (c) { var r = c.t - self.impl(c); if (r > EPS) out.push({ t: c.name + ': ' + f1(r) + '% at index level', s: 'Part of the ' + f1(c.t) + '% target is not in products yet; the category index stands in.', a: ['Find products', 'Apply a sleeve'], cat: c.id }); if (r < -EPS) out.push({ t: c.name + ': products over target by ' + f1(-r) + '%', s: 'Raise the target or lower a product.', a: ['Show in Build', 'Set target to ' + f1(self.impl(c)) + '%'], fit: c.id }); });
+    var px = []; this.cats.forEach(function (c) { c.ps.forEach(function (p) { if (p[3]) px.push(p[1].split(' · ')[1]); }); });
+    if (px.length) out.push({ t: px.length + ' products with limited history', s: px.join(', ') + ' (proxy). Historical cards disclose it.', a: ['Show in Build'] });
+    return out;
+  };
+  Rail.prototype.wt = function (key, v, label) {
+    var saved = f1(v), p = this.pend[key];
+    return '<input class="wt' + (p !== undefined ? ' pend' : '') + '" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(p !== undefined ? p : saved) + '" data-saved="' + saved + '" data-k="' + key + '" aria-label="' + esc(label) + ' weight, percent of portfolio. Type and press Enter to apply.">';
+  };
+  Rail.prototype.build = function () {
+    var self = this, rows = '<div class="tr d0"><div class="nm"><span class="tw leaf"></span><span class="tx"><b>Strategic Core</b><small>14 products · 7 categories</small></span></div><div class="val"><span class="ro" style="font-style:normal">' + f1(this.total()) + '</span><span class="pct">%</span><span class="dots">' + IC.more + '</span></div></div>';
+    this.cats.forEach(function (c) {
+      var im = self.impl(c), r = c.t - im, op = !!self.open[c.id];
+      var sub = c.ps.length + ' product' + (c.ps.length === 1 ? '' : 's') + ' · ' + f1(Math.min(im, c.t)) + '% implemented' + (r > EPS ? ' · ' + f1(r) + '% index' : r < -EPS ? ' · over by ' + f1(-r) + '%' : '');
+      rows += '<div class="tr d0' + (self.sel === c.id ? ' sel' : '') + '" data-row="' + c.id + '"><div class="nm"><button type="button" class="tw" data-tog="' + c.id + '" aria-expanded="' + op + '" aria-label="' + (op ? 'Collapse ' : 'Expand ') + c.name + '">' + IC.chev + '</button><span class="tx"><b><span class="sw" style="background:' + c.c + '"></span>' + esc(c.name) + '</b><small>' + (c.sl ? '<span class="tag" style="height:15px;font-size:8.5px;margin-right:4px">' + esc(c.sl) + '</span>' : '') + sub + '</small></span></div><div class="val">' + self.wt(c.id, c.t, c.name) + '<span class="pct">%</span><span class="dots">' + IC.more + '</span></div></div>';
+      if (op) {
+        c.ps.forEach(function (p, i) { rows += '<div class="tr d1"><div class="nm"><span class="tw leaf"></span><span class="tx"><b>' + esc(p[0]) + (p[3] ? ' <span class="tag warn" style="height:15px;font-size:8.5px">Proxy</span>' : '') + '</b><small>' + esc(p[1]) + ' · ' + (c.t ? f1(p[2] / c.t * 100) : '0.0') + '% of ' + esc(c.name) + '</small></span></div><div class="val">' + self.wt(c.id + '/' + i, p[2], p[0]) + '<span class="pct">%</span><span class="dots">' + IC.more + '</span></div></div>'; });
+        if (r > EPS) rows += '<div class="tr d1 ix"><div class="nm"><span class="tw leaf"></span><span class="tx"><b>' + esc(c.name) + ' Index</b><small>unimplemented remainder · modelled by the index</small></span></div><div class="val"><span class="ro">' + f1(r) + '</span><span class="pct">%</span><span class="dots"></span></div></div>';
+      }
+    });
+    return '<div class="r-sec"><div class="r-row"><span class="r-lab">Portfolio</span><span class="r-tools"><button type="button">✓ Select</button><button type="button" data-all="1">Expand</button><button type="button" data-all="0">Collapse</button></span></div><div class="tree">' + rows + '</div><div class="r-pendbox">' + this.pendHtml() + '</div><div class="r-err" role="alert">' + esc(this.err) + '</div><div class="r-hint">Type a weight and press <kbd>Enter</kbd> to apply and recalculate. <kbd>Esc</kbd> discards, <kbd>↑</kbd> <kbd>↓</kbd> move between weights.</div></div>';
+  };
+  Rail.prototype.pendHtml = function () { var n = Object.keys(this.pend).length; return n ? '<div class="r-pend">' + IC.info + '<span><b>' + n + ' typed value' + (n === 1 ? '' : 's') + ' not applied.</b> Press Enter in the field to apply, Esc to discard.</span></div>' : ''; };
+  Rail.prototype.paintPend = function () { var b = this.el.querySelector('.r-pendbox'); if (b) b.innerHTML = this.pendHtml(); var e = this.el.querySelector('.r-err'); if (e) e.textContent = this.err; };
+  Rail.prototype.add = function () {
+    var self = this;
+    return '<div class="r-sec"><span class="r-lab">Add an investment</span><label class="r-search">' + IC.search + '<input type="search" placeholder="Search by name, identifier or type…" aria-label="Search investments"></label><div class="chips">' + CHIPS.map(function (c) { return '<button type="button" class="chip" data-chip="' + c[0] + '" aria-pressed="' + (self.cat === c[0]) + '">' + (c[0] ? '<i style="background:' + COLOR[c[0]] + '"></i>' : '') + c[1] + '</button>'; }).join('') + '</div>' +
+      (this.cat === 'ra' ? '<div class="r-hint">Real Assets: target 7.0% · 4.0% in products · <span style="color:var(--r-warn)">3.0% at index level</span>, which a new product fills first.</div><div class="results">' + RESULTS.map(function (r) { return '<div class="res"><span><b>' + esc(r[0]) + '</b><small>' + esc(r[1]) + '</small></span><span class="tag' + (r[3] ? ' warn' : '') + '">' + r[2] + '</span></div>'; }).join('') + '</div>' : '<div class="r-hint">In this study only Real Assets has sample results. Pick it to browse.</div>') + '</div>';
+  };
+  Rail.prototype.sleeves = function () {
+    return '<div class="r-sec"><div class="r-hint" style="color:var(--r-ink2)">Sleeves are saved subsets of a portfolio. <b>Apply</b> copies one in at its category’s target; <b>Compare</b> adds it as its own column.</div><div class="acts"><button type="button" class="btn">' + IC.check + 'Create from a selection</button><button type="button" class="btn" style="border-color:transparent">' + IC.folder + 'Open repository</button></div></div>' +
+      SLEEVES.map(function (s) { return '<div class="card"><div class="top"><span class="sw" style="background:' + COLOR[s[1]] + '"></span><b>' + esc(s[0]) + '</b><span class="tag">' + s[2] + '</span></div><small>' + esc(s[3]) + '</small>' + (s[4] ? '<small><span class="tag warn">' + IC.layers + esc(s[4]) + '</span></small>' : '') + '<div class="acts"><button type="button" class="btn">' + IC.folder + 'Apply</button><button type="button" class="btn">' + IC.plus + 'Compare</button><button type="button" class="btn" style="border-color:transparent" aria-label="Open in repository">' + IC.ext + '</button></div></div>'; }).join('');
+  };
+  Rail.prototype.check = function (iss) {
+    var tot = this.total(), ip = 0, self = this; this.cats.forEach(function (c) { ip += Math.min(self.impl(c), c.t); });
+    return '<div class="r-sec"><span class="r-lab">To check · ' + iss.length + '</span>' + (iss.length ? iss.map(function (x, i) { return '<div class="chk">' + IC.warn + '<div><b>' + esc(x.t) + '</b><small>' + esc(x.s) + '</small><div class="acts" style="margin-top:4px">' + x.a.map(function (a, j) { return '<button type="button" class="btn" data-iss="' + i + ':' + j + '">' + esc(a) + '</button>'; }).join('') + '</div></div></div>'; }).join('') : '<div class="chk ok">' + IC.ok + '<div><b>Nothing needs attention</b><small>Fully allocated and implemented, with complete histories.</small></div></div>') + '</div>' +
+      '<div class="r-sec"><span class="r-lab">Weights</span><div class="sum"><div class="r-row"><span>Allocated</span><b>' + f1(tot) + '%</b></div><div class="r-row"><span>Unallocated</span><b>' + f1(Math.max(0, 100 - tot)) + '%</b></div><div class="r-row"><span>In products ' + f1(ip) + '%</span><span>At index level ' + f1(tot - ip) + '%</span></div></div></div>' +
+      '<label class="switch"><span class="trk"></span>Enable shorts &amp; leverage</label>';
+  };
+  Rail.prototype.render = function () {
+    var self = this, iss = this.issues(), tabs = [['build', 'Build'], ['add', 'Add'], ['sleeves', 'Sleeves'], ['check', 'Check']], focusK = document.activeElement && this.el.contains(document.activeElement) ? document.activeElement.dataset.k : null;
+    var body = this.tab === 'add' ? this.add() : this.tab === 'sleeves' ? this.sleeves() : this.tab === 'check' ? this.check(iss) : this.build();
+    var tot = this.total(), bar = this.cats.map(function (c) { var p = Math.min(self.impl(c), c.t), r = Math.max(0, c.t - self.impl(c)); return (p > 0 ? '<i style="width:' + p + '%;background:' + c.c + '"></i>' : '') + (r > EPS ? '<i class="ix" style="width:' + r + '%;background-color:' + c.c + '"></i>' : ''); }).join('');
+    this.el.innerHTML = '<div class="r-head"><div class="main"><span class="r-eye"><i></i>Editing</span><button type="button" class="r-pick" aria-label="Allocation being edited: Strategic Core">Strategic Core' + IC.down + '</button><div class="r-meta"><span class="tag">Live</span>Actual history · vs Global 60/40</div></div><button type="button" class="r-ib" aria-label="Collapse the builder">' + IC.collapse + '</button></div>' +
+      '<div class="r-tabs" role="tablist" aria-label="Builder">' + tabs.map(function (t) { var on = t[0] === self.tab, n = t[0] === 'check' ? iss.length : 0; return '<button type="button" role="tab" class="r-tab" data-tab="' + t[0] + '" aria-selected="' + on + '" tabindex="' + (on ? 0 : -1) + '">' + IC[{ build: 'build', add: 'search', sleeves: 'layers', check: 'shield' }[t[0]]] + '<span>' + t[1] + '</span>' + (n ? '<span class="r-badge">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div class="r-body" role="tabpanel">' + body + '</div>' +
+      '<div class="r-foot"><div class="cbar" aria-hidden="true">' + bar + '</div><div class="r-row"><span>Allocated <b>' + f1(tot) + '%</b></span>' + (Math.abs(100 - tot) < EPS ? '<span>Fully allocated</span>' : tot < 100 ? '<span class="warnt">' + f1(100 - tot) + '% unallocated</span>' : '<span class="warnt">Over 100%</span>') + '</div></div>';
+    if (focusK) { var f = this.el.querySelector('[data-k="' + focusK + '"]'); if (f) f.focus({ preventScroll: true }); }
+  };
+  Rail.prototype.click = function (e) {
+    var b = e.target.closest('button'); if (!b || !this.el.contains(b)) return;
+    if (b.dataset.tab) { this.tab = b.dataset.tab; this.render(); return; }
+    if (b.dataset.tog) { this.open[b.dataset.tog] = !this.open[b.dataset.tog]; this.sel = b.dataset.tog; this.render(); return; }
+    if (b.dataset.all) { var on = b.dataset.all === '1', o = this.open; this.cats.forEach(function (c) { o[c.id] = on; }); this.render(); return; }
+    if (b.dataset.chip !== undefined) { this.cat = b.dataset.chip; this.render(); return; }
+    if (b.dataset.iss) {
+      var p = b.dataset.iss.split(':'), it = this.issues()[+p[0]], a = it.a[+p[1]];
+      if (a === 'Find products') { this.tab = 'add'; this.cat = it.cat; }
+      else if (a === 'Apply a sleeve') { var ra = this.cats.filter(function (c) { return c.id === 'ra'; })[0]; if (it.cat === 'ra') { ra.ps = [['Harborview Core Real Estate', 'Fund · HCRE', 3.5], ['Global REIT ETF', 'ETF · GREIT', 2.1], ['Global Infrastructure ETF', 'ETF · GINFX', 1.4]]; this.recalc('Real Assets Blend v1 applied to Real Assets'); } this.tab = 'build'; this.open.ra = true; this.sel = 'ra'; }
+      else if (a.indexOf('Set target') === 0) { var fc = this.cats.filter(function (c) { return c.id === it.fit; })[0]; fc.t = Math.round(this.impl(fc) * 100) / 100; this.recalc(fc.name + ' target set to products'); }
+      else { this.tab = 'build'; }
+      this.render(); return;
+    }
+  };
+  Rail.prototype.key = function (e) {
+    var i = e.target;
+    if (i.getAttribute && i.getAttribute('role') === 'tab' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { var ids = ['build', 'add', 'sleeves', 'check'], n = (ids.indexOf(this.tab) + (e.key === 'ArrowRight' ? 1 : 3)) % 4; e.preventDefault(); this.tab = ids[n]; this.render(); this.el.querySelector('[data-tab="' + ids[n] + '"]').focus(); return; }
+    if (!i.dataset || !i.dataset.k) return;
+    if (e.key === 'Enter') { e.preventDefault(); this.apply(i); }
+    else if (e.key === 'Escape') { e.preventDefault(); delete this.pend[i.dataset.k]; i.value = i.dataset.saved; i.classList.remove('pend', 'bad'); this.err = ''; this.paintPend(); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); var all = Array.prototype.slice.call(this.el.querySelectorAll('input[data-k]')), j = all.indexOf(i) + (e.key === 'ArrowDown' ? 1 : -1); if (all[j]) all[j].focus(); }
+  };
+  Rail.prototype.apply = function (i) {
+    var k = i.dataset.k, raw = i.value.trim().replace(',', '.').replace(/%$/, ''), v = Number(raw);
+    if (raw === '' || !isFinite(v) || v < 0) { i.classList.add('bad'); this.err = v < 0 ? 'Negative weights need shorts & leverage enabled.' : 'Enter a number for the weight, e.g. 12.5.'; this.paintPend(); return; }
+    v = Math.round(v * 100) / 100;
+    var parts = k.split('/'), c = this.cats.filter(function (x) { return x.id === parts[0]; })[0], before, label;
+    if (parts.length === 1) {
+      var tot = this.total() - c.t + v;
+      if (tot > 100 + 1e-6) { i.classList.add('bad'); this.err = 'That takes the allocation to ' + f1(tot) + '%. Lower another weight or enable shorts & leverage.'; this.paintPend(); return; }
+      before = c.t; c.t = v; label = c.name;
+    } else { var p = c.ps[+parts[1]]; before = p[2]; p[2] = v; label = p[0]; }
+    delete this.pend[k]; this.err = '';
+    this.sel = parts[0];
+    this.recalc(label + ' ' + f1(before) + ' → ' + f1(v) + '%');
+    this.render();
+  };
+  Rail.prototype.recalc = function (what) {
+    var s = this.ws.querySelector('.status'), self = this; if (!s) return;
+    s.className = 'status busy'; s.textContent = 'Recalculating · ' + what;
+    clearTimeout(this.timer); this.timer = setTimeout(function () { s.className = 'status done'; s.textContent = 'Updated · ' + what; var eq = self.cats[0]; self.ws.querySelector('[data-v="eq"]').textContent = (eq.t * 0.082).toFixed(1); }, 750);
+  };
+
+  /* ── page ────────────────────────────────────────────────────────── */
+  var rails = [];
+  var sheet = document.getElementById('sheet'), studies = document.getElementById('studies');
+  sheet.innerHTML = THEMES.map(function (t) {
+    return '<a class="chipcard" href="#' + t.id + '"><span class="paint" style="background:' + t.bg + '"><span class="main" style="background:' + t.hbg + '">' + ['#2a78d6', '#1baf7a', '#e87ba4', '#eda100'].map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '<i style="background:' + t.acc + ';width:22px;margin-left:auto"></i></span><span class="side"><span style="background:' + t.bg2 + '"></span><span style="background:' + t.ink + '"></span><span style="background:' + t.acc + '"></span></span></span><span class="lab"><span>' + (t.ref ? '00' : ('0' + t.num).slice(-2)) + '</span>' + esc(t.name) + '</span></a>';
+  }).join('');
+  var rowsFor = function (t) {
+    var all = CAT0.map(function (c) { return [c.name, ratio(c.c, t.bg)]; }).sort(function (a, b) { return a[1] - b[1]; }), cats = all[0], nOk = all.filter(function (x) { return x[1] >= 3; }).length;
+    return [['Text on rail', ratio(t.ink, t.bg), 4.5], ['Secondary text', ratio(t.ink2, t.bg), 4.5], ['Small labels', ratio(t.ink3, t.bg), 4.5], ['Accent on header', ratio(t.acc, t.hbg), 3], ['Weight field', ratio(t.ink, t.inbg), 4.5], ['Badge', ratio(t.badgeInk, t.badge), 4.5], ['Weakest category · ' + cats[0], cats[1], 3], ['Category colours at 3:1', nOk, 'count']];
+  };
+  studies.innerHTML = THEMES.map(function (t) {
+    var rows = rowsFor(t);
+    var toks = [['Ground', t.bg], ['Surface', t.bg2], ['Text', t.ink], ['Muted', t.ink3], ['Accent', t.acc], ['Action', t.pri]];
+    return '<section class="study' + (t.ref ? ' ref' : '') + '" id="' + t.id + '" aria-labelledby="' + t.id + 'h"><div class="study-head"><span class="num">' + (t.ref ? 'Reference' : 'Study ' + t.num) + '</span><h2 id="' + t.id + 'h">' + esc(t.name) + '</h2><p>' + esc(t.idea) + '</p></div>' +
+      '<div class="stage"><aside class="rail" data-rail="' + t.id + '" aria-label="' + esc(t.name) + ' rail"></aside><div class="ws" aria-hidden="true"><div class="wh">Global Multi-Asset Review<small>Forward-looking</small></div><div class="mem"><span class="on"><i style="background:#2a78d6"></i>Strategic Core</span><span><i style="background:#eb6834"></i>Income Tilt</span><span><i style="background:#1baf7a"></i>Growth Tilt</span></div><div class="wc"><h4>Drivers &amp; differences</h4><div class="sub">Return contribution, pp of portfolio return, annual expected</div>' +
+      [['Public Equity', '3.7', 'eq'], ['IG Fixed Income', '0.9'], ['Other Fixed Income', '0.3'], ['Hedge Funds', '0.4'], ['Private Equity', '1.0'], ['Real Assets', '0.5'], ['Cash', '0.1']].map(function (r) { return '<div class="ln"><span>' + r[0] + '</span><b' + (r[2] ? ' data-v="' + r[2] + '"' : '') + '>' + r[1] + '</b></div>'; }).join('') + '<div class="status">Up to date</div></div><div class="wc"><h4>Cumulative return</h4><div class="sub">Growth of 100 · Jan 2015 – Oct 2026</div><svg viewBox="0 0 200 60" style="width:100%;height:70px" aria-hidden="true"><path d="M0 52 L20 48 L40 50 L60 41 L80 38 L100 30 L120 33 L140 24 L160 20 L180 14 L200 9" fill="none" stroke="#2a78d6" stroke-width="2"/><path d="M0 52 L20 50 L40 49 L60 45 L80 44 L100 37 L120 38 L140 32 L160 30 L180 25 L200 22" fill="none" stroke="#eb6834" stroke-width="2"/></svg></div></div></div>' +
+      '<div class="notes"><div><h3>Palette</h3><div class="tokens">' + toks.map(function (k) { return '<span><i style="background:' + k[1] + '"></i>' + k[0] + '<br>' + k[1].toUpperCase() + '</span>'; }).join('') + '</div></div>' +
+      '<div><h3>Measured contrast</h3><table class="ct"><tbody>' + rows.map(function (r) { var g = grade(r[1], r[2]); return '<tr><td>' + esc(r[0]) + '</td><td>' + (r[2] === 'count' ? r[1] + ' of 7' : r[1].toFixed(1) + ':1') + '</td><td><span class="pill ' + g[0] + '">' + g[1] + '</span></td></tr>'; }).join('') + '</tbody></table></div>' +
+      '<div><h3>Good for</h3><ul>' + t.good.map(function (g) { return '<li>' + esc(g) + '</li>'; }).join('') + '</ul></div><div><h3>Watch</h3><ul>' + t.watch.map(function (g) { return '<li>' + esc(g) + '</li>'; }).join('') + '</ul></div></div></section>';
+  }).join('');
+  THEMES.forEach(function (t) { var el = studies.querySelector('[data-rail="' + t.id + '"]'); rails.push(new Rail(t, el, el.nextElementSibling)); });
+
+  var seg = document.getElementById('allTabs');
+  var setAll = function (tab) { rails.forEach(function (r) { r.tab = tab; r.render(); }); Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.t === tab)); }); };
+  seg.innerHTML = [['build', 'Build'], ['add', 'Add'], ['sleeves', 'Sleeves'], ['check', 'Check']].map(function (t, i) { return '<button type="button" data-t="' + t[0] + '" aria-pressed="' + (i === 0) + '">' + t[1] + '</button>'; }).join('');
+  seg.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setAll(b.dataset.t); });
+
+  /* summary */
+  document.getElementById('sumtable').innerHTML = '<thead><tr><th>Study</th><th>Colours</th><th>Text</th><th>Labels</th><th>Accent</th><th>Category colours</th><th>Character</th></tr></thead><tbody>' + THEMES.map(function (t) {
+    var r = rowsFor(t), cell = function (x) { var g = grade(x[1], x[2]); return '<td class="n">' + x[1].toFixed(1) + ' <span class="pill ' + g[0] + '">' + g[1] + '</span></td>'; };
+    return '<tr><td><a href="#' + t.id + '">' + (t.ref ? 'Today · ' : t.num + ' · ') + esc(t.name) + '</a></td><td><span class="minis">' + [t.hbg, t.bg, t.bg2, t.ink, t.acc].map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span></td>' + cell(r[0]) + cell(r[2]) + cell(r[3]) + '<td class="n">' + r[7][1] + ' of 7 ≥ 3:1 <span class="pill ' + grade(r[7][1], 'count')[0] + '">' + grade(r[7][1], 'count')[1] + '</span></td>' + '<td>' + (t.light ? 'Light' : 'Dark') + (t.hbg !== t.bg ? ' body, dark header' : '') + '</td></tr>';
+  }).join('') + '</tbody>';
+})();
+</script>

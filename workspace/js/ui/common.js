@@ -141,6 +141,7 @@
     if (!alloc) return '';
     if (alloc.kind === 'snapshot') return '<span class="tag tag-info" data-tip="Fixed snapshot captured ' + esc(U.fmt.dateTime(alloc.capturedAt)) + '. Weights are frozen.">Snapshot</span>';
     if (alloc.kind === 'benchmark') return '<span class="tag">Benchmark</span>';
+    if (alloc.kind === 'sleeve') return '<span class="tag tag-sleeve" data-tip="Sleeve “' + esc(alloc.sleeve.name) + '” v' + alloc.sleeve.version + ' from the repository, fully invested at its weights. Read-only.">Sleeve v' + alloc.sleeve.version + '</span>';
     return '<span class="tag tag-ok" data-tip="Live allocation: edits in the builder change it directly.">Live</span>';
   };
   UI.alert = function (kind, html, action) {

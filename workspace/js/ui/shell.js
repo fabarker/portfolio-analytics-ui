@@ -44,7 +44,7 @@
     var q = homeFilter.trim().toLowerCase(), list = cardData.filter(function (w) { return !q || (w.name + ' ' + w.description + ' ' + w.owner).toLowerCase().indexOf(q) >= 0; });
     root.innerHTML = list.map(function (w) {
       return '<button type="button" class="ws-card" data-id="' + esc(w.id) + '"><h3>' + esc(w.name) + '</h3><p class="meta" style="margin:0">' + esc(w.description || '') + '</p>' +
-        '<div class="members">' + w.members.map(function (m) { return '<span><span class="dot" style="background:var(--' + esc(m.color) + ')"></span>' + esc(m.name) + (m.kind === 'snapshot' ? ' <span class="tag tag-info" style="font-size:9px">Snap</span>' : '') + '</span>'; }).join('') + (w.members.length ? '' : '<span class="faint">No allocations yet</span>') + '</div>' +
+        '<div class="members">' + w.members.map(function (m) { return '<span><span class="dot" style="background:var(--' + esc(m.color) + ')"></span>' + esc(m.name) + (m.kind === 'snapshot' ? ' <span class="tag tag-info" style="font-size:9px">Snap</span>' : m.kind === 'sleeve' ? ' <span class="tag tag-sleeve" style="font-size:9px">Sleeve</span>' : '') + '</span>'; }).join('') + (w.members.length ? '' : '<span class="faint">No allocations yet</span>') + '</div>' +
         '<div class="foot"><span>' + esc(w.owner) + ' · ' + w.cards + ' card' + (w.cards === 1 ? '' : 's') + ' · ' + w.scenarios + ' scenario' + (w.scenarios === 1 ? '' : 's') + (w.activeScenario ? ' · <b>' + esc(w.activeScenario) + '</b> active' : '') + '</span><span>Updated ' + esc(U.fmt.relative(w.updatedAt)) + '</span></div></button>';
     }).join('') + '<button type="button" class="ws-card is-new" id="home-new-card">' + I.plus + '<span>New workspace</span></button>';
     if (!list.length && q) root.innerHTML = '<div class="empty" style="grid-column:1/-1">' + I.search + '<h3>No workspace matches “' + esc(homeFilter) + '”</h3><p>Try another name, or create a new workspace.</p></div>';
@@ -148,10 +148,18 @@
   function moveMember(id, beforeId) { S.update('Comparison reordered', function (ws) { var m = ws.comparison.members.filter(function (x) { return x !== id; }); var i = m.indexOf(beforeId); if (i < 0) i = m.length; m.splice(i, 0, id); ws.comparison.members = m; }, { type: 'member' }); }
   function memberMenu(btn, id) {
     var a = S.allocation(id), members = S.ws.comparison.members, i = members.indexOf(id);
+    if (a.kind === 'sleeve') return UI.sleeves.refresh().then(function () { sleeveMenu(btn, a, members, i); });
     UI.menu(btn, [{ head: a.name }, { label: 'Edit in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { sep: true },
       { label: 'Move left', icon: I.chevronLeft, disabled: i <= 0, onClick: function () { moveMember(id, members[i - 1]); } }, { label: 'Move right', icon: I.chevron, disabled: i >= members.length - 1, onClick: function () { moveMember(id, members[i + 2] || null); } }, { sep: true },
       a.kind === 'snapshot' ? { label: 'Create draft from snapshot', icon: I.copy, onClick: function () { UI.dialogs.draftFromSnapshot(a); } } : { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } },
       { label: 'Remove from comparison', icon: I.close, onClick: function () { removeMember(id); } }, { label: 'Delete allocation…', icon: I.trash, onClick: function () { deleteAllocation(a); } }], { align: 'end' });
+  }
+  function sleeveMenu(btn, a, members, i) {
+    var id = a.id, s = UI.sleeves.known[a.sleeve.id], newer = UI.sleeves.newerVersion(a);
+    UI.menu(btn, [{ head: a.name + ' · sleeve v' + a.sleeve.version }, { label: 'Show in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Open in repository', icon: I.folder, onClick: function () { shell.go('#/sleeves/' + encodeURIComponent(a.sleeve.id)); } },
+      { label: newer ? 'Show v' + newer.v + ' (latest)' : 'Showing the latest version', icon: I.reset, disabled: !newer, onClick: function () { UI.sleeves.setMemberVersion(a, s, newer); } }, { label: 'Make an editable copy', icon: I.copy, onClick: function () { UI.dialogs.draftFromSnapshot(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { sep: true },
+      { label: 'Move left', icon: I.chevronLeft, disabled: i <= 0, onClick: function () { moveMember(id, members[i - 1]); } }, { label: 'Move right', icon: I.chevron, disabled: i >= members.length - 1, onClick: function () { moveMember(id, members[i + 2] || null); } }, { sep: true },
+      { label: 'Remove from comparison', icon: I.close, onClick: function () { removeMember(id); } }, { label: 'Remove from workspace…', icon: I.trash, onClick: function () { deleteAllocation(a); } }], { align: 'end' });
   }
   function removeMember(id) {
     var a = S.allocation(id);
@@ -159,7 +167,7 @@
     UI.toast(a.name + ' removed from the comparison. The allocation itself is kept.', { action: { label: 'Undo', fn: S.undo } });
   }
   function deleteAllocation(a) {
-    UI.confirm({ title: 'Delete ' + a.name + '?', sub: 'This removes the allocation and its history from the workspace. Snapshots taken from it are kept.', confirmLabel: 'Delete', danger: true }).then(function (ok) {
+    UI.confirm({ title: (a.kind === 'sleeve' ? 'Remove ' : 'Delete ') + a.name + '?', sub: a.kind === 'sleeve' ? 'This removes the sleeve column from the workspace. The sleeve stays in the repository.' : 'This removes the allocation and its history from the workspace. Snapshots taken from it are kept.', confirmLabel: a.kind === 'sleeve' ? 'Remove' : 'Delete', danger: true }).then(function (ok) {
       if (!ok) return;
       S.update(a.name + ' deleted', function (ws) { ws.allocations = ws.allocations.filter(function (x) { return x.id !== a.id; }); ws.comparison.members = ws.comparison.members.filter(function (x) { return x !== a.id; }); if (ws.comparison.activeId === a.id) ws.comparison.activeId = ws.comparison.members[0] || null; ws.scenarios.forEach(function (s) { s.scope = s.scope.filter(function (x) { return x !== a.id; }); }); ws.prefs.emphasis = ws.prefs.emphasis.filter(function (x) { return x !== a.id; }); }, { type: 'member' });
     });
@@ -167,7 +175,8 @@
   function addMemberMenu(btn) {
     var w = S.ws, members = w.comparison.members, spare = w.allocations.filter(function (a) { return members.indexOf(a.id) < 0; }), items = [{ head: 'Allocations in this workspace' }];
     if (!spare.length) items.push({ label: 'Every allocation is already compared', disabled: true });
-    spare.forEach(function (a) { items.push({ label: a.name + (a.kind === 'snapshot' ? ' (snapshot)' : ''), onClick: function () { shell.addMember(a.id); } }); });
+    spare.forEach(function (a) { items.push({ label: a.name + (a.kind === 'snapshot' ? ' (snapshot)' : a.kind === 'sleeve' ? ' (sleeve v' + a.sleeve.version + ')' : ''), onClick: function () { shell.addMember(a.id); } }); });
+    items.push({ sep: true }, { head: 'Sleeves from the repository' }, { label: 'Compare a sleeve…', icon: I.layers, onClick: function () { UI.sleeves.pickToCompare(); } });
     items.push({ sep: true }, { head: 'Benchmarks, as fixed columns' });
     PA.data.benchmarks.forEach(function (b) { items.push({ label: b.name, onClick: function () { UI.dialogs.benchmarkAsMember(b); } }); });
     items.push({ sep: true }, { label: 'New allocation…', icon: I.plus, onClick: function () { UI.dialogs.newAllocation(); } });
@@ -190,7 +199,7 @@
     var tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable, mod = e.metaKey || e.ctrlKey;
     if (mod && e.key.toLowerCase() === 'z' && S.ws) { if (typing && tag !== 'select') return; e.preventDefault(); if (e.shiftKey) S.redo(); else S.undo(); return; }
     if (typing) return;
-    if (e.key === '/') { var s = S.ws ? U.$('#inv-search') : (U.$('#home-search') || U.$('#repo-q')); if (s) { e.preventDefault(); s.focus(); s.select(); } }
+    if (e.key === '/') { e.preventDefault(); if (S.ws) { UI.builder.showTab('add', { focus: true }); return; } var s = U.$('#home-search') || U.$('#repo-q'); if (s) { s.focus(); s.select(); } }
     if (e.key === '?' && S.ws) { e.preventDefault(); UI.dialogs.shortcuts(); }
     if (e.key === 'b' && S.ws && !mod) { e.preventDefault(); UI.builder.toggleCollapsed(); }
     if (e.key === 's' && S.ws && !mod) { e.preventDefault(); S.setSession('drawerOpen', !S.session.drawerOpen); }

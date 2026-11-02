@@ -38,6 +38,17 @@ await step('open workspace', async () => {
   check('Hatched index remainder shows for under-implemented categories', await count('[data-card="c2"] rect[fill="url(#hatch)"]') >= 2);
   await shot('workspace');
 });
+await step('typed weights', async () => {
+  check('Weights are typed: text inputs with no stepper', await count('#tree input.tw-input[type="number"]') === 0 && await count('#tree input.tw-input[inputmode="decimal"]') > 8);
+  const rev = await page.evaluate(() => PA.store.session.revision);
+  const w = page.locator('input[data-key="cash"]'); await w.fill('1'); await page.click('#rail-head .rh-eyebrow'); await page.waitForTimeout(900);
+  check('Typing without Enter changes nothing and marks the value pending', await page.evaluate(() => PA.store.session.revision) === rev && await count('input[data-key="cash"].is-pending') === 1 && /1 typed value not applied/.test(await text('#tree-pending')));
+  await page.locator('input[data-key="cash"]').focus(); await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  check('Esc discards the typed value', await count('#tree .is-pending') === 0 && (await page.locator('input[data-key="cash"]').inputValue()) !== '1');
+  const before = await page.locator('input[data-key="cash"]').inputValue();
+  await page.locator('input[data-key="cash"]').focus(); await page.keyboard.press('ArrowUp'); await page.waitForTimeout(200);
+  check('Arrow keys move between weights instead of stepping them', (await page.locator('input[data-key="cash"]').inputValue()) === before && await page.evaluate(() => document.activeElement.dataset.key !== 'cash'));
+});
 await step('category target edit', async () => {
   const inp = page.locator('input[data-key="public_equity"]'); await inp.fill('50'); await inp.press('Enter'); await page.waitForTimeout(1600);
   check('Raising a target past 100% allocated is rejected without leverage', /105\.0%/.test(await text('#tree-err')));
@@ -65,6 +76,50 @@ await step('sleeve from selection', async () => {
   check('Select mode ends after saving', await count('.selbar') === 0);
   await shot('sleeve-created');
 });
+await step('save as sleeve and compare', async () => {
+  await page.click('#tree-select'); await page.waitForTimeout(300);
+  await page.check('#tree .tsel[data-sel="h7_fund_tsy"]'); await page.check('#tree .tsel[data-sel="h8_fund_ig"]'); await page.waitForTimeout(300);
+  await page.click('#sel-compare'); await page.waitForTimeout(400);
+  check('Save & compare opens the create dialog with the compare action', /save as sleeve and compare/i.test(await text('.dialog h2')) && /save and add to workspace/i.test(await text('.dialog .dlg-actions')));
+  await page.fill('#sl-name', 'Treasury and IG'); await page.click('.dialog [data-action="2"]'); await page.waitForTimeout(2200);
+  check('The sleeve joins the comparison as its own column', await count('.member') === 5 && /Sleeve v1/i.test(await text('.member:has-text("Treasury and IG")')));
+  check('Every card shows the sleeve column', (await text('.tbl.dd thead')).includes('Treasury and IG') && (await text('[data-card="c2"]')).includes('Treasury and IG'));
+  await page.click('.member:has-text("Treasury and IG")'); await page.waitForTimeout(800);
+  check('The sleeve column is read-only, fully invested, and hides empty categories', await count('.rail-readonly.is-sleeve') === 1 && await count('#tree input[data-key]:not([disabled])') === 0 && (await text('#tree .is-root .tval')) === '100.0' && await count('#tree .tree-row.depth-0') === 2);
+  await shot('sleeve-compared');
+  await page.click('#add-member'); await page.waitForTimeout(300); await page.click('.menu-item:has-text("Compare a sleeve")'); await page.waitForTimeout(900);
+  await page.selectOption('#pc-sleeve', 'slv_core_bonds'); await page.waitForTimeout(200);
+  check('Compare-a-sleeve previews the version at 100%', (await text('#pc-preview')).includes('100.00%'));
+  await page.click('.dialog [data-action="1"]'); await page.waitForTimeout(2000);
+  check('A repository sleeve can be added from the Add menu', await count('.member') === 6);
+  await page.selectOption('#active-pick', 'al_core'); await page.waitForTimeout(500);
+});
+await step('tabbed rail', async () => {
+  check('The rail has no brand heading; its header names the allocation being edited', !/Portfolio Management Group/.test(await text('#rail')) && /Editing/i.test(await text('#rail-head')));
+  check('The rail has four tabs: Build, Add, Sleeves, Check', await count('#rail-tabs [role="tab"]') === 4 && await page.getAttribute('#rail-tab-build', 'aria-selected') === 'true');
+  await page.selectOption('#active-pick', 'al_growth'); await page.waitForTimeout(600);
+  await page.click('#rail-tab-check'); await page.waitForTimeout(300);
+  const badge = Number(await text('#rail-tab-check .rail-badge'));
+  check('Check lists what needs attention and its badge counts it', badge >= 1 && await count('#builder .rail-check.warn') === badge && /Hedge Funds: .*% at index level/.test(await text('#builder')));
+  check('Check holds the weight summary and the leverage switch', await count('#builder .weights-summary') === 1 && await count('#lev-switch') === 1);
+  await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove())); await page.mouse.move(900, 600); await shot('rail-check');
+  await page.click('[data-fkey="issue:find:hedge_funds"]'); await page.waitForTimeout(700);
+  check('“Find products” opens Add filtered to that category', await page.getAttribute('#rail-tab-add', 'aria-selected') === 'true' && await page.getAttribute('[data-cat="hedge_funds"]', 'aria-pressed') === 'true' && await count('#inv-results .sr-item') >= 2);
+  await page.fill('#inv-search', 'kestrel'); await page.waitForTimeout(600);
+  check('Search within the category narrows the results', await count('#inv-results .sr-item') >= 1 && (await text('#inv-results')).includes('Kestrel'));
+  await page.fill('#inv-search', ''); await page.click('[data-cat=""]'); await page.waitForTimeout(300);
+  await page.click('#rail-tab-sleeves'); await page.waitForTimeout(900);
+  check('Sleeves lists the repository with Apply and Compare', await count('#builder .rail-sleeve') >= 6 && await count('#builder [data-slapply]') === await count('#builder .rail-sleeve') && (await text('#builder')).includes('Test PE sleeve'));
+  await page.click('#rail-tab-build'); await page.focus('#rail-tab-build'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+  check('Arrow keys move between tabs', await page.getAttribute('#rail-tab-add', 'aria-selected') === 'true');
+  await page.click('#rail-tab-build'); await page.waitForTimeout(200); await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press('/'); await page.waitForTimeout(300);
+  check('/ opens Add with the search focused', await page.getAttribute('#rail-tab-add', 'aria-selected') === 'true' && await page.evaluate(() => document.activeElement && document.activeElement.id === 'inv-search'));
+  await page.click('#rail-collapse'); await page.waitForTimeout(500);
+  check('Collapsed, the strip keeps the four tab icons and the Check badge', await count('#rail-strip-tabs [data-strip]') === 4 && await count('#rail-strip-tabs .rail-badge') === 1);
+  await page.click('[data-strip="check"]'); await page.waitForTimeout(500);
+  check('A strip icon expands the rail on its tab', !(await page.evaluate(() => PA.store.ws.prefs.railCollapsed)) && await page.getAttribute('#rail-tab-check', 'aria-selected') === 'true');
+  await page.click('#rail-tab-build'); await page.waitForTimeout(300);
+});
 await step('apply a sleeve', async () => {
   await page.selectOption('#active-pick', 'al_growth'); await page.waitForTimeout(600);
   await page.click('.tree-row[data-key="hedge_funds"] [data-rowmenu]'); await page.waitForTimeout(300);
@@ -74,6 +129,9 @@ await step('apply a sleeve', async () => {
   await shot('apply-sleeve');
   await page.click('.dialog [data-action="1"]'); await page.waitForTimeout(1600);
   check('Applied sleeve fills the category and tags it', (await text('#tree')).includes('Core Alternatives v1') && !(await text('.tree-row[data-key="hedge_funds"]')).includes('index'));
+  await page.click('#rail-tab-check'); await page.waitForTimeout(300);
+  check('After applying, Check no longer lists the category at index level', !/Hedge Funds: .*index level/.test(await text('#builder')));
+  await page.click('#rail-tab-build'); await page.waitForTimeout(300);
 });
 await step('cards: settings, follow row, data table', async () => {
   await page.click('.tbl.dd [data-row="ig_fixed_income"]'); await page.waitForTimeout(400);
@@ -136,6 +194,15 @@ await step('sleeve repository', async () => {
   await page.fill('#rp-vnote', 'Treasuries raised'); await page.click('#rp-save'); await page.waitForTimeout(1200);
   check('Saved as v2', await count('[data-ver="2"]') === 1);
   await shot('sleeve-repository');
+  await page.click('.repo-item[data-open="slv_real_assets"]'); await page.waitForTimeout(400); await page.click('#rp-compare'); await page.waitForTimeout(900);
+  await page.selectOption('#cw-ws', 'ws_endowment'); await page.click('.dialog [data-action="1"]'); await page.waitForTimeout(3500);
+  check('Repository sleeve lands in the chosen workspace', page.url().includes('ws_endowment') && (await text('#ws-compare')).includes('Real Assets Blend'));
+  await page.goto(url + '#/w/ws_global_review'); await page.waitForTimeout(2500);
+  await page.click('.member:has-text("Core Bonds") [data-menu]'); await page.waitForTimeout(700);
+  check('A compared sleeve offers its newer version', /Show v2/.test(await text('#pop-root .pop')));
+  await page.click('.menu-item:has-text("Show v2")'); await page.waitForTimeout(1500);
+  check('Loading the newer version updates the column', /Sleeve v2/i.test(await text('.member:has-text("Core Bonds")')));
+  await page.goto(url + '#/sleeves'); await page.waitForTimeout(1500); await page.click('.repo-item[data-open="slv_core_bonds"]'); await page.waitForTimeout(400);
   await page.click('#rp-archive'); await page.waitForTimeout(300); await page.click('.dialog [data-action="1"]'); await page.waitForTimeout(1000);
   await page.click('[data-filter="archived"]'); await page.waitForTimeout(300);
   check('Archived sleeve appears under Archived', (await text('.repo-list')).includes('Core Bonds'));
@@ -164,5 +231,5 @@ await step('responsive', async () => {
 });
 await browser.close();
 const failed = checks.filter(c => !c.pass);
-console.log(JSON.stringify({ passed: checks.length - failed.length, total: checks.length, failed, errors }, null, 2));
+console.log(JSON.stringify({ passed: checks.length - failed.length, total: checks.length, failed, errors, names: process.env.NAMES ? checks.map(c => c.name) : undefined }, null, 2));
 process.exit(failed.length || errors.length ? 1 : 0);

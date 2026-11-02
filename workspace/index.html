@@ -27,8 +27,9 @@
   <!-- Workspace: rail | main | drawer -->
   <div id="view-ws" class="ws" hidden>
     <aside class="rail" id="rail" aria-label="Portfolio builder">
-      <div class="rail-brand">
-        <div class="brand-text"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></div>
+      <!-- Header: the allocation being edited (no brand heading); then the tabs. -->
+      <div class="rail-head">
+        <div class="rail-head-main" id="rail-head"></div>
         <button type="button" class="rail-toggle collapse" id="rail-collapse" aria-expanded="true" aria-label="Collapse the builder" title="Collapse the builder (b)">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l-6 6 6 6M16 4l-6 6 6 6"/></svg>
         </button>
@@ -36,16 +37,15 @@
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
         </button>
       </div>
+      <div class="rail-tabs" id="rail-tabs" role="tablist" aria-label="Builder"></div>
       <div class="rail-collapsed-strip">
         <button type="button" class="btn btn-icon btn-ghost" id="rail-expand" aria-label="Expand the builder" title="Expand the builder (b)">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4l6 6-6 6M4 4l6 6-6 6"/></svg>
         </button>
-        <button type="button" class="btn btn-icon btn-ghost" id="rail-add" aria-label="Add an investment" title="Add an investment">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
-        </button>
-        <span class="vlabel">Builder</span>
+        <span class="strip-dot" id="rail-strip-dot" aria-hidden="true"></span>
+        <div class="strip-tabs" id="rail-strip-tabs"></div>
       </div>
-      <div class="rail-body" id="builder"></div>
+      <div class="rail-body" id="builder" role="tabpanel"></div>
       <div class="rail-foot" id="rail-foot"></div>
     </aside>
     <button type="button" class="resizer" id="rail-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the builder" aria-valuemin="280" aria-valuemax="560" aria-valuenow="360" tabindex="0"></button>

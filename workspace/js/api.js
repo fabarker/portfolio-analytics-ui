@@ -169,15 +169,16 @@
       getAssumptions: function () { return Promise.resolve(U.clone(D.assumptions)); },
       searchInvestments: function (q, opts) {
         return wait(120).then(function () {
-          var needle = (q || '').trim().toLowerCase(), limit = (opts && opts.limit) || 12;
+          var needle = (q || '').trim().toLowerCase(), limit = (opts && opts.limit) || 12, only = opts && opts.category;
           var score = function (text) { var t = (text || '').toLowerCase(); if (!needle) return 1; if (t === needle) return 100; if (t.indexOf(needle) === 0) return 60; if (t.indexOf(needle) >= 0) return 30; return needle.split(/\s+/).every(function (w) { return t.indexOf(w) >= 0; }) ? 15 : 0; };
           var out = [];
           D.instruments.forEach(function (i) {
-            var cat = D.categoryOf(i.id), s = Math.max(score(i.name), score(i.identifier), score(D.assetClassById[i.assetClass].name) * 0.5, score(cat.name) * 0.4, score(i.type) * 0.4, score(i.manager) * 0.6);
+            var cat = D.categoryOf(i.id); if (only && cat.id !== only) return;
+            var s = Math.max(score(i.name), score(i.identifier), score(D.assetClassById[i.assetClass].name) * 0.5, score(cat.name) * 0.4, score(i.type) * 0.4, score(i.manager) * 0.6);
             if (s > 0) out.push({ score: s, kind: 'instrument', id: i.id, name: i.name, type: i.type, identifier: i.identifier, category: cat.name, meta: [i.type, i.identifier, D.assetClassById[i.assetClass].name, i.valuation + ' valuation'].join(' · '), coverage: i.coverage, instrument: i });
           });
-          load().sleeves.filter(function (s) { return !s.archived; }).forEach(function (s) { var sc = Math.max(score(s.name), score('sleeve') * 0.4, score(D.categoryById[s.categoryId].name) * 0.3); if (sc > 0) out.push({ score: sc, kind: 'sleeve', id: s.id, name: s.name, type: 'Sleeve', identifier: 'v' + s.versions[s.versions.length - 1].v, meta: 'Sleeve · ' + D.categoryById[s.categoryId].name + ' · ' + s.versions[s.versions.length - 1].holdings.length + ' products', sleeve: U.clone(s) }); });
-          D.benchmarks.forEach(function (b) { var sc = Math.max(score(b.name), score('portfolio') * 0.3, score('benchmark') * 0.4); if (sc > 0) out.push({ score: sc, kind: 'portfolio', id: b.id, name: b.name, type: 'Portfolio', identifier: b.id.toUpperCase(), meta: 'Portfolio · ' + b.description, portfolio: b }); });
+          load().sleeves.filter(function (s) { return !s.archived && (!only || s.categoryId === only); }).forEach(function (s) { var sc = Math.max(score(s.name), score('sleeve') * 0.4, score(D.categoryById[s.categoryId].name) * 0.3); if (sc > 0) out.push({ score: sc, kind: 'sleeve', id: s.id, name: s.name, type: 'Sleeve', identifier: 'v' + s.versions[s.versions.length - 1].v, meta: 'Sleeve · ' + D.categoryById[s.categoryId].name + ' · ' + s.versions[s.versions.length - 1].holdings.length + ' products', sleeve: U.clone(s) }); });
+          if (!only) D.benchmarks.forEach(function (b) { var sc = Math.max(score(b.name), score('portfolio') * 0.3, score('benchmark') * 0.4); if (sc > 0) out.push({ score: sc, kind: 'portfolio', id: b.id, name: b.name, type: 'Portfolio', identifier: b.id.toUpperCase(), meta: 'Portfolio · ' + b.description, portfolio: b }); });
           out.sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
           return out.slice(0, limit);
         });
@@ -339,7 +340,7 @@
       resetSampleData: function () { return Promise.reject({ code: 'unsupported', message: 'Not available against a live service' }); },
       getUniverse: function () { return call('GET', '/universe'); },
       getAssumptions: function () { return call('GET', '/assumptions'); },
-      searchInvestments: function (q, opts) { return call('GET', '/investments?q=' + encodeURIComponent(q || '') + '&limit=' + ((opts && opts.limit) || 12)); },
+      searchInvestments: function (q, opts) { return call('GET', '/investments?q=' + encodeURIComponent(q || '') + '&limit=' + ((opts && opts.limit) || 12) + (opts && opts.category ? '&category=' + encodeURIComponent(opts.category) : '')); },
       listSleeves: function () { return call('GET', '/sleeves'); },
       saveSleeve: function (s) { return call('PUT', '/sleeves/' + encodeURIComponent(s.id), s); },
       archiveSleeve: function (id, archived) { return call('PATCH', '/sleeves/' + encodeURIComponent(id), { archived: archived !== false }); },

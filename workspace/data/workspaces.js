@@ -50,7 +50,7 @@
   };
   var prefs = function (over) {
     var p = { basis: 'forward', period: { preset: 'common', start: null, end: null }, horizon: 10, confidence: 0.8,
-      expanded: ['public_equity'], selectedRow: 'public_equity', emphasis: [], railWidth: 360, drawerWidth: 460, railCollapsed: false };
+      expanded: ['public_equity'], selectedRow: 'public_equity', emphasis: [], railWidth: 360, drawerWidth: 460, railCollapsed: false, factorModel: 'isg' };
     for (var k in over) p[k] = over[k];
     return p;
   };
@@ -101,7 +101,8 @@
       card('c2', 'allocations', 0, 9, 6, 6, { view: 'bars' }),
       card('c3', 'cumulative-return', 6, 9, 6, 6, { scope: 'portfolio' }),
       card('c4', 'drawdowns', 0, 15, 6, 6, { count: 5 }),
-      card('c5', 'summary-stats', 6, 15, 6, 6, {})
+      card('c5', 'summary-stats', 6, 15, 6, 6, {}),
+      card('c6', 'active-risk', 0, 21, 12, 8, { against: 'reference', decompose: 'factor', view: 'summary' })
     ],
     prefs: prefs({ emphasis: ['al_core', 'al_income'] }),
     activity: [

@@ -240,6 +240,7 @@
     grip: ic('<circle cx="7" cy="5" r="1.2" fill="currentColor"/><circle cx="13" cy="5" r="1.2" fill="currentColor"/><circle cx="7" cy="10" r="1.2" fill="currentColor"/><circle cx="13" cy="10" r="1.2" fill="currentColor"/><circle cx="7" cy="15" r="1.2" fill="currentColor"/><circle cx="13" cy="15" r="1.2" fill="currentColor"/>'),
     table: ic('<rect x="3" y="4" width="14" height="12" rx="1.5"/><path d="M3 8.5h14M8 8.5V16"/>'),
     chart: ic('<path d="M3 16h14"/><path d="M4 12l4-4 3 3 5-6"/>'),
+    pin: ic('<path d="M7 3h6l-1 5 3 3H5l3-3z"/><path d="M10 11v6"/>'),
     lock: ic('<rect x="5" y="9" width="10" height="8" rx="1.5"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>'),
     flask: ic('<path d="M8 3h4M9 3v5l-4.5 7.5A1.5 1.5 0 0 0 5.8 18h8.4a1.5 1.5 0 0 0 1.3-2.5L11 8V3"/>'),
     folder: ic('<path d="M3 6a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'),

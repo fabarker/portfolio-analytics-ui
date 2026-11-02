@@ -8,7 +8,6 @@
   var PA = window.PA, U = PA.util, esc = U.esc, S = PA.store, UI = PA.ui, D = PA.data, F = U.fmt, V = UI.viz, C = PA.cards;
 
   var colorOf = function (a) { return UI.colorOf(a); };
-  var FACTOR_OPTS = D.factors.map(function (f) { return [f.id, f.name]; });
   function members(ctx) { return ctx.members; }
   function dim(ctx, a) { return ctx.emphasized.indexOf(a.id) < 0; }
   function periodLabel(data) { return data && data.period ? data.period.label : ''; }
@@ -17,6 +16,7 @@
   function foot(html) { return html ? '<div class="card-foot">' + html + '</div>' : ''; }
   function legend(ctx) { return '<div class="viz-legend" style="padding:0 0 8px">' + members(ctx).map(function (a) { return '<button type="button" data-emph="' + esc(a.id) + '" aria-pressed="' + !dim(ctx, a) + '" data-tip="Toggle emphasis. Every allocation stays on the chart."><span class="sw" style="background:' + colorOf(a) + '"></span>' + esc(a.name) + '</button>'; }).join('') + '</div>'; }
   function wireLegend(body) { U.on(body, 'click', '[data-emph]', function (e, b) { var ids = S.ws.comparison.members, em = S.ws.prefs.emphasis.filter(function (id) { return ids.indexOf(id) >= 0; }); if (!em.length) em = ids.slice(); var i = em.indexOf(b.dataset.emph); if (i >= 0) { if (em.length === 1) { UI.toast('Keep at least one allocation emphasized.'); return; } em.splice(i, 1); } else em.push(b.dataset.emph); S.setPref('emphasis', em); }); }
+  function modelFoot(notes) { var seen = {}, out = []; notes.forEach(function (n) { if (n && !seen[n]) { seen[n] = 1; out.push('<span>' + esc(n) + '</span>'); } }); return out.join(''); }
   function packReq(ctx) { return { allocations: U.clone(ctx.members), period: U.clone(ctx.prefs.period) }; }
   function monthsTable(months, series, fmt) { return V.table([{ label: 'Month' }].concat(series.map(function (s) { return { label: esc(s.name), num: true }; })), months.map(function (m, i) { return { cells: [F.month(m)].concat(series.map(function (s) { var v = s.values ? s.values[i] : null; return v == null ? '—' : fmt(v); })) }; }), { maxHeight: '240px' }); }
 
@@ -129,32 +129,46 @@
 
   /* ── Risk contribution by category ───────────────────────────────── */
   function tableReq(ctx, metric, extra) { var w = ctx.ws; return Object.assign({ revision: ctx.revision, allocations: U.clone(ctx.members), basis: ctx.prefs.basis, metric: metric, values: 'absolute', riskUnits: 'share', factors: [], reference: U.clone(w.comparison), period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario) }, extra || {}); }
-  C.register({ id: 'risk-by-category', title: 'Risk contribution by category', description: 'Each category’s share of total risk, or its contribution to volatility, for every allocation.', group: 'Risk', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'both',
-    settings: [{ key: 'riskUnits', label: 'Units', type: 'select', options: [['share', 'Share of total risk (%)'], ['vol', 'Contribution to volatility (pp)']], default: 'share' }],
-    subtitle: function (ctx, s) { return (s.riskUnits === 'share' ? '% share of total risk' : 'pp of portfolio volatility') + ' · ' + (ctx.prefs.basis === 'forward' ? 'platform model' + (ctx.scenario ? ', scenario where applied' : '') : 'realised over the period'); },
-    data: function (ctx, s) { return C.fetch('analyzeTable', tableReq(ctx, 'risk', { riskUnits: s.riskUnits })); },
+  function factorRiskRows(data, ctx) {
+    var live = data.factors.filter(function (f) { return ctx.members.some(function (a) { var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0]; return x && x.byFactor && Math.abs(x.byFactor[f.id]) >= 0.005; }); });
+    return live.map(function (f) { return { id: f.id, name: f.name }; }).concat([{ id: '__specific', name: 'Specific' }]);
+  }
+  function factorRiskValue(data, a, id) { var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0]; if (!x || x.total == null) return null; return id === '__specific' ? x.specific : x.byFactor[id]; }
+  C.register({ id: 'risk-by-category', title: 'Risk contribution by category', description: 'Each category’s share of total risk, or its contribution to volatility, for every allocation. Can also split risk by factor, from the factor model.', group: 'Risk', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'both',
+    factorModel: function (s) { return s.decompose === 'factor'; },
+    settings: [{ key: 'decompose', label: 'Decompose by', type: 'select', options: [['category', 'Category (platform assumptions)'], ['factor', 'Factor (factor model)']], default: 'category' },
+      { key: 'riskUnits', label: 'Units', type: 'select', options: [['share', 'Share of total risk (%)'], ['vol', 'Contribution to volatility (pp)']], default: 'share', when: function (s) { return s.decompose !== 'factor'; } }],
+    subtitle: function (ctx, s, card) { if (s.decompose === 'factor') return 'pp of portfolio volatility, by factor and specific · ' + C.modelLabel(card) + ' · forward'; return (s.riskUnits === 'share' ? '% share of total risk' : 'pp of portfolio volatility') + ' · ' + (ctx.prefs.basis === 'forward' ? 'platform assumptions' + (ctx.scenario ? ', scenario where applied' : '') : 'realised over the period'); },
+    data: function (ctx, s, card) { if (s.decompose === 'factor') return C.fetch('factorRisk', { allocations: U.clone(ctx.members), rowKey: '__total', factorModel: C.modelIdOf(card) }); return C.fetch('analyzeTable', tableReq(ctx, 'risk', { riskUnits: s.riskUnits })); },
     render: function (body, data, ctx, s) {
+      if (s.decompose === 'factor' && data.factors) {
+        var fr = factorRiskRows(data, ctx), m = D.factorModelById[data.factorModel];
+        body.innerHTML = legend(ctx) + '<div class="viz-host"></div>' + foot('<span>Contributions sum to each allocation’s volatility under ' + esc(m.name) + ': ' + ctx.members.map(function (a) { var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0]; return esc(a.name) + ' ' + (x && x.total != null ? F.num(x.total, 1) + '%' : '—'); }).join(' · ') + '.</span>' + (ctx.scenario ? '<span>Factor-model risk does not change with the scenario.</span>' : '') + modelFoot(data.series.map(function (x) { return x.coverage; })));
+        V.groupedBars(body.querySelector('.viz-host'), { groups: fr.map(function (f) { return f.name; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: fr.map(function (f) { return factorRiskValue(data, a, f.id); }) }; }), unit: 'pp', dp: 2, height: Math.max(160, body.clientHeight - 80), aria: 'Risk contribution by factor under ' + m.name + ' for ' + ctx.members.length + ' allocations' });
+        wireLegend(body); return;
+      }
       var cats = data.rows.filter(function (r) { return r.kind === 'category'; });
       var get = function (a, key) { var c = data.cells[a.id] && data.cells[a.id][key]; if (!c) return null; var cell = c.scenario || c.base; return cell ? cell.value : null; };
       body.innerHTML = legend(ctx) + '<div class="viz-host"></div>' + foot((data.scenarioApplies ? '<span>Scenario values where the scenario applies.</span>' : '') + (data.warnings || []).map(function (w) { return '<span class="tag tag-warn">' + esc(w) + '</span>'; }).join(''));
       V.groupedBars(body.querySelector('.viz-host'), { groups: cats.map(function (r) { return D.categoryById[r.key].short; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: cats.map(function (r) { return get(a, r.key); }) }; }), unit: data.unit, dp: 1, height: Math.max(160, body.clientHeight - 70), aria: 'Risk contribution by category for ' + ctx.members.length + ' allocations' });
       wireLegend(body);
     },
-    dataTable: function (data, ctx) { var cats = data.rows.filter(function (r) { return r.kind === 'category'; }); return V.table([{ label: 'Category' }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), cats.map(function (r) { return { cells: [esc(r.label)].concat(ctx.members.map(function (a) { var c = data.cells[a.id][r.key], cell = c.scenario || c.base; return cell && cell.value != null ? F.num(cell.value, 1) : '—'; })) }; }), { maxHeight: '200px' }); } });
+    dataTable: function (data, ctx) { if (data.factors) { var fr = factorRiskRows(data, ctx); return V.table([{ label: 'Source' }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), fr.map(function (f) { return { cells: [esc(f.name)].concat(ctx.members.map(function (a) { var v = factorRiskValue(data, a, f.id); return v == null ? '—' : F.num(v, 2); })) }; }).concat([{ cls: 'total', cells: ['Volatility'].concat(ctx.members.map(function (a) { var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0]; return x && x.total != null ? F.num(x.total, 2) : '—'; })) }]), { maxHeight: '220px' }); } var cats = data.rows.filter(function (r) { return r.kind === 'category'; }); return V.table([{ label: 'Category' }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), cats.map(function (r) { return { cells: [esc(r.label)].concat(ctx.members.map(function (a) { var c = data.cells[a.id][r.key], cell = c.scenario || c.base; return cell && cell.value != null ? F.num(cell.value, 1) : '—'; })) }; }), { maxHeight: '200px' }); } });
 
   /* ── Factor exposures ────────────────────────────────────────────── */
-  C.register({ id: 'factor-exposures', title: 'Factor exposures', description: 'Stand-alone factor betas of the selected row, or the portfolio, for every allocation.', group: 'Risk', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'both', supportsRow: true,
-    settings: [{ key: 'factors', label: 'Factors', type: 'multi', options: FACTOR_OPTS, default: ['equity', 'rates', 'credit'] }],
-    subtitle: function (ctx, s, card) { return 'β' + rowSuffix(ctx, card) + ' · ' + (ctx.prefs.basis === 'forward' ? 'model exposure' : 'estimated over the period') + ' · units differ by factor'; },
-    data: function (ctx, s) { return C.fetch('analyzeTable', tableReq(ctx, 'factor', { factors: s.factors.slice() })); },
+  C.register({ id: 'factor-exposures', title: 'Factor exposures', description: 'Stand-alone factor betas of the selected row, or the portfolio, for every allocation, under the chosen factor model.', group: 'Risk', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'both', supportsRow: true, factorModel: true,
+    settings: [{ key: 'factors', label: 'Factors', type: 'factors', default: null }],
+    subtitle: function (ctx, s, card) { return 'β' + rowSuffix(ctx, card) + ' · ' + C.modelLabel(card) + ' · ' + (ctx.prefs.basis === 'forward' ? 'model exposure' : 'estimated over the period'); },
+    data: function (ctx, s, card) { var m = C.modelIdOf(card); return C.fetch('analyzeTable', tableReq(ctx, 'factor', { factors: C.factorsFor(s.factors, m).ids, factorModel: m })); },
     render: function (body, data, ctx, s, card) {
-      var key = card.followRow ? ctx.row : '__total';
+      var key = card.followRow ? ctx.row : '__total', m = D.factorModelById[data.factorModel || 'isg'], pick = C.factorsFor(s.factors, m.id), ids = pick.ids.filter(function (f) { return m.factorById[f]; });
       var get = function (a, fid) { var c = data.cells[a.id] && data.cells[a.id][key]; if (!c) return null; var cell = c.scenario || c.base; return cell && cell.factors ? cell.factors[fid] : null; };
-      body.innerHTML = legend(ctx) + '<div class="viz-host"></div>';
-      V.groupedBars(body.querySelector('.viz-host'), { groups: s.factors.map(function (f) { return D.factorById[f].name; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: s.factors.map(function (f) { return get(a, f); }) }; }), unit: 'β', dp: 2, height: Math.max(160, body.clientHeight - 60), aria: ctx.rowLabel + ' factor exposures for ' + ctx.members.length + ' allocations' });
+      var cov = ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key]; return c && c.base && c.base.coverage ? a.name + ': ' + c.base.coverage.replace(/^Proxied by the category index in [^:]+: /, 'proxied by its index in ' + m.name + ': ') : null; });
+      body.innerHTML = legend(ctx) + '<div class="viz-host"></div>' + foot((pick.mapped ? '<span class="tag tag-info">Mapped</span><span>' + esc(pick.mapped) + '.</span>' : '') + modelFoot(cov) + '<span>Units differ by factor.</span>');
+      V.groupedBars(body.querySelector('.viz-host'), { groups: ids.map(function (f) { return m.factorById[f].name; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: ids.map(function (f) { return get(a, f); }) }; }), unit: 'β', dp: 2, height: Math.max(160, body.clientHeight - 80), aria: ctx.rowLabel + ' factor exposures under ' + m.name + ' for ' + ctx.members.length + ' allocations' });
       wireLegend(body);
     },
-    dataTable: function (data, ctx, s, card) { var key = card.followRow ? ctx.row : '__total'; return V.table([{ label: 'Factor' }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), s.factors.map(function (f) { return { cells: [esc(D.factorById[f].name)].concat(ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key], cell = c && (c.scenario || c.base); var v = cell && cell.factors ? cell.factors[f] : null; return v == null ? '—' : F.num(v, 2); })) }; }), { maxHeight: '200px' }); } });
+    dataTable: function (data, ctx, s, card) { var key = card.followRow ? ctx.row : '__total', m = D.factorModelById[data.factorModel || 'isg']; return V.table([{ label: 'Factor · ' + esc(m.name) }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), C.factorsFor(s.factors, m.id).ids.filter(function (f) { return m.factorById[f]; }).map(function (f) { return { cells: [esc(m.factorById[f].name)].concat(ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key], cell = c && (c.scenario || c.base); var v = cell && cell.factors ? cell.factors[f] : null; return v == null ? '—' : F.num(v, 2); })) }; }), { maxHeight: '200px' }); } });
 
   /* ── Correlation between allocations ─────────────────────────────── */
   C.register({ id: 'correlation', title: 'Correlation between allocations', description: 'Correlation of monthly returns between the compared allocations over the period.', group: 'Risk', size: { w: 4, h: 5 }, min: { w: 3, h: 3 }, basis: 'historical',
@@ -191,4 +205,6 @@
       wireLegend(body);
     },
     dataTable: function (data, ctx) { return V.table([{ label: 'Allocation' }, { label: 'Base', num: true }].concat(ctx.ws.scenarios.map(function (s) { return { label: esc(s.name), num: true }; })), ctx.members.map(function (a) { var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0]; return { cells: [esc(a.name), x && x.base.value != null ? F.num(x.base.value, 1) : '—'].concat(ctx.ws.scenarios.map(function (s) { var z = x ? x.scenarios.filter(function (q) { return q.scenarioId === s.id; })[0] : null; return z && z.cell.value != null ? F.num(z.cell.value, 1) : '<span class="faint">' + esc(z ? z.cell.reason : '—') + '</span>'; })) }; }), { maxHeight: '200px' }); } });
+  /* shared with cards defined in other files */
+  C.h = { colorOf: colorOf, dim: dim, foot: foot, legend: legend, wireLegend: wireLegend, rowSuffix: rowSuffix, periodLabel: periodLabel, modelFoot: modelFoot };
 })();

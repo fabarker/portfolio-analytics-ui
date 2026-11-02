@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · the context bar
-   The settings every card shares: basis, period, reference, scenario,
+   The settings every card shares: basis, factor model, period, reference, scenario,
    horizon and band; plus the way into the card repository and layout tools.
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
@@ -14,6 +14,7 @@
     var seg = function (name, opts, cur) { return '<div class="seg" role="group" aria-label="' + esc(name) + '">' + opts.map(function (o) { return '<button type="button" data-cx="' + name.toLowerCase() + '" data-val="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>'; };
     var pr = p.period.preset || 'common';
     bar.innerHTML = '<div class="ctl"><span class="label" data-tip="Applies to cards that can show either observed history or the forward-looking model: Drivers &amp; differences, Risk by category, Factor exposures.">Basis</span>' + seg('Basis', [['forward', 'Forward-looking'], ['historical', 'Historical']], p.basis) + '</div>' +
+      '<div class="ctl"><span class="label" data-tip="The risk model for factor exposures and factor or active risk. A card can pin its own model from the chip in its header.">Factor model</span><div class="seg" role="group" aria-label="Factor model">' + D.factorModels.map(function (m) { return '<button type="button" data-cx="model" data-val="' + m.id + '" aria-pressed="' + ((p.factorModel || 'isg') === m.id) + '" data-tip="' + esc(m.long + ' · as of ' + F.date(m.asOf)) + '">' + esc(m.name) + '</button>'; }).join('') + '</div></div>' +
       '<div class="ctl"><label class="label" for="cx-period">Period</label><select id="cx-period">' + [['common', 'Common history'], ['1y', 'Last 1 year'], ['3y', 'Last 3 years'], ['5y', 'Last 5 years'], ['10y', 'Last 10 years'], ['custom', 'Custom…']].map(function (o) { return '<option value="' + o[0] + '"' + (pr === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       (pr === 'custom' ? '<input type="month" id="cx-start" class="input-sm" aria-label="Start month" min="2012-01" max="2026-10" value="' + esc(p.period.start || '2018-01') + '"><span class="faint">to</span><input type="month" id="cx-end" class="input-sm" aria-label="End month" min="2012-01" max="2026-10" value="' + esc(p.period.end || '2026-10') + '">' : '') + '</div>' +
       '<div class="ctl"><label class="label" for="cx-ref">Reference</label><select id="cx-ref"><option value="shared"' + (c.referenceMode === 'shared' ? ' selected' : '') + '>Shared benchmark</option><option value="individual"' + (c.referenceMode === 'individual' ? ' selected' : '') + '>Each allocation’s benchmark</option><option value="portfolio"' + (c.referenceMode === 'portfolio' ? ' selected' : '') + '>A compared portfolio</option></select>' +
@@ -46,6 +47,8 @@
     parts.push('<span><b>' + S.members().length + '</b> of 6 compared · differences vs <b>' + esc(referenceLabel()) + '</b></span>');
     parts.push('<span>' + (p.basis === 'forward' ? '<b>Forward-looking</b> cards use ' + esc(D.assumptions.model) + ' as of ' + esc(F.date(D.assumptions.asOf)) : '<b>Historical</b> basis for cards that can show either') + '</span>');
     parts.push('<span>Period: <b>' + esc(p.period.preset === 'custom' ? F.month(p.period.start) + ' – ' + F.month(p.period.end) : (p.period.preset === 'common' ? 'common history' : 'last ' + p.period.preset.replace('y', ' years'))) + '</b></span>');
+    var fmCards = w.cards.filter(function (c) { return PA.cards.usesModel(c); }), pinned = fmCards.filter(function (c) { return PA.cards.isPinned(c); }), wm = D.factorModelById[p.factorModel || 'isg'];
+    if (fmCards.length) { var byM = {}; pinned.forEach(function (c) { var id = PA.cards.modelIdOf(c); byM[id] = (byM[id] || 0) + 1; }); var nf = fmCards.length - pinned.length; parts.push('<span>Factor model: <b>' + esc(wm.name) + '</b> for ' + nf + ' card' + (nf === 1 ? '' : 's') + Object.keys(byM).map(function (id) { return ' · ' + byM[id] + ' pinned to ' + esc(D.factorModelById[id].name); }).join('') + '</span>'); }
     if (sc) parts.push('<span>Scenario <b>' + esc(sc.name) + '</b> applied to ' + sc.scope.filter(function (id) { return w.comparison.members.indexOf(id) >= 0; }).length + ' of ' + w.comparison.members.length + ' · forward-looking figures only</span>');
     line.innerHTML = parts.join('');
     notices.innerHTML = !S.scenarioValid() ? UI.alert('warning', '<b>The scenario correlation matrix is not positive semi-definite.</b> Scenario results are unavailable until it is corrected; base results are unchanged.') : '';
@@ -54,10 +57,12 @@
   X.init = function () {
     bar = U.$('#context-bar'); line = U.$('#context-line'); notices = U.$('#notices');
     U.on(bar, 'click', '[data-cx="basis"]', function (e, b) { S.setPref('basis', b.dataset.val); });
+    U.on(bar, 'click', '[data-cx="model"]', function (e, b) { if ((S.ws.prefs.factorModel || 'isg') === b.dataset.val) return; S.setPref('factorModel', b.dataset.val); var n = S.ws.cards.filter(function (c) { return PA.cards.usesModel(c) && !PA.cards.isPinned(c); }).length; U.announce('Factor model ' + D.factorModelById[b.dataset.val].name + '. ' + n + ' card' + (n === 1 ? '' : 's') + ' updating.'); });
     S.subscribe(function (type, extra) {
       if (!S.ws) return;
       if (type === 'load' || type === 'update' || type === 'undo' || type === 'redo') render();
-      if (type === 'pref' && ['basis', 'period', 'horizon', 'confidence'].indexOf(extra.key) >= 0) render();
+      if (type === 'pref' && ['basis', 'period', 'horizon', 'confidence', 'factorModel'].indexOf(extra.key) >= 0) render();
+      if ((type === 'update' || type === 'undo' || type === 'redo') && !extra.refresh) renderLine();
       if (type === 'session' && extra.key === 'drawerOpen') { var b = U.$('#cx-scenario'); if (b) b.setAttribute('aria-pressed', String(!!S.session.drawerOpen)); }
     });
   };

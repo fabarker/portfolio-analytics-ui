@@ -56,6 +56,36 @@ index level) and the allocated total in view. Collapsed, the rail keeps the
 four tab icons (with the badge); each opens the rail on its tab. On a phone the
 rail is an overlay with the same tabs.
 
+## Factor models and active risk
+
+**Two factor models, one switch.** *Factor model* in the context bar (ISG ·
+Axioma) sets the risk model for every card that uses one: Factor exposures,
+the Factors metric of Drivers & Differences, the factor view of Risk by
+category, and Active risk & return. Each of those cards shows a model chip in
+its header, plain while it follows the workspace and filled with a pin when the
+card has its own model. The chip's menu pins, unpins, adds a copy pinned to
+the other model beside the card (*Compare with …*), and describes the model and
+its coverage. Only cards that follow the switch refetch. A card keeps one
+factor pick per model; with none for a model, the other model's pick maps
+across where factors have a counterpart and the card says so. Axioma does not
+cover privately valued funds: they take their category index's loadings, and
+the card and the rail's Check tab say so. The platform assumptions remain the
+return model; factor-model risk does not change with a scenario.
+
+**Active risk & return** (Risk group) splits each compared allocation, or the
+selected row of each, into passive (its benchmark) and active: return,
+passive, active; risk, passive, tracking error; information ratio; active
+share on the asset-class mix. *Risk sources* splits tracking error by factor
+plus specific (or by category or product); *Return sources* gives allocation
+and selection effects by category; *Over time* (historical) draws rolling
+36-month tracking error and cumulative active return. It is measured against
+the context bar's Reference, each subject's own benchmark (an allocation's
+benchmark, a category's index basket, a product's stated benchmark, a
+sleeve's category index), or a picked benchmark, product, allocation or sleeve.
+The checks confirm that contributions sum to the tracking error, the effects to
+the active return, and passive and active risk with their correlation to the
+total.
+
 ## The three ideas
 
 **The builder is a tree: portfolio → category → product.** Categories are
@@ -113,6 +143,7 @@ css/cards.css         cards and the grid, the card sheet, builder additions, the
 fonts/                house typefaces (GS Sans, GS Sans Condensed, Goldman Sans, Roboto)
 data/universe.js      categories with index baskets, asset classes, factors, instruments, benchmarks, templates
 data/assumptions.js   platform capital-market assumptions (a small factor model)
+data/factormodels.js  the ISG and Axioma factor models; products' stated benchmarks
 data/history.js       monthly returns Jan 2012 – Oct 2026, generated deterministically
 data/sleeves.js       the sleeve repository and the saved-card repository
 data/workspaces.js    three sample workspaces in the persisted shape, cards included
@@ -125,6 +156,7 @@ js/ui/viz.js          chart primitives: lines with crosshair, bars, stacked bars
 js/ui/cards.js        the card grid: layout engine, chrome, settings, data fetching, the card repository sheet
 js/ui/cardtypes.js    the catalogue of card types
 js/ui/ddcard.js       the Drivers & Differences card
+js/ui/activecard.js   the Active risk & return card
 js/ui/context.js      the context bar and context line
 js/ui/shell.js        routing, workspace list, context header, comparison strip, demo controls
 js/ui/builder.js      the rail: header, Build/Add/Sleeves/Check tabs, the category tree, selection, weights, leverage
@@ -174,6 +206,8 @@ two adapters:
 | `projection(ProjectionRequest)` | `POST /analytics/projection` | `ProjectionResponse` |
 | `scenarioComparison(ScenarioRequest)` | `POST /analytics/scenarios` | `ScenarioResponse` |
 | `summaries(allocations)` | `POST /analytics/summaries` | `{[allocationId]: {ret, vol, sharpe}}` |
+| `activeAnalysis(req)` | `POST /analytics/active` | passive and active return and risk per allocation, with risk and return sources (see `js/api.js`) |
+| `factorRisk(req)` | `POST /analytics/factor-risk` | risk by factor plus specific under a factor model |
 
 Every shape is documented at the top of the file that owns it:
 

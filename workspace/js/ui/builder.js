@@ -145,6 +145,8 @@
     });
     var px = a.holdings.filter(function (h) { return D.instrumentById[h.instrumentId].coverage !== 'full'; });
     if (px.length) out.push({ t: px.length + ' product' + (px.length === 1 ? '' : 's') + ' with limited history', s: px.map(function (h) { var ins = D.instrumentById[h.instrumentId]; return ins.identifier + ' (' + (ins.coverage === 'none' ? 'no history' : 'proxy') + ')'; }).join(', ') + '. Historical cards disclose it.', acts: [['show', E.categoryOf(px[0].instrumentId) + '/' + px[0].instrumentId, 'Show in Build']] });
+    var fm = D.factorModelById[(S.ws.prefs.factorModel) || 'isg'], prox = a.holdings.filter(function (h) { return fm.coverage(D.instrumentById[h.instrumentId]); });
+    if (prox.length) out.push({ t: fm.name + ': ' + prox.length + ' product' + (prox.length === 1 ? '' : 's') + ' proxied by the category index', s: prox.map(function (h) { return D.instrumentById[h.instrumentId].identifier; }).join(', ') + ' are not covered by the ' + fm.name + ' factor model, so factor exposures and factor risk use the category index in their place.', acts: [['show', E.categoryOf(prox[0].instrumentId) + '/' + prox[0].instrumentId, 'Show in Build'], ['model', fm.id, 'About ' + fm.name]] });
     if (!a.benchmarkId && a.kind !== 'sleeve') out.push({ t: 'No benchmark assigned', s: 'Differences against “each allocation’s benchmark” are unavailable until one is set.', acts: live ? [['bench', '', 'Assign benchmark']] : [] });
     return out;
   }
@@ -295,6 +297,7 @@
     else if (kind === 'find') B.showTab('add', { category: key, focus: true });
     else if (kind === 'apply') UI.sleeves.apply(a, key);
     else if (kind === 'bench') UI.dialogs.assignBenchmark(a);
+    else if (kind === 'model') PA.cards.aboutModel(key);
     else if (kind === 'fit') { var t = E.tree(a).filter(function (x) { return x.id === key; })[0]; setCategory(a, key, t.implemented); }
   }
   /** Set a category target from outside the tree (menu items, Check). */
@@ -394,6 +397,7 @@
       if (type === 'load') { pending = {}; searchQ = ''; searchResults = null; addCat = ''; sleeveCat = ''; sleeveList = null; B.applyWidth(); B.render(); var t = U.$('#rail-collapse'); if (t) t.setAttribute('aria-expanded', String(!S.ws.prefs.railCollapsed)); }
       if (type === 'update' || type === 'undo' || type === 'redo') { B.render(); if (tabOf() === 'sleeves') loadSleeves(); }
       if (type === 'session' && extra.key === 'selection') B.render();
+      if (type === 'pref' && extra.key === 'factorModel') B.render();
       if (type === 'pref' && extra.key === 'selectedRow') U.$$('.tree-row', root).forEach(function (r) { r.classList.toggle('is-selected', r.dataset.key === S.ws.prefs.selectedRow); });
     });
   };

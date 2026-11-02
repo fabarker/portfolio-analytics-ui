@@ -33,7 +33,7 @@ await shot('workspaces');
 await step('open workspace', async () => {
   await page.click('.ws-card[data-id="ws_global_review"]'); await page.waitForTimeout(3000);
   check('Workspace opens with four compared allocations', await count('.member') === 4);
-  check('Five cards render with data', await count('.card') === 5 && await count('.card .tbl.dd') === 1 && await count('.card svg.viz') >= 2);
+  check('Six cards render with data, including Active risk & return', await count('.card') === 6 && await count('[data-card="c6"] .act-tabs') === 1 && await count('.card .tbl.dd') === 1 && await count('.card svg.viz') >= 2);
   check('Rail shows the portfolio → category → product tree', await count('#tree .tree-row.depth-0') === 8 && await count('#tree .tree-row.depth-1') > 8);
   check('Hatched index remainder shows for under-implemented categories', await count('[data-card="c2"] rect[fill="url(#hatch)"]') >= 2);
   await shot('workspace');
@@ -145,9 +145,9 @@ await step('cards: settings, follow row, data table', async () => {
 });
 await step('cards: add from repository, keyboard move, resize, remove, undo', async () => {
   await page.click('#cx-add'); await page.waitForTimeout(900);
-  check('Card repository lists the catalogue and saved cards', await count('#card-sheet [data-add-type]') === 14 && await count('#card-sheet [data-add-saved]') === 3);
+  check('Card repository lists the catalogue and saved cards', await count('#card-sheet [data-add-type]') === 15 && await count('#card-sheet [data-add-saved]') === 3);
   await page.click('#card-sheet [data-add-type="stress-periods"]'); await page.waitForTimeout(1500);
-  check('Catalogue card added', await count('.card') === 6);
+  check('Catalogue card added', await count('.card') === 7);
   await page.click('#card-sheet [data-add-saved="card_rolling_vol"]'); await page.waitForTimeout(1500);
   check('Saved card added with its name', (await text('#cards')).includes('Rolling 36-month volatility'));
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
@@ -162,11 +162,11 @@ await step('cards: add from repository, keyboard move, resize, remove, undo', as
   await page.mouse.move(head.x + head.width / 2, head.y + head.height / 2); await page.mouse.down(); await page.mouse.move(head.x + head.width / 2 + 10, head.y + 80, { steps: 6 }); await page.mouse.move(head.x + head.width / 2 + 10, head.y + 190, { steps: 6 }); await page.mouse.up(); await page.waitForTimeout(600);
   check('Dragging a card by its header moves it', (await target.evaluate(el => el.style.gridRow)) !== rowBefore);
   await newCard.locator('[data-menu]').click(); await page.waitForTimeout(200); await page.click('.menu-item:has-text("Remove from workspace")'); await page.waitForTimeout(600);
-  check('Card removed', await count('.card') === 6);
+  check('Card removed', await count('.card') === 7);
   await page.keyboard.press('Meta+z'); await page.waitForTimeout(1200);
-  check('Undo restores the card', await count('.card') === 7);
+  check('Undo restores the card', await count('.card') === 8);
   await page.click('#cx-layout'); await page.waitForTimeout(200); await page.click('.menu-item:has-text("Pack cards")'); await page.waitForTimeout(600);
-  check('Pack layout keeps every card on the grid', await count('.card') === 7);
+  check('Pack layout keeps every card on the grid', await count('.card') === 8);
 });
 await step('context bar', async () => {
   await page.click('[data-cx="basis"][data-val="historical"]'); await page.waitForTimeout(2000);
@@ -181,7 +181,77 @@ await step('context bar', async () => {
 });
 await step('persistence', async () => {
   await page.waitForTimeout(1000); await page.reload(); await page.waitForTimeout(3000);
-  check('Cards, sleeves tags and scenario persist across a reload', await count('.card') === 7 && (await text('#tree')).includes('Core Alternatives') && /rates/i.test(await text('#scenario-btn')));
+  check('Cards, sleeves tags and scenario persist across a reload', await count('.card') === 8 && (await text('#tree')).includes('Core Alternatives') && /rates/i.test(await text('#scenario-btn')));
+});
+await step('factor models', async () => {
+  const rev = (id) => page.evaluate((i) => PA.cards.state[i] ? PA.cards.state[i].revision : -1, id);
+  check('The context bar has a Factor model switch, ISG by default', await page.getAttribute('[data-cx="model"][data-val="isg"]', 'aria-pressed') === 'true' && await count('[data-cx="model"]') === 2);
+  await page.click('#cx-add'); await page.waitForTimeout(400); await page.click('#card-sheet [data-add-type="factor-exposures"]'); await page.waitForTimeout(1600); await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  const fe = page.locator('.card').last(), feId = await fe.getAttribute('data-card');
+  check('A factor card shows its model in a header chip and its subtitle', (await fe.locator('[data-model-chip]').innerText()).trim() === 'ISG' && /ISG factor model/.test(await fe.locator('.card-sub').innerText()));
+  await fe.locator('[data-settings]').click(); await page.waitForTimeout(250); await page.click('.card-pop [data-factor="factors"][data-val="fx"]'); await page.waitForTimeout(300); await page.keyboard.press('Escape'); await page.waitForTimeout(1500);
+  check('A factor pick is kept for the model it was made in', (await fe.innerText()).includes('Foreign Currency'));
+  const ddBefore = await rev('c1'), actBefore = await rev('c6');
+  await page.click('[data-cx="model"][data-val="axioma"]'); await page.waitForTimeout(2000);
+  check('Switching to Axioma refetches only factor cards', await rev('c1') === ddBefore && await rev('c6') > actBefore && /Axioma factor model/.test(await fe.locator('.card-sub').innerText()));
+  check('Factors map across models and say so', (await fe.innerText()).includes('Market') && /Mapped from ISG: Equity → Market.*Foreign Currency → USD \(opposite sign\)/.test(await fe.locator('.card-foot').innerText()));
+  check('Axioma proxies privately valued funds and the Check tab says so', /proxied/.test(await fe.locator('.card-foot').innerText()) && await page.evaluate(() => { PA.ui.builder.showTab('check'); return /Axioma: 3 products proxied by the category index/.test(document.querySelector('#builder').textContent); }));
+  await page.evaluate(() => PA.ui.builder.showTab('build'));
+  await fe.locator('[data-model-chip]').click(); await page.waitForTimeout(250); await page.click('.menu-item:has-text("Pin to Axioma")'); await page.waitForTimeout(1200);
+  await page.click('[data-cx="model"][data-val="isg"]'); await page.waitForTimeout(1800);
+  check('A pinned card ignores the workspace switch', /Axioma factor model .* pinned/.test(await fe.locator('.card-sub').innerText()) && await fe.locator('[data-model-chip].is-pinned').count() === 1 && /1 pinned to Axioma/.test(await text('#context-line')));
+  const nBefore = await count('.card');
+  await fe.locator('[data-model-chip]').click(); await page.waitForTimeout(250); await page.click('.menu-item:has-text("Compare with ISG")'); await page.waitForTimeout(1800);
+  const copy = page.locator('.card').filter({ hasText: 'Factor exposures · ISG' });
+  check('Compare with the other model adds a pinned copy', await count('.card') === nBefore + 1 && await copy.count() === 1 && (await copy.locator('[data-model-chip]').innerText()).trim() === 'ISG' && await copy.locator('.is-pinned').count() === 1);
+  await page.keyboard.press('Meta+z'); await page.waitForTimeout(800);
+  check('Compare is one undo step', await count('.card') === nBefore);
+  /* Risk by category, factor view */
+  await page.evaluate(() => { var c = PA.store.ws.cards.filter(function (x) { return x.type === 'risk-by-category'; })[0]; if (!c) PA.store.addCard({ id: 'c_rbc', type: 'risk-by-category', x: 0, y: 99, w: 6, h: 6, settings: {}, followRow: false }); });
+  await page.waitForTimeout(1500);
+  const rbc = page.locator('.card').filter({ hasText: 'Risk contribution by category' }).first(); await rbc.scrollIntoViewIfNeeded();
+  await rbc.locator('[data-settings]').click(); await page.waitForTimeout(250); await page.selectOption('#cs-decompose', 'factor'); await page.waitForTimeout(400);
+  check('Settings show and hide with each other (Units hides in the factor view; Factor model appears)', await count('.card-pop #cs-riskUnits') === 0 && await count('.card-pop #cs-factorModel') === 1);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(1500);
+  check('Risk by category splits risk by factor plus specific', /Specific/.test(await rbc.innerText()) && (await rbc.locator('[data-model-chip]').innerText()).trim() === 'ISG');
+});
+await step('active risk & return', async () => {
+  const act = page.locator('[data-card="c6"]'); await act.scrollIntoViewIfNeeded(); await page.waitForTimeout(400);
+  check('The active card lists every compared allocation against the Reference', await act.locator('.act-tbl tbody tr').count() === await count('.member') && /vs Global 60\/40/.test(await act.locator('.card-sub').innerText()));
+  const rec = await page.evaluate(async () => {
+    var ws = PA.store.ws, out = [];
+    for (const fm of ['isg', 'axioma']) for (const basis of ['forward', 'historical']) {
+      var r = await PA.api.activeAnalysis({ allocations: PA.store.members(), rowKey: '__total', basis: basis, period: { preset: 'common' }, scenario: null, factorModel: fm, decompose: 'factor', returnMethod: 'arithmetic', reference: ws.comparison, against: { mode: 'reference' } });
+      r.series.forEach(function (x) { if (x.reason) return; var src = x.riskSources.reduce(function (t, y) { return t + y.contribution; }, 0) + x.specific; out.push(Math.abs(src - x.modelTE) < 1e-6, Math.abs(x.returnTotals.allocation + x.returnTotals.selection - x.returnTotals.arithmetic) < 1e-6); if (basis === 'forward') out.push(Math.abs(x.passiveRisk * x.passiveRisk + x.activeRisk * x.activeRisk + 2 * x.activePassiveCorr * x.passiveRisk * x.activeRisk - x.totalRisk * x.totalRisk) < 1e-6, Math.abs(x.totalReturn - x.passiveReturn - x.activeReturn) < 1e-9); });
+    }
+    return out;
+  });
+  check('Factor plus specific sum to tracking error; allocation plus selection to active return; passive, active and correlation to total risk', rec.length > 20 && rec.every(Boolean), rec.filter(function (v) { return !v; }).length + ' failed');
+  await page.selectOption('#cx-ref', 'portfolio'); await page.waitForTimeout(400); await page.selectOption('#cx-pf', 'al_core'); await page.waitForTimeout(2000);
+  check('An allocation measured against itself has no active risk', /no active risk/.test(await act.locator('.act-tbl tbody tr').first().innerText()));
+  await page.selectOption('#cx-ref', 'shared'); await page.waitForTimeout(1800);
+  await act.locator('[data-act-view="risk"]').click(); await page.waitForTimeout(800);
+  check('Risk sources reconcile on screen', /Tracking error [\d.]+ = factors [\d.]+ \+ specific [\d.]+/.test(await act.locator('.act-eq').innerText()) && await act.locator('.act-src tbody tr').count() >= 4);
+  await act.locator('[data-act-view="return"]').click(); await page.waitForTimeout(800);
+  check('Return sources show allocation and selection by category', /Benchmark [\d.]+ \+ allocation [−+-][\d.]+ \+ selection [−+-][\d.]+ = /.test(await act.locator('.act-eq').innerText()));
+  await act.locator('[data-settings]').click(); await page.waitForTimeout(250);
+  await page.selectOption('#cs-against', 'pick'); await page.waitForTimeout(300);
+  check('Pick one reveals the benchmark picker', await count('.card-pop #cs-pick') === 1);
+  await page.selectOption('#cs-pick', 'benchmark:bm_acwi'); await page.waitForTimeout(200); await page.keyboard.press('Escape'); await page.waitForTimeout(1800);
+  check('A picked benchmark is named in the card', /vs Global Equity Index/.test(await act.locator('.card-sub').innerText()));
+  await act.locator('[data-settings]').click(); await page.waitForTimeout(250); await page.selectOption('#cs-against', 'own'); await page.$eval('.card-pop [data-follow]', el => { if (!el.checked) el.click(); }); await page.waitForTimeout(200); await page.keyboard.press('Escape');
+  await page.evaluate(() => PA.store.setPref('selectedRow', 'public_equity')); await page.waitForTimeout(2000);
+  await act.locator('[data-act-view="summary"]').click(); await page.waitForTimeout(800);
+  check('Following a category row with its own benchmark measures it against the category index', /Public Equity Index/.test(await act.locator('.act-tbl').innerText()) && /Public Equity/.test(await act.locator('.card-sub').innerText()));
+  await page.click('[data-cx="basis"][data-val="historical"]'); await page.waitForTimeout(2600);
+  await act.locator('[data-act-view="time"]').click(); await page.waitForTimeout(1200);
+  check('Over time draws rolling tracking error and cumulative active return', await act.locator('svg.viz').count() === 2);
+  await page.click('[data-cx="basis"][data-val="forward"]'); await page.waitForTimeout(1500);
+  await page.evaluate(() => { var c = PA.store.card('c6'), p = JSON.parse(JSON.stringify(c.settings)); p.against = 'reference'; p.view = 'summary'; PA.store.updateCard('c6', { settings: p, followRow: false }); });
+  await page.waitForTimeout(1800); await act.scrollIntoViewIfNeeded(); await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove()));
+  await act.locator('[data-act-view="risk"]').click(); await page.waitForTimeout(1000); await page.mouse.move(5, 5);
+  await act.screenshot({ path: path.join(shots, 'active-risk.png') });
+  await act.locator('[data-act-view="summary"]').click(); await page.waitForTimeout(600);
 });
 await step('sleeve repository', async () => {
   await page.goto(url + '#/sleeves'); await page.waitForTimeout(1500);

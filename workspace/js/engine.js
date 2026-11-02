@@ -185,8 +185,10 @@
     return S;
   }
 
-  /** Forward-looking figures for one allocation under resolved assumptions. */
-  E.forward = function (allocation, R, rows) {
+  /** Forward-looking figures for one allocation under resolved assumptions.
+      Factor betas come from the chosen factor model (default ISG). */
+  E.forward = function (allocation, R, rows, modelId) {
+    var model = E.modelOf(modelId);
     var hs = E.effective(allocation);
     if (!R.corrValid) return { error: 'invalid_covariance' };
     var w = hs.map(function (h) { return h.weight / 100; });
@@ -201,14 +203,144 @@
       var ret = U.sum(list, function (h) { return h.weight / 100 * R.ret[h.instrumentId].value; });
       var rv = U.sum(list, function (h) { return byId[h.id]; });
       var share = vol > 0 ? rv / vol * 100 : null;
-      var beta = {};
-      D.factors.forEach(function (f) {
+      var beta = {}, loads = list.map(function (h) { return E.loadingsOf(model, h.instrumentId); });
+      model.factors.forEach(function (f) {
         if (!list.length || Math.abs(weight) < 1e-9) { beta[f.id] = null; return; }
-        var s = 0; list.forEach(function (h) { s += h.weight * D.assumptions.assetClasses[D.instrumentById[h.instrumentId].assetClass].betas[f.id]; });
+        var s = 0; list.forEach(function (h, k) { s += h.weight * loads[k][f.id]; });
         beta[f.id] = row.kind === 'total' ? s / 100 : s / weight;
       });
-      out.rows[row.key] = { weight: weight, ret: ret, riskShare: share, riskVol: rv, beta: beta, held: list.length > 0, note: row.kind === 'index' && list.length ? 'Index-modelled remainder' : null };
+      out.rows[row.key] = { weight: weight, ret: ret, riskShare: share, riskVol: rv, beta: beta, modelNote: E.modelNote(model, list), held: list.length > 0, note: row.kind === 'index' && list.length ? 'Index-modelled remainder' : null };
     });
+    return out;
+  };
+
+  /* ── factor models ───────────────────────────────────────────────── */
+  E.modelOf = function (id) { return D.factorModelById[id] || D.factorModelById.isg; };
+  /** null when the model covers the product; else {status:'proxied', note}. */
+  E.modelCoverage = function (model, instrumentId) { return model.coverage(D.instrumentById[instrumentId]); };
+  /** A product's factor loadings: its asset class, plus its own tilt unless the model proxies it. */
+  E.loadingsOf = function (model, instrumentId) {
+    var ins = D.instrumentById[instrumentId], base = model.loadings[ins.assetClass] || {}, tilt = model.coverage(ins) ? null : model.productLoadings[instrumentId], out = {};
+    model.factors.forEach(function (f) { out[f.id] = (base[f.id] || 0) + (tilt && tilt[f.id] || 0); });
+    return out;
+  };
+  /** Annual specific (non-factor) volatility, %. A proxied product carries fund-level specific risk. */
+  E.specificOf = function (model, instrumentId) { var ins = D.instrumentById[instrumentId], scale = model.coverage(ins) ? model.specificScale.Fund : (model.specificScale[ins.type] || 1); return (model.specificVol[ins.assetClass] || 0) * scale; };
+  E.modelNote = function (model, list) {
+    var seen = {}, names = [];
+    list.forEach(function (h) { if (seen[h.instrumentId]) return; seen[h.instrumentId] = 1; if (model.coverage(D.instrumentById[h.instrumentId])) names.push(D.instrumentById[h.instrumentId].name); });
+    return names.length ? 'Proxied by the category index in ' + model.name + ': ' + names.join(', ') : null;
+  };
+  var covCache = {};
+  function factorCov(model) {
+    if (covCache[model.id]) return covCache[model.id];
+    var F = model.factors.map(function (f, i) { return model.factors.map(function (g, j) { return model.factorCorrelation[i][j] * model.factorVol[f.id] * model.factorVol[g.id]; }); });
+    return (covCache[model.id] = F);
+  }
+  /** Sum weights (%) by instrument; virtual index holdings merge with real holdings of the same index. */
+  E.weightsOf = function (holdings) { var w = {}; holdings.forEach(function (h) { w[h.instrumentId] = (w[h.instrumentId] || 0) + h.weight; }); return w; };
+  /**
+   * Risk of a weight vector {instrumentId: weight %} (weights may be negative:
+   * an active portfolio) under a factor model. Variance in %²:
+   *   x = Σ wᵢβᵢ,  factor = xᵀFx,  specific = Σ wᵢ²sᵢ².
+   * Contributions are Euler (they sum to the total volatility).
+   */
+  E.modelRisk = function (weights, modelId) {
+    var model = E.modelOf(modelId), F = factorCov(model), fs = model.factors, x = fs.map(function () { return 0; }), spec = 0, ids = Object.keys(weights).filter(function (id) { return Math.abs(weights[id]) > 1e-12; });
+    var loads = {}; ids.forEach(function (id) { var w = weights[id] / 100, b = loads[id] = E.loadingsOf(model, id); fs.forEach(function (f, k) { x[k] += w * b[f.id]; }); var s = E.specificOf(model, id); spec += w * w * s * s; });
+    var Fx = U.mat.mulVec(F, x), fv = U.mat.dot(x, Fx), total = Math.sqrt(Math.max(fv + spec, 0));
+    var exposure = {}, byFactor = {}, byInstrument = {};
+    fs.forEach(function (f, k) { exposure[f.id] = x[k]; byFactor[f.id] = total > 0 ? x[k] * Fx[k] / total : 0; });
+    ids.forEach(function (id) { var w = weights[id] / 100, b = loads[id], s = E.specificOf(model, id), bf = 0; fs.forEach(function (f, k) { bf += b[f.id] * Fx[k]; }); byInstrument[id] = total > 0 ? w * (bf + w * s * s) / total : 0; });
+    return { model: model, exposure: exposure, factorVar: fv, specificVar: spec, total: total, byFactor: byFactor, specific: total > 0 ? spec / total : 0, byInstrument: byInstrument };
+  };
+
+  /* ── active (versus a benchmark) ─────────────────────────────────── */
+  /** Return of a category's index basket under resolved assumptions. */
+  function basketReturn(c, retOf) { var tot = U.sum(c.index, function (p) { return p[1]; }); return U.sum(c.index, function (p) { return p[1] / tot * retOf(p[0]); }); }
+  /**
+   * Allocation and selection by category (Brinson). Weights in %, returns in
+   * % a year. A category the benchmark does not hold is benchmarked by its
+   * index. Unallocated weight earns nothing and appears as its own line, so
+   * the effects always sum to the active return.
+   */
+  E.brinson = function (wP, wB, retOf) {
+    var RB = 0; Object.keys(wB).forEach(function (id) { RB += wB[id] / 100 * retOf(id); });
+    var rows = [], sumP = 0, sumB = 0, tA = 0, tS = 0;
+    D.categories.forEach(function (c) {
+      var inC = function (w) { var W = 0, R = 0; Object.keys(w).forEach(function (id) { if (E.categoryOf(id) !== c.id) return; W += w[id] / 100; R += w[id] / 100 * retOf(id); }); return { W: W, R: R }; };
+      var p = inC(wP), b = inC(wB); sumP += p.W; sumB += b.W;
+      if (Math.abs(p.W) < 1e-9 && Math.abs(b.W) < 1e-9) return;
+      var RBc = Math.abs(b.W) > 1e-9 ? b.R / b.W : basketReturn(c, retOf), RPc = Math.abs(p.W) > 1e-9 ? p.R / p.W : RBc;
+      var alloc = (p.W - b.W) * (RBc - RB), sel = p.W * (RPc - RBc); tA += alloc; tS += sel;
+      rows.push({ key: c.id, label: c.name, short: c.short, color: c.color, weight: p.W * 100, benchWeight: b.W * 100, ret: RPc, benchRet: RBc, allocation: alloc, selection: sel });
+    });
+    var du = (1 - sumP) - (1 - sumB);
+    if (Math.abs(du) > 1e-9) { var ua = du * (0 - RB); tA += ua; rows.push({ key: '__residual', label: 'Unallocated', short: 'Unallocated', color: '#c3cedb', weight: (1 - sumP) * 100, benchWeight: (1 - sumB) * 100, ret: 0, benchRet: 0, allocation: ua, selection: 0 }); }
+    return { rows: rows, allocation: tA, selection: tS, benchmarkReturn: RB };
+  };
+  function sources(riskA, decompose, model) {
+    if (decompose === 'category') {
+      var byC = {}; Object.keys(riskA.byInstrument).forEach(function (id) { var c = E.categoryOf(id); byC[c] = (byC[c] || 0) + riskA.byInstrument[id]; });
+      return D.categories.filter(function (c) { return byC[c.id] != null; }).map(function (c) { return { key: c.id, label: c.name, color: c.color, contribution: byC[c.id] }; });
+    }
+    if (decompose === 'product') {
+      var list = Object.keys(riskA.byInstrument).map(function (id) { var ins = D.instrumentById[id]; return { key: id, label: ins.name, color: (D.categoryOf(id) || {}).color, contribution: riskA.byInstrument[id] }; }).sort(function (a, b) { return Math.abs(b.contribution) - Math.abs(a.contribution); });
+      if (list.length > 10) { var rest = list.slice(9); list = list.slice(0, 9).concat([{ key: '__other', label: 'Other ' + rest.length + ' products', color: '#c3cedb', contribution: U.sum(rest, function (r) { return r.contribution; }) }]); }
+      return list;
+    }
+    return model.factors.map(function (f) { return { key: f.id, label: f.name, contribution: riskA.byFactor[f.id] }; }).filter(function (r) { return Math.abs(r.contribution) > 1e-6; }).sort(function (a, b) { return Math.abs(b.contribution) - Math.abs(a.contribution); });
+  }
+  /**
+   * Passive and active figures for a subject against a benchmark.
+   * subject/bench: {holdings:[{instrumentId, weight %}], returns?:monthly[]}
+   * opts: {modelId, basis:'forward'|'historical', R, period:{start,end}, decompose, returnMethod}
+   */
+  E.active = function (subject, bench, opts) {
+    var model = E.modelOf(opts.modelId), wP = E.weightsOf(subject.holdings), wB = E.weightsOf(bench.holdings), a = {};
+    Object.keys(wP).concat(Object.keys(wB)).forEach(function (id) { a[id] = (wP[id] || 0) - (wB[id] || 0); });
+    var riskP = E.modelRisk(wP, model.id), riskB = E.modelRisk(wB, model.id), riskA = E.modelRisk(a, model.id);
+    /* active share on the asset-class mix: products and the indices they track count as the same exposure */
+    var byAc = {}; Object.keys(a).forEach(function (id) { var ac = D.instrumentById[id].assetClass; byAc[ac] = (byAc[ac] || 0) + a[id]; });
+    var activeShare = U.sum(Object.keys(byAc), function (k) { return Math.abs(byAc[k]); }) / 2;
+    var proxied = Object.keys(a).filter(function (id) { return model.coverage(D.instrumentById[id]); }).map(function (id) { return D.instrumentById[id].name; });
+    var geo = opts.returnMethod === 'geometric', out = { model: model.id, activeShare: activeShare, riskSources: sources(riskA, opts.decompose || 'factor', model), specific: (opts.decompose || 'factor') === 'factor' ? riskA.specific : null, modelTE: riskA.total, coverage: proxied.length ? 'Proxied by the category index in ' + model.name + ': ' + proxied.join(', ') : null };
+    var diff = function (p, b) { return geo ? ((1 + p / 100) / (1 + b / 100) - 1) * 100 : p - b; };
+    if (opts.basis !== 'historical') {
+      var R = opts.R, retOf = function (id) { return R.ret[id] ? R.ret[id].value : 0; };
+      var tr = U.sum(Object.keys(wP), function (id) { return wP[id] / 100 * retOf(id); }), pr = U.sum(Object.keys(wB), function (id) { return wB[id] / 100 * retOf(id); });
+      var te = riskA.total, sp = riskP.total, sb = riskB.total;
+      out.totalReturn = tr; out.passiveReturn = pr; out.activeReturn = diff(tr, pr);
+      out.totalRisk = sp; out.passiveRisk = sb; out.activeRisk = te;
+      out.activePassiveCorr = te > 1e-9 && sb > 1e-9 ? U.clamp((sp * sp - sb * sb - te * te) / (2 * sb * te), -1, 1) : null;
+      var br = E.brinson(wP, wB, retOf); out.returnSources = br.rows; out.returnTotals = { allocation: br.allocation, selection: br.selection, arithmetic: tr - pr };
+    } else {
+      var i0 = E.monthIndex(opts.period.start), i1 = E.monthIndex(opts.period.end), lb = Math.max(0, i0 - 35);
+      var from = D.history.months[lb], to = opts.period.end, off = i0 - lb;
+      var rp = subject.returnsFrom ? subject.returnsFrom(from, to) : E.backtest(subject.holdings, from, to).returns, rb = E.backtest(bench.holdings, from, to).returns;
+      var act = rp.map(function (v, i) { return v == null || rb[i] == null ? null : v - rb[i]; });
+      var seg = function (arr) { return arr.slice(off).filter(function (v) { return v != null; }); };
+      var both = act.slice(off).map(function (v, i) { return v == null ? null : i; }).filter(function (i) { return i != null; });
+      var p1 = both.map(function (i) { return rp[off + i]; }), b1 = both.map(function (i) { return rb[off + i]; }), a1 = both.map(function (i) { return act[off + i]; });
+      if (p1.length < 12) { out.reason = 'Fewer than 12 months of overlapping history with the benchmark'; return out; }
+      var tr2 = U.stats.annualizedReturn(p1) * 100, pr2 = U.stats.annualizedReturn(b1) * 100;
+      out.totalReturn = tr2; out.passiveReturn = pr2; out.activeReturn = diff(tr2, pr2);
+      out.totalRisk = U.stats.annualizedVol(p1) * 100; out.passiveRisk = U.stats.annualizedVol(b1) * 100; out.activeRisk = U.stats.annualizedVol(a1) * 100;
+      var cm = E.correlationMatrix([b1, a1]); out.activePassiveCorr = cm[0][1];
+      out.months = both.length;
+      /* rolling 36-month tracking error and cumulative active return over the period */
+      var months = D.history.months.slice(i0, i1 + 1), te36 = [], cum = [], gp = 1, gb = 1;
+      for (var m = off; m < act.length; m++) {
+        var w36 = act.slice(Math.max(0, m - 35), m + 1); te36.push(m - 35 >= 0 && w36.every(function (v) { return v != null; }) ? U.stats.annualizedVol(w36) * 100 : null);
+        if (rp[m] != null && rb[m] != null) { gp *= 1 + rp[m]; gb *= 1 + rb[m]; cum.push((gp / gb - 1) * 100); } else cum.push(cum.length ? cum[cum.length - 1] : null);
+      }
+      out.over = { months: months, te36: te36, cumActive: cum };
+      var hret = {}, retH = function (id) { if (hret[id] === undefined) { var s = E.holdingSeries(id).series.slice(i0, i1 + 1).filter(function (v) { return v != null; }); hret[id] = s.length >= 12 ? U.stats.annualizedReturn(s) * 100 : 0; } return hret[id]; };
+      var br2 = E.brinson(wP, wB, retH); out.returnSources = br2.rows; out.returnTotals = { allocation: br2.allocation, selection: br2.selection, arithmetic: br2.allocation + br2.selection };
+      out.returnSourcesNote = 'Sources use each holding’s annualised return over the period at current weights, so they can differ slightly from the realised active return.';
+      out.riskSourcesNote = 'Sources come from the ' + model.name + ' factor model (forward tracking error ' + U.fmt.num(riskA.total, 2) + '%). The headline tracking error is realised over the period.';
+    }
+    out.informationRatio = out.activeRisk > 1e-6 ? out.activeReturn / out.activeRisk : null;
     return out;
   };
 
@@ -269,7 +401,8 @@
   };
 
   /** Historical table figures for one allocation over a period. */
-  E.historical = function (allocation, rows, from, to) {
+  E.historical = function (allocation, rows, from, to, modelId) {
+    var model = E.modelOf(modelId);
     var i0 = E.monthIndex(from), i1 = E.monthIndex(to), hs = E.effective(allocation), stats = {};
     hs.forEach(function (h) {
       var s = E.holdingSeries(h.instrumentId), seg = s.series.slice(i0, i1 + 1), clean = seg.filter(function (v) { return v != null; });
@@ -290,17 +423,18 @@
       else if (list.length) reason = stats[missing[0].id].note || 'History unavailable for this period';
       if (!list.length && row.kind !== 'total') ret = 0;
       var rv = U.sum(list.filter(function (h) { return contrib[h.id] != null; }), function (h) { return contrib[h.id]; }), share = vol > 0 ? rv / vol * 100 : null;
+      /* estimated by regressing the period's returns on the model's factor returns (simulated: the model loading plus estimation noise) */
       var beta = {};
-      D.factors.forEach(function (f) {
+      model.factors.forEach(function (f) {
         if (!list.length || Math.abs(weight) < 1e-9) { beta[f.id] = null; return; }
-        var s2 = 0, r2 = U.rng(U.hash(row.key + f.id + from));
-        list.forEach(function (h) { s2 += h.weight * D.assumptions.assetClasses[D.instrumentById[h.instrumentId].assetClass].betas[f.id] * (1 + r2.normal() * 0.08); });
+        var s2 = 0, r2 = U.rng(U.hash(model.id + row.key + f.id + from));
+        list.forEach(function (h) { s2 += h.weight * (E.loadingsOf(model, h.instrumentId)[f.id] + r2.normal() * 0.04); });
         beta[f.id] = row.kind === 'total' ? s2 / 100 : s2 / weight;
       });
       var proxied = list.filter(function (h) { return stats[h.id].coverage === 'proxy'; });
       if (proxied.length) notes.push(proxied.map(function (h) { return D.instrumentById[h.instrumentId].name + ': ' + stats[h.id].note; }).join('; '));
       var allMissing = missing.length && missing.length === list.length;
-      out.rows[row.key] = { weight: weight, ret: ret, reason: reason, riskShare: allMissing ? null : share, riskVol: allMissing ? null : rv, beta: beta, held: list.length > 0, coverageNote: notes.length ? notes.join(' · ') : null, note: row.kind === 'index' && list.length ? 'Index-modelled remainder' : null };
+      out.rows[row.key] = { weight: weight, ret: ret, reason: reason, riskShare: allMissing ? null : share, riskVol: allMissing ? null : rv, beta: beta, modelNote: E.modelNote(model, list), held: list.length > 0, coverageNote: notes.length ? notes.join(' · ') : null, note: row.kind === 'index' && list.length ? 'Index-modelled remainder' : null };
     });
     return out;
   };

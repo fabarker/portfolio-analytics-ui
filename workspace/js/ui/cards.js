@@ -9,7 +9,9 @@
    Card type contract
    ──────────────────
    {id, title, description, group, size:{w,h}, min:{w,h}, basis:'historical'|'forward'|'both'|'none',
-    supportsRow:boolean, settings:[{key,label,type:'select'|'multi'|'toggle',options:[[v,label]],default}],
+    supportsRow:boolean, factorModel?: true | (settings, card) → boolean   (uses a factor model),
+    settings:[{key, label, type:'select'|'multi'|'toggle'|'factors', options:[[v,label]] | (card) → [[v,label]],
+               default, when?: (settings, card) → boolean}],
     data(ctx, settings, card) → Promise<any>,
     render(body, data, ctx, settings, card),
     subtitle(ctx, settings, card) → string,
@@ -43,6 +45,39 @@
     if (parts[1] === '__index') return cat.short + ' Index';
     var ins = PA.data.instrumentById[parts[1]]; return ins ? ins.name : key;
   };
+  /* ── factor models: the workspace sets one, a card may pin its own ── */
+  C.workspaceModel = function () { return (S.ws && S.ws.prefs.factorModel) || 'isg'; };
+  C.usesModel = function (card) { var t = C.types[card.type]; if (!t || !t.factorModel) return false; return typeof t.factorModel === 'function' ? !!t.factorModel(C.settingsOf(card), card) : true; };
+  C.isPinned = function (card) { var v = card.settings && card.settings.factorModel; return v === 'isg' || v === 'axioma'; };
+  C.modelIdOf = function (card) { return C.isPinned(card) ? card.settings.factorModel : C.workspaceModel(); };
+  C.modelOf = function (card) { return PA.data.factorModelById[C.modelIdOf(card)]; };
+  C.modelLabel = function (card) { var m = C.modelOf(card); return m.name + ' factor model · as of ' + U.fmt.date(m.asOf) + (C.isPinned(card) ? ' · pinned' : ''); };
+  /**
+   * The factors a card shows under a model. A card keeps one pick per model
+   * ({isg:[…], axioma:[…]}; a plain array is an ISG pick). With no pick for
+   * this model, the other model's pick is mapped across where factors have a
+   * counterpart; otherwise the model's defaults apply.
+   */
+  C.factorsFor = function (value, modelId) {
+    var D = PA.data, m = D.factorModelById[modelId], otherId = modelId === 'isg' ? 'axioma' : 'isg', om = D.factorModelById[otherId];
+    var mine = Array.isArray(value) ? (modelId === 'isg' ? value : null) : (value && value[modelId]);
+    if (mine && mine.length) { var ok = mine.filter(function (id) { return m.factorById[id]; }); if (ok.length) return { ids: ok, mapped: null }; }
+    var src = Array.isArray(value) ? value : (value && value[otherId]);
+    if (src && src.length) {
+      var pairs = []; src.forEach(function (id) { var f = om.factorById[id]; if (f && f.mapsTo && m.factorById[f.mapsTo]) pairs.push([f, m.factorById[f.mapsTo]]); });
+      if (pairs.length) return { ids: pairs.map(function (p) { return p[1].id; }), mapped: 'Mapped from ' + om.name + ': ' + pairs.map(function (p) { return p[0].name + ' → ' + p[1].name + (p[1].signFlip ? ' (opposite sign)' : ''); }).join(', ') };
+    }
+    return { ids: m.defaultFactors.slice(), mapped: null };
+  };
+  C.setFactors = function (card, key, modelId, ids) { var c = S.card(card.id), p = U.clone(c.settings || {}), v = p[key], obj = Array.isArray(v) ? { isg: v } : (v ? U.clone(v) : {}); obj[modelId] = ids; p[key] = obj; S.updateCard(c.id, { settings: p }); };
+  C.aboutModel = function (modelId) {
+    var D = PA.data, m = D.factorModelById[modelId], members = S.members();
+    var cov = members.map(function (a) { var n = PA.engine.modelNote(m, PA.engine.effective(a)); return n ? '<li><b>' + esc(a.name) + '</b>: ' + esc(n.replace(/^Proxied by the category index in [^:]+: /, '')) + '</li>' : ''; }).join('');
+    UI.openDialog({ title: m.long, sub: 'As of ' + U.fmt.date(m.asOf) + '. ' + esc(m.note), wide: true,
+      body: PA.ui.viz.table([{ label: 'Factor' }, { label: 'What it measures' }, { label: (modelId === 'isg' ? 'Axioma' : 'ISG') + ' counterpart' }], m.factors.map(function (f) { var o = D.factorModelById[modelId === 'isg' ? 'axioma' : 'isg']; return { cells: [esc(f.name), esc(f.description), f.mapsTo && o.factorById[f.mapsTo] ? esc(o.factorById[f.mapsTo].name) + (f.signFlip ? ' <span class="tag tag-warn">opposite sign</span>' : '') : '<span class="faint">none</span>'] }; }), { maxHeight: '260px' }) +
+        '<h4 style="margin:16px 0 6px">Coverage of the compared allocations</h4>' + (cov ? '<p class="small">Not covered by ' + esc(m.name) + ', so proxied by their category index:</p><ul class="small">' + cov + '</ul>' : '<p class="small">Every product in the compared allocations is covered.</p>'),
+      actions: [{ label: 'Close', primary: true }] });
+  };
   C.settingsOf = function (card) { var t = C.types[card.type], out = {}; (t.settings || []).forEach(function (s) { out[s.key] = card.settings && card.settings[s.key] !== undefined ? card.settings[s.key] : s.default; }); return out; };
 
   /* ── loading and rendering one card ──────────────────────────────── */
@@ -51,6 +86,7 @@
     var st = C.state[card.id] = C.state[card.id] || { status: 'idle', data: null, error: null, revision: 0 };
     var ctx = C.ctx(), rev = ++st.revision, settings = C.settingsOf(card);
     st.status = 'loading'; paintStatus(card);
+    var el0 = grid.querySelector('[data-card="' + CSS.escape(card.id) + '"]'); if (el0) paintChip(card, el0);
     var p; try { p = t.data(ctx, settings, card); } catch (e) { p = Promise.reject({ message: e.message }); }
     Promise.resolve(p).then(function (data) { if (rev !== st.revision) return; st.status = 'current'; st.data = data; st.error = null; st.ctx = ctx; paint(card); },
       function (err) { if (rev !== st.revision) return; st.status = 'failed'; st.error = err; paint(card); });
@@ -67,13 +103,43 @@
     var t = C.types[card.type], st = C.state[card.id], settings = C.settingsOf(card);
     /* a fresh body each paint, so delegated handlers a renderer attached never accumulate */
     var old = el.querySelector('.card-body'), body = old.cloneNode(false); old.parentNode.replaceChild(body, old);
-    paintStatus(card);
+    paintStatus(card); paintChip(card, el);
     el.querySelector('.card-sub').textContent = t.subtitle ? t.subtitle(st.ctx || C.ctx(), settings, card) : '';
     if (st.status === 'failed' && !st.data) { body.innerHTML = '<div class="chart-empty">This card could not be calculated. ' + esc(st.error && st.error.message || '') + '</div>'; return; }
     if (!st.data) { body.innerHTML = '<div class="chart-empty"><span class="spinner" style="display:inline-block;vertical-align:middle;margin-right:8px"></span>Calculating…</div>'; return; }
     try { t.render(body, st.data, st.ctx || C.ctx(), settings, card); } catch (e) { console.error(e); body.innerHTML = '<div class="chart-empty">Could not draw this card: ' + esc(e.message) + '</div>'; }
     var dt = el.querySelector('.card-data');
     if (card.showData && t.dataTable) { dt.hidden = false; dt.innerHTML = t.dataTable(st.data, st.ctx || C.ctx(), settings, card); } else { dt.hidden = true; dt.innerHTML = ''; }
+  }
+  function paintChip(card, el) {
+    var b = el.querySelector('[data-model-chip]'); if (!b) return;
+    var on = C.usesModel(card); b.hidden = !on; if (!on) return;
+    var m = C.modelOf(card), pin = C.isPinned(card);
+    b.classList.toggle('is-pinned', pin); b.innerHTML = (pin ? I.pin : '') + '<span>' + esc(m.name) + '</span>';
+    b.setAttribute('aria-label', 'Factor model ' + m.name + (pin ? ', pinned to this card' : ', following the workspace') + '. Change it');
+    b.setAttribute('data-tip', pin ? 'Pinned to ' + m.name + ': the workspace switch does not change this card' : 'Following the workspace factor model');
+  }
+  function modelMenu(btn, card) {
+    var D = PA.data, t = C.types[card.type], cur = C.modelIdOf(card), pin = C.isPinned(card), wsId = C.workspaceModel(), other = cur === 'isg' ? 'axioma' : 'isg';
+    var mark = function (on) { return on ? I.check : '<span class="menu-blank" aria-hidden="true"></span>'; };
+    var set = function (v) { var c = S.card(card.id), p = U.clone(c.settings || {}); p.factorModel = v; S.updateCard(c.id, { settings: p }); U.announce((c.name || t.title) + (v === 'follow' ? ' follows the workspace factor model' : ' pinned to ' + D.factorModelById[v].name)); };
+    UI.menu(btn, [{ head: 'Factor model for this card' },
+      { label: 'Follow the workspace (' + D.factorModelById[wsId].name + ')', icon: mark(!pin), onClick: function () { set('follow'); } },
+      { label: 'Pin to ISG', icon: mark(pin && cur === 'isg'), onClick: function () { set('isg'); } },
+      { label: 'Pin to Axioma', icon: mark(pin && cur === 'axioma'), onClick: function () { set('axioma'); } },
+      { sep: true },
+      { label: 'Compare with ' + D.factorModelById[other].name + ' (adds a pinned copy)', icon: I.plus, onClick: function () { compareModel(card, other); } },
+      { label: 'About ' + D.factorModelById[cur].name + ' and its coverage', icon: I.info, onClick: function () { C.aboutModel(cur); } }], { align: 'end' });
+  }
+  /** A copy of the card pinned to the other model, placed beside it (or below when there is no room). */
+  function compareModel(card, other) {
+    var D = PA.data, t = C.types[card.type], copy = U.clone(card);
+    copy.id = U.uid('c'); copy.settings = U.clone(card.settings || {}); copy.settings.factorModel = other;
+    copy.name = (card.name || t.title) + ' · ' + D.factorModelById[other].name;
+    var beside = card.x + 2 * card.w <= COLS; copy.x = beside ? card.x + card.w : card.x; copy.y = beside ? card.y : card.y + card.h;
+    S.addCard(copy); commit(copy.id, { x: copy.x, y: copy.y, w: copy.w, h: copy.h });
+    UI.toast('Added a copy pinned to ' + D.factorModelById[other].name + ' ' + (beside ? 'beside' : 'below') + ' the original.', { action: { label: 'Undo', fn: S.undo } });
+    scrollToCard(copy.id);
   }
   C.repaint = function (id) { var c = S.card(id); if (c) paint(c); };
   C.reload = function (id) { var c = S.card(id); if (c) load(c); };
@@ -84,7 +150,7 @@
     if (!t) return '<article class="card" data-card="' + esc(card.id) + '" style="' + pos(card) + '"><div class="card-body"><div class="chart-empty">Unknown card type “' + esc(card.type) + '”.</div></div></article>';
     return '<article class="card" data-card="' + esc(card.id) + '" style="' + pos(card) + '" tabindex="0" aria-label="' + esc((card.name || t.title) + ' card. Arrow keys move it, shift with arrows resizes it.') + '">' +
       '<header class="card-head"><span class="card-grip" aria-hidden="true">' + I.grip + '</span><div class="card-title"><h3>' + esc(card.name || t.title) + (card.followRow && t.supportsRow ? ' <span class="tag tag-info" data-tip="Follows the row selected in the Drivers &amp; Differences table">Row</span>' : '') + '</h3><div class="card-sub"></div></div>' +
-      '<div class="card-tools"><button type="button" class="btn btn-icon btn-ghost btn-sm" data-settings aria-label="Card settings" aria-haspopup="dialog" aria-expanded="false" data-tip="Settings">' + I.sliders + '</button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-menu aria-label="Card menu" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div></header>' +
+      '<div class="card-tools"><button type="button" class="model-chip" data-model-chip hidden aria-haspopup="menu" aria-expanded="false"></button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-settings aria-label="Card settings" aria-haspopup="dialog" aria-expanded="false" data-tip="Settings">' + I.sliders + '</button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-menu aria-label="Card menu" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div></header>' +
       '<div class="card-status" hidden></div><div class="card-body"></div><div class="card-data" hidden></div>' +
       '<button type="button" class="card-resize" data-resize aria-label="Resize card" tabindex="-1"></button></article>';
   }
@@ -100,22 +166,32 @@
   function rerenderAll() { if (S.ws) S.ws.cards.forEach(load); }
 
   /* ── settings popover and menu ───────────────────────────────────── */
-  function settingsPopover(btn, card) {
-    var t = C.types[card.type], settings = C.settingsOf(card);
-    var html = '<div class="menu-head">' + esc(card.name || t.title) + '</div><div class="card-settings">';
+  function settingsBody(card) {
+    var t = C.types[card.type], settings = C.settingsOf(card), html = '';
+    if (C.usesModel(card)) { var wsm = PA.data.factorModelById[C.workspaceModel()].name, fmv = C.isPinned(card) ? card.settings.factorModel : 'follow'; html += '<div class="field"><label for="cs-factorModel">Factor model</label><select id="cs-factorModel" data-set="factorModel" class="input-sm">' + [['follow', 'Follow the workspace (' + wsm + ')'], ['isg', 'ISG'], ['axioma', 'Axioma']].map(function (o) { return '<option value="' + o[0] + '"' + (fmv === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>'; }
     (t.settings || []).forEach(function (s) {
-      if (s.type === 'select') html += '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + s.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
-      else if (s.type === 'multi') html += '<div class="field"><span class="label">' + esc(s.label) + '</span><div class="factor-pick">' + s.options.map(function (o) { return '<button type="button" class="fchip" data-multi="' + s.key + '" data-val="' + esc(o[0]) + '" aria-pressed="' + ((settings[s.key] || []).indexOf(o[0]) >= 0) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
+      if (s.when && !s.when(settings, card)) return;
+      var opts = typeof s.options === 'function' ? s.options(card) : s.options;
+      if (s.type === 'factors') { var m = C.modelOf(card), cur = C.factorsFor(settings[s.key], m.id).ids; html += '<div class="field"><span class="label">' + esc(s.label) + ' · ' + esc(m.name) + '</span><div class="factor-pick">' + m.factors.map(function (f) { return '<button type="button" class="fchip" data-factor="' + s.key + '" data-val="' + esc(f.id) + '" aria-pressed="' + (cur.indexOf(f.id) >= 0) + '" data-tip="' + esc(f.description) + '">' + esc(f.name) + '</button>'; }).join('') + '</div><span class="field-hint">Each factor model keeps its own selection.</span></div>'; return; }
+      if (s.type === 'select') html += '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
+      else if (s.type === 'multi') html += '<div class="field"><span class="label">' + esc(s.label) + '</span><div class="factor-pick">' + opts.map(function (o) { return '<button type="button" class="fchip" data-multi="' + s.key + '" data-val="' + esc(o[0]) + '" aria-pressed="' + ((settings[s.key] || []).indexOf(o[0]) >= 0) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
       else if (s.type === 'toggle') html += '<label class="switch"><input type="checkbox" data-set="' + s.key + '"' + (settings[s.key] ? ' checked' : '') + '><span class="track"></span><span>' + esc(s.label) + '</span></label>';
     });
     if (t.supportsRow) html += '<label class="switch"><input type="checkbox" data-follow' + (card.followRow ? ' checked' : '') + '><span class="track"></span><span>Follow the selected row</span></label><div class="field-hint">' + (card.followRow ? 'Showing ' + esc(C.rowLabel(S.ws.prefs.selectedRow)) + '. Select another row in the table to change it.' : 'Showing the whole portfolio.') + '</div>';
-    if (!(t.settings || []).length && !t.supportsRow) html += '<div class="field-hint">This card has no settings. It follows the context bar.</div>';
-    html += '</div>';
-    UI.popover(btn, { html: html, role: 'dialog', align: 'end', cls: 'card-pop', onOpen: function (el) {
-      U.on(el, 'change', 'select[data-set]', function (e, sel) { var p = U.clone(card.settings || {}); p[sel.dataset.set] = sel.value; S.updateCard(card.id, { settings: p }); });
-      U.on(el, 'change', 'input[type=checkbox][data-set]', function (e, cb) { var p = U.clone(card.settings || {}); p[cb.dataset.set] = cb.checked; S.updateCard(card.id, { settings: p }); });
-      U.on(el, 'change', '[data-follow]', function (e, cb) { S.updateCard(card.id, { followRow: cb.checked }); el.querySelector('.field-hint').textContent = cb.checked ? 'Showing ' + C.rowLabel(S.ws.prefs.selectedRow) + '.' : 'Showing the whole portfolio.'; });
-      U.on(el, 'click', '[data-multi]', function (e, b) { var p = U.clone(card.settings || {}), key = b.dataset.multi, cur = (C.settingsOf(card)[key] || []).slice(), i = cur.indexOf(b.dataset.val); if (i >= 0) { if (cur.length === 1) { UI.toast('Keep at least one selected.'); return; } cur.splice(i, 1); } else cur.push(b.dataset.val); var order = (t.settings.filter(function (s) { return s.key === key; })[0].options).map(function (o) { return o[0]; }); p[key] = order.filter(function (v) { return cur.indexOf(v) >= 0; }); b.setAttribute('aria-pressed', String(cur.indexOf(b.dataset.val) >= 0)); S.updateCard(card.id, { settings: p }); });
+    if (!html) html += '<div class="field-hint">This card has no settings. It follows the context bar.</div>';
+    return html;
+  }
+  function settingsPopover(btn, card) {
+    var t = C.types[card.type], id = card.id;
+    UI.popover(btn, { html: '<div class="menu-head">' + esc(card.name || t.title) + '</div><div class="card-settings">' + settingsBody(card) + '</div>', role: 'dialog', align: 'end', cls: 'card-pop', onOpen: function (el) {
+      /* settings can show or hide others, so the body is redrawn after each change, keeping focus */
+      var redraw = function (focusSel) { var cs = el.querySelector('.card-settings'); cs.innerHTML = settingsBody(S.card(id)); var f = focusSel && cs.querySelector(focusSel); if (f) f.focus(); };
+      var setOne = function (key, value) { var c = S.card(id), p = U.clone(c.settings || {}); p[key] = value; S.updateCard(id, { settings: p }); };
+      U.on(el, 'change', 'select[data-set]', function (e, sel) { setOne(sel.dataset.set, sel.value); redraw('#' + sel.id); });
+      U.on(el, 'change', 'input[type=checkbox][data-set]', function (e, cb) { setOne(cb.dataset.set, cb.checked); redraw('input[data-set="' + cb.dataset.set + '"]'); });
+      U.on(el, 'change', '[data-follow]', function (e, cb) { S.updateCard(id, { followRow: cb.checked }); redraw('[data-follow]'); });
+      U.on(el, 'click', '[data-multi]', function (e, b) { var c = S.card(id), key = b.dataset.multi, cur = (C.settingsOf(c)[key] || []).slice(), i = cur.indexOf(b.dataset.val); if (i >= 0) { if (cur.length === 1) { UI.toast('Keep at least one selected.'); return; } cur.splice(i, 1); } else cur.push(b.dataset.val); var spec = t.settings.filter(function (s) { return s.key === key; })[0], order = (typeof spec.options === 'function' ? spec.options(c) : spec.options).map(function (o) { return o[0]; }); setOne(key, order.filter(function (v) { return cur.indexOf(v) >= 0; })); redraw('[data-multi="' + key + '"][data-val="' + CSS.escape(b.dataset.val) + '"]'); });
+      U.on(el, 'click', '[data-factor]', function (e, b) { var c = S.card(id), key = b.dataset.factor, m = C.modelOf(c), cur = C.factorsFor(C.settingsOf(c)[key], m.id).ids.slice(), i = cur.indexOf(b.dataset.val); if (i >= 0) { if (cur.length === 1) { UI.toast('Keep at least one factor selected.'); return; } cur.splice(i, 1); } else cur.push(b.dataset.val); C.setFactors(c, key, m.id, m.factors.map(function (f) { return f.id; }).filter(function (v) { return cur.indexOf(v) >= 0; })); redraw('[data-factor="' + key + '"][data-val="' + CSS.escape(b.dataset.val) + '"]'); });
     } });
   }
   function cardMenu(btn, card) {
@@ -230,6 +306,7 @@
   C.init = function () {
     grid = U.$('#cards'); sheetEl = U.$('#card-sheet');
     wireSheet();
+    U.on(grid, 'click', '[data-model-chip]', function (e, b) { modelMenu(b, S.card(b.closest('.card').dataset.card)); });
     U.on(grid, 'click', '[data-settings]', function (e, b) { settingsPopover(b, S.card(b.closest('.card').dataset.card)); });
     U.on(grid, 'click', '[data-menu]', function (e, b) { cardMenu(b, S.card(b.closest('.card').dataset.card)); });
     U.on(grid, 'click', '[data-retry]', function (e, b) { load(S.card(b.closest('.card').dataset.card)); });
@@ -257,6 +334,7 @@
         var same = ids.length === domIds.length && ids.every(function (id, i) { return id === domIds[i]; });
         if (!same) C.render(); else if (!extra.refresh) { S.ws.cards.forEach(function (c) { var el = grid.querySelector('[data-card="' + CSS.escape(c.id) + '"]'); el.querySelector('.card-title h3').innerHTML = esc(c.name || C.types[c.type].title) + (c.followRow && C.types[c.type].supportsRow ? ' <span class="tag tag-info">Row</span>' : ''); load(c); }); }
       }
+      if (type === 'pref' && extra.key === 'factorModel') S.ws.cards.forEach(function (c) { if (C.usesModel(c) && !C.isPinned(c)) load(c); });
       if (type === 'pref' && (extra.key === 'selectedRow' || extra.key === 'emphasis' || extra.key === 'expanded')) S.ws.cards.forEach(function (c) { var t = C.types[c.type]; if (extra.key === 'selectedRow' && c.followRow && t.supportsRow) load(c); else if (t.livePrefs) paint(c); });
       if (type === 'session' && extra.key === 'addCardOpen') toggleSheet();
     });

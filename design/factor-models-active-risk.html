@@ -1,0 +1,501 @@
+<title>Factor Models and Active Risk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Plan for switching factor models (ISG, Axioma) across the workspace's cards and for a new card that splits return and risk into passive and active parts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a single reading column for the plan, with working mock-ups of the
+   workspace set in framed "screens" that keep the app's own light surface. */
+:root{
+  --pg:#f3f5f8; --surface:#ffffff; --ink:#14213a; --ink-2:#4a5872; --ink-3:#66748b; --line:#dde3ea;
+  --navy:#12233f; --gold:#b07a12; --accent:#2a6ad0; --accent-bg:#e8f0fc;
+  --ok:#1a7f37; --ok-bg:#e6f4ea; --warn:#8a5a00; --warn-bg:#fdf3dc;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --gold:#f3c46b; --accent:#8fb4ff; --accent-bg:#1c2b47;
+  --ok:#7ad79a; --ok-bg:#15301f; --warn:#f3c46b; --warn-bg:#33280f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --gold:#f3c46b; --accent:#8fb4ff; --accent-bg:#1c2b47;
+  --ok:#7ad79a; --ok-bg:#15301f; --warn:#f3c46b; --warn-bg:#33280f; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--ink);font:15.5px/1.6 var(--f-body)}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 72px;display:grid;gap:34px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.15}
+h1{font:600 clamp(30px,5vw,44px)/1.08 var(--f-cond);letter-spacing:-.01em}
+h2{font:600 26px/1.15 var(--f-cond)}
+h3{font:600 17px/1.3 var(--f-body)}
+p{margin:0}
+.eyebrow{font:600 11.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.lede{color:var(--ink-2);max-width:66ch;margin-top:12px}
+section{display:grid;gap:16px;scroll-margin-top:70px}
+.prose{display:grid;gap:12px;max-width:68ch;color:var(--ink-2)}
+.prose b,.prose strong{color:var(--ink)}
+ul.tight{margin:0;padding-left:20px;display:grid;gap:7px;color:var(--ink-2)}
+ul.tight b{color:var(--ink)}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--accent-bg);padding:1px 5px;border-radius:4px;color:var(--ink)}
+a{color:var(--accent);text-underline-offset:3px}
+
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:6px;overflow-x:auto;padding:8px;border-radius:10px;background:var(--surface);border:1px solid var(--line);scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{flex:none;padding:5px 10px;border-radius:999px;font:600 12.5px/1.2 var(--f-cond);letter-spacing:.04em;color:var(--ink-2);text-decoration:none;border:1px solid var(--line)}
+nav.toc a:hover{color:var(--ink);border-color:var(--ink-3)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--pg)}
+
+.summary{display:grid;gap:10px;padding:18px 20px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.summary ol{margin:0;padding-left:20px;display:grid;gap:9px;color:var(--ink-2)}
+.summary ol b{color:var(--ink)}
+.rec{display:grid;gap:6px;padding:14px 16px;border-left:3px solid var(--accent);background:var(--accent-bg);border-radius:0 10px 10px 0}
+.rec .eyebrow{color:var(--accent)}
+.rec p{color:var(--ink)}
+
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font:600 11.5px/1.3 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);background:var(--pg);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td b{color:var(--ink)}
+td{color:var(--ink-2)}
+.wide-tbl table{min-width:640px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font:600 11px/1.6 var(--f-cond);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.no{background:var(--pg);color:var(--ink-3);border:1px solid var(--line)}
+
+.formula{display:grid;gap:10px;padding:16px 18px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.formula dl{margin:0;display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr);gap:8px 16px}
+.formula dt{font-weight:600;color:var(--ink)}
+.formula dd{margin:0;color:var(--ink-2);min-width:0}
+.formula .eq{font-family:var(--f-mono);font-size:13.5px;color:var(--ink);background:var(--pg);padding:2px 6px;border-radius:4px;display:inline-block;margin:2px 0}
+
+.phases{display:grid;gap:12px;counter-reset:ph}
+.phase{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;padding:14px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.phase .n{grid-row:span 3;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font:600 14px/1 var(--f-mono)}
+.phase p{color:var(--ink-2)}
+.phase .checks{font-size:13.5px;color:var(--ink-3)}
+
+.decisions{display:grid;gap:10px}
+.dec{display:grid;gap:4px;padding:13px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.dec .q{font-weight:600}
+.dec .d{color:var(--ink-2);font-size:14.5px}
+.dec .d b{color:var(--ink)}
+
+/* ── mock-up screens: the app's own light look, in both page themes ── */
+.screen{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#f6f8fa;color:#14213a;font-size:13px;line-height:1.45;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.screen .cap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 12px;background:#12233f;color:#c9d4e3;font:600 11px/1.3 var(--f-cond);letter-spacing:.12em;text-transform:uppercase}
+.screen .cap span:last-child{color:#f3c46b}
+.screen .in{padding:12px;display:grid;gap:10px}
+.m-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:10px 12px;background:#fff;border:1px solid #dde4ec;border-radius:8px}
+.m-ctl{display:flex;align-items:center;gap:7px}
+.m-lab{font:600 10.5px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:#5a6a82}
+.m-seg{display:inline-flex;border:1px solid #c3cedb;border-radius:6px;overflow:hidden}
+.m-seg button{border:0;background:#fff;color:#4a5872;padding:6px 10px;font:600 12px/1 var(--f-body);cursor:pointer}
+.m-seg button+button{border-left:1px solid #c3cedb}
+.m-seg button[aria-pressed="true"]{background:#12233f;color:#fff}
+.m-seg button:focus-visible{outline:2px solid #2a6ad0;outline-offset:-2px}
+.m-sel{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid #c3cedb;border-radius:6px;background:#fff;color:#14213a;font-size:12.5px}
+.m-sel svg{width:11px;height:11px;color:#66748b}
+.m-new{position:relative}
+.m-new::after{content:"New";position:absolute;top:-9px;right:-6px;padding:0 5px;border-radius:999px;background:#f3c46b;color:#12233f;font:700 9px/14px var(--f-cond);letter-spacing:.06em;text-transform:uppercase}
+.m-line{font-size:12px;color:#4a5872}
+.m-line b{color:#14213a}
+.m-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.m-card{background:#fff;border:1px solid #dde4ec;border-radius:8px;display:grid;gap:6px;padding:10px 12px;min-width:0}
+.m-card .hd{display:flex;align-items:flex-start;gap:8px}
+.m-card .hd .t{flex:1;min-width:0}
+.m-card h4{margin:0;font:600 13.5px/1.25 var(--f-body);color:#14213a}
+.m-card .sub{font-size:11px;color:#5a6a82}
+.m-chip{flex:none;display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;border:1px solid #c3cedb;background:#fff;color:#14213a;font:600 11px/1 var(--f-cond);letter-spacing:.06em;cursor:pointer}
+.m-chip svg{width:11px;height:11px}
+.m-chip.pinned{background:#12233f;border-color:#12233f;color:#fff}
+.m-menu{display:grid;gap:1px;padding:6px;border-radius:8px;border:1px solid #dde4ec;background:#fff;box-shadow:0 8px 24px -12px rgba(16,24,40,.35);font-size:12.5px;max-width:260px}
+.m-menu .h{padding:4px 8px;font:600 10px/1.2 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:#66748b}
+.m-menu .i{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;color:#14213a}
+.m-menu .i.on{background:#e6eefb}
+.m-menu .i svg{width:13px;height:13px;color:#4a5872}
+.m-menu .sep{height:1px;background:#e3e8ef;margin:3px 0}
+.bars{display:grid;gap:5px}
+.bar-row{display:grid;grid-template-columns:minmax(0,104px) minmax(0,1fr) 40px;gap:8px;align-items:center;font-size:11.5px;color:#4a5872}
+.bar-row .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row .track{position:relative;height:10px;background:#eef2f6;border-radius:2px}
+.bar-row .track i{position:absolute;top:0;bottom:0;border-radius:2px}
+.bar-row .track .zero{position:absolute;top:-2px;bottom:-2px;width:1px;background:#8fa2bc}
+.bar-row .v{font:500 11px/1 var(--f-mono);text-align:right;color:#14213a;font-variant-numeric:tabular-nums}
+.m-note{font-size:11px;color:#5a6a82;background:#fdf3dc;border:1px solid #e9d39c;border-radius:6px;padding:5px 8px}
+.m-tabs{display:flex;gap:2px;border-bottom:1px solid #e3e8ef;overflow-x:auto;scrollbar-width:none}
+.m-tabs::-webkit-scrollbar{display:none}
+.m-tabs button{flex:none;border:0;background:none;padding:7px 10px 8px;font:600 11px/1 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:#66748b;cursor:pointer;position:relative}
+.m-tabs button[aria-selected="true"]{color:#14213a}
+.m-tabs button[aria-selected="true"]::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:#2a6ad0;border-radius:2px}
+.m-tabs button:focus-visible{outline:2px solid #2a6ad0;outline-offset:-2px}
+.m-tbl{overflow-x:auto}
+.m-tbl table{font-size:12px;min-width:480px}
+.m-tbl th{background:#f5f7fa;color:#5a6a82;font-size:10px;padding:6px 8px;border-bottom:1px solid #e3e8ef}
+.m-tbl td{padding:6px 8px;color:#14213a;border-bottom:1px solid #eef2f6;font-variant-numeric:tabular-nums}
+.m-tbl td.n{text-align:right;font-family:var(--f-mono);font-size:11.5px}
+.m-tbl th.n{text-align:right}
+.m-tbl .grp td{background:#fafbfc;color:#5a6a82;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.pos{color:#1a7f37!important} .neg{color:#b42318!important}
+.stack{display:flex;height:16px;border-radius:3px;overflow:hidden;background:#eef2f6}
+.stack i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:#4a5872}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px}
+.eqline{font:500 12px/1.5 var(--f-mono);color:#14213a;background:#f5f7fa;border-radius:6px;padding:6px 8px}
+.alloc-chips{display:flex;gap:6px;flex-wrap:wrap}
+.alloc-chips button{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;border:1px solid #d5dde7;background:#fff;color:#14213a;font:600 12px/1 var(--f-body);cursor:pointer}
+.alloc-chips button[aria-pressed="true"]{border-color:#12233f;box-shadow:0 0 0 1px #12233f}
+.alloc-chips i{width:8px;height:8px;border-radius:50%}
+svg.spark{width:100%;height:110px;display:block}
+.illus{font:500 10.5px/1.3 var(--f-mono);color:#66748b}
+
+@media (max-width:640px){
+  .m-grid{grid-template-columns:minmax(0,1fr)}
+  .formula dl{grid-template-columns:minmax(0,1fr)}
+  .formula dd{margin-bottom:6px}
+  nav.toc{position:static}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Portfolio Analytics · plan · 2 November 2026</div>
+    <h1>Factor Models and Active Risk</h1>
+    <p class="lede">Two additions to the workspace. First, a way to switch every factor-based card between the <b>ISG</b> and <b>Axioma</b> factor models. Second, a new <b>Active risk &amp; return</b> card that splits each allocation’s return and risk into the passive part (its benchmark) and the active part (how it departs from it). Front end only, on mock data behind <code>PA.api</code>, as with the rest of the mockup.</p>
+  </header>
+
+  <div class="rec"><div class="eyebrow">Status · built 2 November 2026</div><p>All four phases are built in the workspace mockup with the six default decisions below, and the spec is updated. One change from this plan: like Basis, the Factor model switch is a saved view setting rather than an undo step. Pinning, Compare and card settings are undo steps.</p></div>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#summary">Summary</a><a href="#switch">Switching models</a><a href="#active">Active card</a><a href="#cards">Existing cards</a><a href="#contract">Data contract</a><a href="#phases">Phases</a><a href="#decisions">Your decisions</a>
+  </nav>
+
+  <section id="summary" aria-labelledby="h-sum">
+    <h2 id="h-sum">Summary</h2>
+    <div class="summary">
+      <ol>
+        <li><b>One switch for the workspace, a pin for any card.</b> A <em>Factor model</em> control in the context bar (ISG · Axioma) sets the model for every factor-based card. Any of those cards can pin its own model from a chip in its header, so ISG and Axioma can sit side by side.</li>
+        <li><b>Every number names its model.</b> Card subtitles and the context line say which model and as-of date they use, and a card never mixes two models’ factors.</li>
+        <li><b>A new card: Active risk &amp; return.</b> For each compared allocation it shows total = passive + active for return and for risk, with tracking error, information ratio and active share. It then shows where the tracking error comes from (factor by factor, plus stock-specific) and where the active return comes from (allocation and selection by category).</li>
+        <li><b>The benchmark is chosen, never assumed.</b> By default the card follows the context bar’s Reference. It can instead use each subject’s own benchmark, or a picked benchmark, product, allocation or sleeve version. A category row is measured against its category index.</li>
+        <li><b>Four phases,</b> each ending with the mockup’s checks passing and the spec updated.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="switch" aria-labelledby="h-sw">
+    <div class="eyebrow">Part 1</div>
+    <h2 id="h-sw">Switching between factor models</h2>
+    <div class="prose"><p>The question is where the choice lives. There are four places it could go:</p></div>
+    <div class="tbl-wrap wide-tbl"><table>
+      <thead><tr><th>Option</th><th>How it works</th><th>Strength</th><th>Problem</th></tr></thead>
+      <tbody>
+        <tr><td><b>A · Context bar only</b></td><td>One switch; every factor card follows.</td><td>Always consistent.</td><td>Cannot put ISG and Axioma side by side.</td></tr>
+        <tr><td><b>B · Card settings only</b></td><td>Each card picks its model.</td><td>Flexible.</td><td>Mixed models by accident; nothing says what the page as a whole uses; every new card needs a choice.</td></tr>
+        <tr><td><b>C · Workspace default, card can pin</b> <span class="pill ok">Recommended</span></td><td>The context bar sets the model; cards follow unless pinned.</td><td>Consistent by default, comparison when wanted. Works like Basis does today.</td><td>Two places to set it, so each card must show clearly whether it follows or is pinned.</td></tr>
+        <tr><td><b>D · Model per allocation</b></td><td>Each compared allocation analysed in its own model.</td><td>None worth having.</td><td>Mixes models inside one card; differences stop meaning anything.</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="rec"><div class="eyebrow">Recommendation</div><p>Option C. Put a <b>Factor model</b> switch in the context bar beside Basis. Give every factor-based card a <b>model chip</b> in its header: plain when it follows the workspace, filled with a pin when the card has its own model. The chip’s menu has <em>Compare with Axioma</em>, which adds a pinned copy of the card beside it.</p></div>
+
+    <div class="screen" aria-label="Mock-up of the factor model switch">
+      <div class="cap"><span>Mock-up · try the switch</span><span>Illustrative numbers</span></div>
+      <div class="in">
+        <div class="m-bar">
+          <div class="m-ctl"><span class="m-lab">Basis</span><div class="m-seg"><button type="button" aria-pressed="true">Forward-looking</button><button type="button" aria-pressed="false">Historical</button></div></div>
+          <div class="m-ctl m-new"><span class="m-lab">Factor model</span><div class="m-seg" id="modelSeg" role="group" aria-label="Factor model"><button type="button" data-model="isg" aria-pressed="true">ISG</button><button type="button" data-model="axioma" aria-pressed="false">Axioma</button></div></div>
+          <div class="m-ctl"><span class="m-lab">Reference</span><span class="m-sel">Global 60/40<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg></span></div>
+        </div>
+        <div class="m-line" id="ctxLine"></div>
+        <div class="m-grid">
+          <div class="m-card">
+            <div class="hd"><div class="t"><h4>Factor exposures</h4><div class="sub" id="feSub"></div></div><button type="button" class="m-chip" id="feChip" aria-label="Factor model for this card"></button></div>
+            <div class="bars" id="feBars"></div>
+            <div class="m-note" id="feNote"></div>
+          </div>
+          <div class="m-card">
+            <div class="hd"><div class="t"><h4>Factor exposures</h4><div class="sub">β · Axioma factor model · as of 31 Oct 2026 · pinned</div></div><span class="m-chip pinned"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 3h6l-1 5 3 3H5l3-3z"/><path d="M10 11v6"/></svg>Axioma</span></div>
+            <div class="bars" id="pinBars"></div>
+            <div class="m-note">Pinned to Axioma: the workspace switch does not change this card.</div>
+          </div>
+        </div>
+        <div class="m-menu" aria-label="The chip’s menu, shown open">
+          <div class="h">Factor model for this card</div>
+          <div class="i on"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10l4 4 8-8"/></svg><span>Follow the workspace (<span id="menuModel">ISG</span>)</span></div>
+          <div class="i"><span style="width:13px"></span><span>Pin to ISG</span></div>
+          <div class="i"><span style="width:13px"></span><span>Pin to Axioma</span></div>
+          <div class="sep"></div>
+          <div class="i"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg><span>Compare with <span id="menuOther">Axioma</span> (adds a pinned copy)</span></div>
+          <div class="i"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 9v5M10 6.5v.5"/></svg><span>About this model and its coverage</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Rules for the switch</h3>
+    <ul class="tight">
+      <li><b>Scope.</b> The switch refetches only factor-based cards. Every other card is untouched and keeps saying which basis it uses, as with Basis today. Like Basis, it is a view setting that saves with the workspace; pinning a card and Compare are undo steps.</li>
+      <li><b>Default.</b> New workspaces start on ISG. The choice is saved per workspace in <code>prefs.factorModel</code>.</li>
+      <li><b>Pinned cards</b> ignore the workspace switch. Their chip is filled and shows a pin, and the subtitle ends with “pinned”. <em>Follow the workspace</em> unpins.</li>
+      <li><b>Compare with the other model</b> adds a copy of the card pinned to the other model, placed beside the original on the grid. It is one undo step.</li>
+      <li><b>Subtitles and the context line name the model.</b> A subtitle reads, for example, “β · Axioma factor model · as of 31 Oct 2026 · model exposure”. The context line reads “Factor model: ISG for 3 cards · 1 card pinned to Axioma”.</li>
+      <li><b>Factor lists belong to a model.</b> Each card remembers its factor selection separately for each model. On a switch, factors with a counterpart carry over (Equity becomes Market); the rest fall back to the model’s defaults, and a one-line note says what was mapped. A card never shows two models’ factors together.</li>
+      <li><b>Coverage differs by model.</b> Where a model does not cover a product (private funds are the likely gap), its exposures come from its category index and the row says “proxied by index in Axioma”. The rail’s Check tab adds “Axioma: 2 products proxied by their index” while the workspace uses Axioma.</li>
+      <li><b>Basis.</b> Forward-looking uses the model’s own loadings. Historical estimates exposures by regressing the period’s returns on the selected model’s factor returns.</li>
+      <li><b>Saved cards</b> in the card repository keep either “follow the workspace” or their pinned model.</li>
+      <li><b>On a phone</b> the context bar wraps as it does now, and the chip stays in each card header.</li>
+    </ul>
+
+    <h3>Factor sets and how they map</h3>
+    <div class="prose"><p>ISG keeps today’s six macro factors. For the mockup I will give Axioma a typical multi-asset set of ten factors; the real lists only change the mock data, not the design.</p></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>ISG factor</th><th>Axioma counterpart</th><th>On a switch</th></tr></thead>
+      <tbody>
+        <tr><td>Equity</td><td>Market</td><td><span class="pill ok">Carries over</span></td></tr>
+        <tr><td>Interest Rates</td><td>Rates Level</td><td><span class="pill ok">Carries over</span></td></tr>
+        <tr><td>Credit</td><td>Credit Spread</td><td><span class="pill ok">Carries over</span></td></tr>
+        <tr><td>Commodities</td><td>Commodity</td><td><span class="pill ok">Carries over</span></td></tr>
+        <tr><td>Foreign Currency</td><td>USD</td><td><span class="pill warn">Opposite sign</span> stated in the note</td></tr>
+        <tr><td>Local Inflation</td><td>Inflation Breakeven</td><td><span class="pill ok">Carries over</span></td></tr>
+        <tr><td>—</td><td>Size, Value, Momentum, Rates Slope</td><td><span class="pill no">Axioma only</span> available to add</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="active" aria-labelledby="h-ac">
+    <div class="eyebrow">Part 2</div>
+    <h2 id="h-ac">The Active risk &amp; return card</h2>
+    <div class="prose">
+      <p><b>The question it answers:</b> of each allocation’s return and risk, how much is simply its benchmark (passive), and how much comes from departing from the benchmark (active)? It joins the card repository under Risk, as the fifteenth card type.</p>
+    </div>
+
+    <div class="screen" aria-label="Mock-up of the Active risk and return card">
+      <div class="cap"><span>Mock-up · switch views and models</span><span>Illustrative numbers</span></div>
+      <div class="in">
+        <div class="m-card" style="gap:9px">
+          <div class="hd"><div class="t"><h4>Active risk &amp; return</h4><div class="sub" id="acSub"></div></div><button type="button" class="m-chip" id="acChip" aria-label="Factor model for this card"></button></div>
+          <div class="m-tabs" role="tablist" aria-label="Views" id="acTabs">
+            <button type="button" role="tab" data-v="sum" aria-selected="true">Summary</button>
+            <button type="button" role="tab" data-v="risk" aria-selected="false">Risk sources</button>
+            <button type="button" role="tab" data-v="ret" aria-selected="false">Return sources</button>
+            <button type="button" role="tab" data-v="time" aria-selected="false">Over time</button>
+          </div>
+          <div id="acBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Definitions the card uses</h3>
+    <div class="formula">
+      <dl>
+        <dt>Active weights</dt><dd><span class="eq">a = w(portfolio) − w(benchmark)</span>, by product. An index-level remainder maps to its category index, so a category held at index level against an index-heavy benchmark adds almost no active weight.</dd>
+        <dt>Active return</dt><dd><span class="eq">R(portfolio) − R(benchmark)</span>. Forward: expected, from the platform assumptions. Historical: annualised portfolio less annualised benchmark over the period. The arithmetic difference is the default; geometric is a setting.</dd>
+        <dt>Active risk (tracking error)</dt><dd>The volatility of the active return. Forward: <span class="eq">√(aᵀXFXᵀa + aᵀΔa)</span> from the selected factor model, where the first term is the factor part and the second the specific part. Historical: the standard deviation of monthly active returns × √12.</dd>
+        <dt>Information ratio</dt><dd><span class="eq">active return ÷ tracking error</span>. Shown as a dash, with the reason, when tracking error is zero.</dd>
+        <dt>Active share</dt><dd><span class="eq">½ Σ |a|</span>, looking through to products and index baskets.</dd>
+        <dt>Passive and active risk</dt><dd><span class="eq">σ²(total) = σ²(benchmark) + TE² + 2·cov(benchmark, active)</span>. The card shows passive risk, active risk and their correlation, so the three numbers reconcile with the total.</dd>
+        <dt>Where active return comes from</dt><dd>By category. Allocation effect: <span class="eq">(w<sub>P,c</sub> − w<sub>B,c</sub>)(R<sub>B,c</sub> − R<sub>B</sub>)</span>. Selection effect: <span class="eq">w<sub>P,c</sub>(R<sub>P,c</sub> − R<sub>B,c</sub>)</span>. An index-level remainder has no selection effect by construction. A factor view of active return is a later option.</dd>
+      </dl>
+    </div>
+
+    <h3>Choosing the benchmark</h3>
+    <div class="prose"><p>The header always names what each allocation is measured against (“vs Global 60/40”). The card setting <em>Active against</em> has three modes:</p></div>
+    <div class="tbl-wrap wide-tbl"><table>
+      <thead><tr><th>Mode</th><th>What it uses</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><b>Follow the Reference</b> <span class="pill ok">Default</span></td><td>The context bar’s Reference: a shared benchmark, each allocation’s own benchmark, or one compared portfolio.</td><td>Keeps the card consistent with the Differences view of every other card.</td></tr>
+        <tr><td><b>Each subject’s own benchmark</b></td><td>Allocation: its assigned benchmark. Category row: its category index basket. Product: its stated benchmark. Sleeve column: the sleeve’s benchmark, which defaults to its category index.</td><td>Needs two new fields: a benchmark on each product and on each sleeve. A missing one shows a dash with “No benchmark · Assign”.</td></tr>
+        <tr><td><b>Pick one</b></td><td>Any benchmark portfolio, any product (from investment search), another allocation in the workspace, or a sleeve version from the repository.</td><td>A picked sleeve is pinned to its version, and the card offers a newer one when it appears, as compared sleeves do now.</td></tr>
+      </tbody>
+    </table></div>
+    <ul class="tight">
+      <li><b>Following the selected row.</b> Like other cards, it can follow the row selected in the table or the rail. Select Public Equity and it measures each allocation’s equity sleeve, rescaled to 100, against the Public Equity index or the chosen benchmark. This is product versus index, which suits the index-level modelling.</li>
+      <li><b>Six allocations.</b> The summary table has one row per compared allocation. The decomposition views show one allocation at a time, chosen with chips; the default is the one being edited.</li>
+    </ul>
+
+    <h3>Card settings</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Setting</th><th>Options</th></tr></thead>
+      <tbody>
+        <tr><td><b>Active against</b></td><td>Follow the Reference · Each subject’s own benchmark · Pick one…</td></tr>
+        <tr><td><b>View</b></td><td>Summary · Risk sources · Return sources · Over time (historical basis only)</td></tr>
+        <tr><td><b>Decompose risk by</b></td><td>Factor (the factor model) · Category · Product</td></tr>
+        <tr><td><b>Factor model</b></td><td>Follow the workspace · ISG · Axioma</td></tr>
+        <tr><td><b>Active return</b></td><td>Arithmetic difference · Geometric</td></tr>
+        <tr><td><b>Show passive figures</b></td><td>On · Off (off shows only the active columns)</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Edge cases</h3>
+    <div class="tbl-wrap wide-tbl"><table>
+      <thead><tr><th>Case</th><th>What the card shows</th></tr></thead>
+      <tbody>
+        <tr><td>Allocation equals its benchmark</td><td>Tracking error 0.0, active return 0.0, information ratio “— no active risk”.</td></tr>
+        <tr><td>Unallocated weight</td><td>Counts as an active underweight against a fully invested benchmark, and earns nothing; a note says so.</td></tr>
+        <tr><td>Shorts and leverage</td><td>Active weights and active share can exceed 100%; shown as they are, with no limit applied.</td></tr>
+        <tr><td>Benchmark history shorter than the period</td><td>Active figures over the common history only; the subtitle states the dates.</td></tr>
+        <tr><td>Product without a stated benchmark</td><td>Falls back to its category index, labelled “category index used”.</td></tr>
+        <tr><td>Product not covered by the factor model</td><td>Proxied by its category index in that model; flagged on the row and in Check.</td></tr>
+        <tr><td>Snapshot</td><td>Frozen weights against the benchmark the snapshot captured.</td></tr>
+        <tr><td>Scenario applied</td><td>Active return uses the scenario. Tracking error uses the factor model, and the card says the scenario does not change it (see decision 2).</td></tr>
+        <tr><td>Calculation fails</td><td>Keeps the last result, labelled, with Retry, as every card does now.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="cards" aria-labelledby="h-cards">
+    <h2 id="h-cards">What changes on existing cards</h2>
+    <div class="tbl-wrap wide-tbl"><table>
+      <thead><tr><th>Card</th><th>Change</th><th>Follows the factor model</th></tr></thead>
+      <tbody>
+        <tr><td><b>Factor exposures</b></td><td>Model chip; factor list per model; subtitle names the model.</td><td><span class="pill ok">Yes</span></td></tr>
+        <tr><td><b>Drivers &amp; differences</b></td><td>The Factors metric uses the selected model, with a chip shown while that metric is on. The Return and Risk metrics are unchanged.</td><td><span class="pill ok">Factors metric</span></td></tr>
+        <tr><td><b>Risk contribution by category</b></td><td>New setting <em>Decompose by: Category · Factor</em>. The factor view splits risk into each factor plus specific, from the model.</td><td><span class="pill ok">Factor view</span></td></tr>
+        <tr><td><b>Active risk &amp; return</b> (new)</td><td>As above.</td><td><span class="pill ok">Yes</span></td></tr>
+        <tr><td><b>Summary statistics</b></td><td>Optional: add tracking error and information ratio rows against the Reference.</td><td><span class="pill no">No</span> (historical)</td></tr>
+        <tr><td><b>Projections, Scenario comparison</b></td><td>Unchanged: they use the platform assumptions.</td><td><span class="pill no">No</span></td></tr>
+        <tr><td><b>History cards</b> (cumulative, drawdowns, rolling, calendar, stress)</td><td>Unchanged: observed returns.</td><td><span class="pill no">No</span></td></tr>
+        <tr><td><b>Rail · Check tab</b></td><td>New item when the model in use proxies products.</td><td><span class="pill ok">Yes</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="contract" aria-labelledby="h-con">
+    <h2 id="h-con">Data contract</h2>
+    <div class="prose"><p>The interface only talks to <code>PA.api</code>. These are the additions to its requests and responses. The mock engine implements them; a real service would implement the same shapes.</p></div>
+    <div class="tbl-wrap wide-tbl"><table>
+      <thead><tr><th>Where</th><th>Addition</th></tr></thead>
+      <tbody>
+        <tr><td><code>getUniverse()</code></td><td><code>factorModels: [{id, name, asOf, factors: [{id, name, unit, description, mapsTo}], defaultFactors}]</code></td></tr>
+        <tr><td><code>analyzeTable</code>, <code>historySeries</code></td><td>Request takes <code>factorModel</code>. Response echoes <code>{factorModel, modelAsOf}</code>; a card discards a response for a model it no longer shows. Cells can carry <code>coverage: 'proxied'</code> with a reason.</td></tr>
+        <tr><td><code>activeAnalysis(req)</code> <span class="pill warn">New</span></td><td>Request: <code>{allocations, rowKey, basis, period, scenario, factorModel, against: {mode, ref: {kind, id, version}}, decompose, returnMethod}</code>. Response per allocation: <code>{benchmark, totalReturn, passiveReturn, activeReturn, totalRisk, passiveRisk, activeRisk, activePassiveCorr, informationRatio, activeShare, riskSources: [{key, label, contribution}], specific, returnSources: [{category, allocation, selection}], series, coverage, reason}</code></td></tr>
+        <tr><td>Workspace preferences</td><td><code>prefs.factorModel: 'isg' | 'axioma'</code></td></tr>
+        <tr><td>Card settings</td><td><code>factorModel: 'follow' | 'isg' | 'axioma'</code>; <code>factors: {isg: [], axioma: []}</code>; for the new card <code>against</code>, <code>view</code>, <code>decompose</code>, <code>returnMethod</code>, <code>showPassive</code>.</td></tr>
+        <tr><td>Products and sleeves</td><td><code>Instrument.benchmarkId</code> (optional); <code>Sleeve.benchmark</code> (defaults to its category index).</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="phases" aria-labelledby="h-ph">
+    <h2 id="h-ph">Delivery in four phases</h2>
+    <div class="phases">
+      <div class="phase"><span class="n">1</span><h3>Two factor models in the mock data and the API</h3><p>ISG and Axioma factor sets, loadings by asset class and product, factor covariances and specific risk, and coverage gaps (private funds proxied in Axioma). The <code>factorModel</code> parameter goes through the existing requests.</p><p class="checks">Checks: the same allocation gives different exposures under each model; proxied products carry a reason; factor plus specific risk equals total risk under each model.</p></div>
+      <div class="phase"><span class="n">2</span><h3>The switch</h3><p>Context bar control, card chip and menu, card setting, factor lists per model with mapping, subtitles, context line, Check tab item, persistence, undo, and Compare with the other model.</p><p class="checks">Checks: switching refetches only factor cards; a pinned card ignores the switch; Compare adds a pinned copy beside the original; the model survives a reload; no card shows two models’ factors.</p></div>
+      <div class="phase"><span class="n">3</span><h3>The Active risk &amp; return card</h3><p>Engine maths, the four views, the benchmark picker (benchmark, product, allocation, sleeve version), row following, and the edge cases above.</p><p class="checks">Checks: factor plus specific contributions sum to the tracking error; allocation plus selection sum to the active return; passive risk, active risk and their correlation reconcile with total risk; an allocation measured against itself shows zero; the card follows the Reference until set otherwise.</p></div>
+      <div class="phase"><span class="n">4</span><h3>Spec, screenshots and phone</h3><p>New spec sections for factor models and the active card, new rows in the behaviour contracts, acceptance checks, screenshots at desktop and phone width.</p><p class="checks">Checks: the workspace checks and the spec checks pass; no sideways scrolling at 390px.</p></div>
+    </div>
+  </section>
+
+  <section id="decisions" aria-labelledby="h-dec">
+    <h2 id="h-dec">Decisions for you</h2>
+    <div class="prose"><p>Each has the default I would build with if you agree.</p></div>
+    <div class="decisions">
+      <div class="dec"><div class="q">1. Which model is the default?</div><div class="d">Proposed: <b>ISG</b> for new workspaces; existing workspaces start on ISG.</div></div>
+      <div class="dec"><div class="q">2. Should scenarios change factor-model risk?</div><div class="d">Scenarios override the platform assumptions (returns, volatilities, correlations); the factor model is a separate risk model. Proposed: <b>no</b>. Factor-model risk ignores the scenario and says so, as historical cards do now; active <em>return</em> still uses the scenario.</div></div>
+      <div class="dec"><div class="q">3. Should other forward risk numbers move to the factor model?</div><div class="d">Today Risk by category, Drivers &amp; differences (Risk) and Projections use the platform assumptions. Proposed: <b>keep them there for now</b>, labelled with their source, and revisit once both models are in. Otherwise, two cards could show different total risk for the same allocation without saying why.</div></div>
+      <div class="dec"><div class="q">4. Arithmetic or geometric active return by default?</div><div class="d">Proposed: <b>arithmetic</b> (portfolio minus benchmark), with geometric as a setting.</div></div>
+      <div class="dec"><div class="q">5. A category row’s default benchmark</div><div class="d">Proposed: <b>its category index basket</b>, the same basket that models the index-level remainder.</div></div>
+      <div class="dec"><div class="q">6. Factor lists</div><div class="d">I will mock a typical Axioma multi-asset set. If you have the real factor lists for ISG and Axioma, they replace the mock data without changing the design.</div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var MODELS = {
+    isg: { name: 'ISG', asOf: '31 Oct 2026',
+      exp: [['Equity', 0.58], ['Interest Rates', 0.31], ['Credit', 0.22], ['Foreign Currency', 0.18], ['Commodities', 0.06], ['Local Inflation', 0.04]],
+      te: { core: 2.08, income: 1.40 }, risk: { core: 10.2, income: 8.9 }, bench: 9.6, corr: { core: 0.19, income: -0.55 },
+      sources: { core: [['Equity', 0.62], ['Credit', 0.31], ['Commodities', 0.21], ['Interest Rates', 0.12], ['Foreign Currency', 0.09], ['Local Inflation', 0.04]], income: [['Credit', 0.41], ['Interest Rates', 0.24], ['Equity', -0.06], ['Foreign Currency', 0.05], ['Commodities', 0.03], ['Local Inflation', 0.02]] },
+      specific: { core: 0.69, income: 0.71 } },
+    axioma: { name: 'Axioma', asOf: '31 Oct 2026',
+      exp: [['Market', 0.55], ['Rates Level', 0.29], ['Credit Spread', 0.24], ['USD', -0.17], ['Size', 0.07], ['Commodity', 0.07], ['Inflation Breakeven', 0.05], ['Rates Slope', 0.05], ['Momentum', 0.02], ['Value', -0.03]],
+      te: { core: 2.06, income: 1.50 }, risk: { core: 10.4, income: 9.0 }, bench: 9.7, corr: { core: 0.25, income: -0.53 },
+      sources: { core: [['Market', 0.58], ['Credit Spread', 0.33], ['Commodity', 0.22], ['Size', 0.14], ['Rates Level', 0.11], ['Value', 0.08], ['USD', 0.07], ['Momentum', 0.04]], income: [['Credit Spread', 0.44], ['Rates Level', 0.27], ['Market', -0.05], ['Size', 0.04], ['USD', 0.03], ['Commodity', 0.02]] },
+      specific: { core: 0.49, income: 0.75 } }
+  };
+  var ALLOC = { core: { name: 'Strategic Core', color: '#2a78d6', total: 6.4, active: 0.6, share: 38 }, income: { name: 'Income Tilt', color: '#eb6834', total: 6.0, active: 0.2, share: 31 } };
+  var BENCH_RET = 5.8;
+  var CATS = { core: [['Public Equity', '#2a78d6', 0.12, 0.08], ['IG Fixed Income', '#1baf7a', -0.10, 0.02], ['Other Fixed Income', '#8bd0b0', 0.00, 0.00], ['Hedge Funds', '#e87ba4', 0.20, 0.05], ['Private Equity', '#4a3aa7', 0.25, 0.06], ['Real Assets', '#eda100', 0.03, -0.01], ['Cash', '#9aa7b6', -0.10, 0.00]],
+    income: [['Public Equity', '#2a78d6', -0.15, 0.03], ['IG Fixed Income', '#1baf7a', 0.10, 0.01], ['Other Fixed Income', '#8bd0b0', 0.08, 0.02], ['Hedge Funds', '#e87ba4', 0.00, 0.00], ['Private Equity', '#4a3aa7', 0.02, 0.01], ['Real Assets', '#eda100', 0.02, 0.00], ['Cash', '#9aa7b6', 0.06, 0.00]] };
+  var PAL = ['#2a78d6', '#1baf7a', '#eda100', '#e87ba4', '#4a3aa7', '#8bd0b0', '#eb6834', '#9aa7b6'];
+  var SPECIFIC = '#c3cedb';
+  var state = { model: 'isg', view: 'sum', alloc: 'core' };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var f1 = function (v) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(1); };
+  var f2 = function (v) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(2); };
+  var sgn = function (v, d) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d || 1); };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function bars(list, max, color) {
+    return list.map(function (r, i) {
+      var v = r[1], w = Math.abs(v) / max * 50, left = v >= 0 ? 50 : 50 - w;
+      return '<div class="bar-row"><span class="lab" title="' + esc(r[0]) + '">' + esc(r[0]) + '</span><span class="track"><span class="zero" style="left:50%"></span><i style="left:' + left + '%;width:' + w + '%;background:' + (color || PAL[i % PAL.length]) + '"></i></span><span class="v">' + f2(v) + '</span></div>';
+    }).join('');
+  }
+  function renderSwitch() {
+    var m = MODELS[state.model], other = state.model === 'isg' ? 'Axioma' : 'ISG';
+    $('ctxLine').innerHTML = '4 of 6 compared · differences vs <b>Global 60/40</b> · <b>Forward-looking</b> · Factor model: <b>' + m.name + '</b> for 3 cards · 1 card pinned to Axioma';
+    $('feSub').textContent = 'β · Strategic Core · ' + m.name + ' factor model · as of ' + m.asOf + ' · model exposure';
+    $('feChip').textContent = m.name;
+    var sel = state.model === 'isg' ? m.exp : m.exp.slice(0, 6);
+    $('feBars').innerHTML = bars(sel, 0.7, '#2a78d6');
+    $('feNote').textContent = state.model === 'isg' ? 'Following the workspace. Switch to Axioma: Equity, Interest Rates, Credit, Commodities and Local Inflation carry over; Foreign Currency maps to USD with the opposite sign.' : 'Following the workspace. Mapped from ISG: Equity → Market, Interest Rates → Rates Level, Credit → Credit Spread, Foreign Currency → USD (opposite sign), Commodities → Commodity.';
+    $('pinBars').innerHTML = bars(MODELS.axioma.exp.slice(0, 6), 0.7, '#4a3aa7');
+    $('menuModel').textContent = m.name; $('menuOther').textContent = other;
+    Array.prototype.forEach.call($('modelSeg').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.model === state.model)); });
+  }
+
+  function allocChips() {
+    return '<div class="alloc-chips" role="group" aria-label="Allocation to decompose">' + Object.keys(ALLOC).map(function (k) { return '<button type="button" data-alloc="' + k + '" aria-pressed="' + (state.alloc === k) + '"><i style="background:' + ALLOC[k].color + '"></i>' + ALLOC[k].name + '</button>'; }).join('') + '</div>';
+  }
+  function renderActive() {
+    var m = MODELS[state.model];
+    $('acSub').textContent = 'vs Global 60/40 (Reference) · Forward-looking · ' + m.name + ' factor model · % a year';
+    $('acChip').textContent = m.name;
+    Array.prototype.forEach.call($('acTabs').children, function (b) { b.setAttribute('aria-selected', String(b.dataset.v === state.view)); });
+    var html = '';
+    if (state.view === 'sum') {
+      html = '<div class="m-tbl"><table><thead><tr><th>Allocation</th><th class="n">Return</th><th class="n">Passive</th><th class="n">Active</th><th class="n">Risk</th><th class="n">Passive</th><th class="n">Tracking error</th><th class="n">Info. ratio</th><th class="n">Active share</th></tr></thead><tbody>' +
+        Object.keys(ALLOC).map(function (k) { var a = ALLOC[k], te = m.te[k]; return '<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + a.color + ';margin-right:6px"></span>' + a.name + '</td><td class="n">' + f1(a.total) + '</td><td class="n">' + f1(BENCH_RET) + '</td><td class="n ' + (a.active >= 0 ? 'pos' : 'neg') + '">' + sgn(a.active) + '</td><td class="n">' + f1(m.risk[k]) + '</td><td class="n">' + f1(m.bench) + '</td><td class="n"><b>' + f2(te) + '</b></td><td class="n">' + (a.active / te).toFixed(2) + '</td><td class="n">' + a.share + '%</td></tr>'; }).join('') +
+        '</tbody></table></div><div class="eqline">Strategic Core: return ' + f1(ALLOC.core.total) + ' = passive ' + f1(BENCH_RET) + ' + active ' + sgn(ALLOC.core.active) + ' · risk² ' + (m.risk.core * m.risk.core).toFixed(1) + ' ≈ ' + (m.bench * m.bench).toFixed(1) + ' + ' + (m.te.core * m.te.core).toFixed(1) + ' + 2 × ' + m.corr.core.toFixed(2) + ' × ' + f1(m.bench) + ' × ' + f2(m.te.core) + '</div>' +
+        '<div class="illus">Return comes from the platform assumptions, so it is the same under both models; risk comes from the factor model.</div>';
+    } else if (state.view === 'risk') {
+      var src = m.sources[state.alloc], spec = m.specific[state.alloc], te = m.te[state.alloc], tot = 0;
+      src.forEach(function (s) { tot += s[1]; });
+      var pos = src.filter(function (s) { return s[1] > 0; }), scale = 0; pos.forEach(function (s) { scale += s[1]; }); scale += spec;
+      html = allocChips() + '<div class="stack" role="img" aria-label="Tracking error by source">' + pos.map(function (s, i) { return '<i style="width:' + (s[1] / scale * 100) + '%;background:' + PAL[src.indexOf(s) % PAL.length] + '" title="' + esc(s[0]) + ' ' + f2(s[1]) + '"></i>'; }).join('') + '<i style="width:' + (spec / scale * 100) + '%;background:' + SPECIFIC + '" title="Specific ' + f2(spec) + '"></i></div>' +
+        '<div class="legend">' + src.map(function (s, i) { return '<span><i style="background:' + PAL[i % PAL.length] + '"></i>' + esc(s[0]) + ' ' + f2(s[1]) + '</span>'; }).join('') + '<span><i style="background:' + SPECIFIC + '"></i>Specific ' + f2(spec) + '</span></div>' +
+        '<div class="eqline">Tracking error ' + f2(te) + ' = factors ' + f2(tot) + ' + specific ' + f2(spec) + ' (contributions, % a year)</div>' +
+        '<div class="illus">Decompose by: Factor · Category · Product. Negative contributions (hedges) are shown, not hidden; the bar draws the positive ones.</div>';
+    } else if (state.view === 'ret') {
+      var max = 0.3, alloc = 0, sel = 0, cats = CATS[state.alloc]; cats.forEach(function (c) { alloc += c[2]; sel += c[3]; });
+      html = allocChips() + '<div class="m-tbl"><table style="min-width:420px"><thead><tr><th>Category</th><th class="n">Allocation</th><th style="width:30%"></th><th class="n">Selection</th><th style="width:30%"></th></tr></thead><tbody>' +
+        cats.map(function (c) { var cell = function (v) { var w = Math.abs(v) / max * 50; return '<td><span class="track" style="display:block;position:relative;height:9px;background:#eef2f6;border-radius:2px"><span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#8fa2bc"></span><i style="position:absolute;top:0;bottom:0;border-radius:2px;left:' + (v >= 0 ? 50 : 50 - w) + '%;width:' + w + '%;background:' + c[1] + '"></i></span></td>'; };
+          return '<tr><td>' + c[0] + '</td><td class="n ' + (c[2] > 0 ? 'pos' : c[2] < 0 ? 'neg' : '') + '">' + sgn(c[2], 2) + '</td>' + cell(c[2]) + '<td class="n ' + (c[3] > 0 ? 'pos' : c[3] < 0 ? 'neg' : '') + '">' + sgn(c[3], 2) + '</td>' + cell(c[3]) + '</tr>'; }).join('') +
+        '</tbody></table></div><div class="eqline">Benchmark ' + f1(BENCH_RET) + ' + allocation ' + sgn(alloc, 2) + ' + selection ' + sgn(sel, 2) + ' = ' + ALLOC[state.alloc].name + ' ' + f1(BENCH_RET + alloc + sel) + '</div><div class="illus">Bars run from −0.30 to +0.30 pp. An index-level remainder has no selection effect.</div>';
+    } else {
+      var pts = [], n = 60, w = 600, h = 110, i, v;
+      for (i = 0; i < n; i++) { v = 2.05 + 0.45 * Math.sin(i / 7) + 0.2 * Math.sin(i / 2.3) + (state.model === 'axioma' ? -0.04 : 0); pts.push([i / (n - 1) * (w - 40) + 34, h - 18 - (v - 1.0) / 2.0 * (h - 30)]); }
+      var y = function (val) { return h - 18 - (val - 1.0) / 2.0 * (h - 30); };
+      html = allocChips() + '<svg class="spark" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Rolling 36-month tracking error, illustrative"><g font-family="IBM Plex Mono,monospace" font-size="10" fill="#66748b">' + [1, 2, 3].map(function (t) { return '<line x1="34" x2="' + w + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="#e3e8ef" stroke-width="1"/><text x="0" y="' + (y(t) + 3) + '">' + t.toFixed(1) + '%</text>'; }).join('') + '<text x="34" y="' + (h - 2) + '">2021</text><text x="' + (w - 30) + '" y="' + (h - 2) + '">2026</text></g><polyline fill="none" stroke="#2a78d6" stroke-width="2" points="' + pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '"/><circle cx="' + pts[n - 1][0].toFixed(1) + '" cy="' + pts[n - 1][1].toFixed(1) + '" r="3.5" fill="#2a78d6"/></svg>' +
+        '<div class="illus">Historical basis only: rolling 36-month tracking error, with cumulative active return as a second series. Illustrative line.</div>';
+    }
+    $('acBody').innerHTML = html;
+  }
+
+  $('modelSeg').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; state.model = b.dataset.model; renderSwitch(); renderActive(); });
+  $('feChip').addEventListener('click', function () { state.model = state.model === 'isg' ? 'axioma' : 'isg'; renderSwitch(); renderActive(); });
+  $('acChip').addEventListener('click', function () { state.model = state.model === 'isg' ? 'axioma' : 'isg'; renderSwitch(); renderActive(); });
+  $('acTabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; state.view = b.dataset.v; renderActive(); });
+  $('acTabs').addEventListener('keydown', function (e) { if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return; var v = ['sum', 'risk', 'ret', 'time'], i = (v.indexOf(state.view) + (e.key === 'ArrowRight' ? 1 : 3)) % 4; state.view = v[i]; renderActive(); $('acTabs').querySelector('[data-v="' + v[i] + '"]').focus(); e.preventDefault(); });
+  $('acBody').addEventListener('click', function (e) { var b = e.target.closest('[data-alloc]'); if (!b) return; state.alloc = b.dataset.alloc; renderActive(); });
+  renderSwitch(); renderActive();
+})();
+</script>

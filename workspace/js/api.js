@@ -42,6 +42,12 @@
      POST   /analytics/forward-suite         ← SuiteRequest → ForwardSuiteResponse
      POST   /analytics/history-suite         ← SuiteRequest → HistorySuiteResponse
      POST   /analytics/structure             ← SuiteRequest → StructureResponse
+     POST   /analytics/optimize              ← OptimizeRequest → OptimizeResponse
+     GET    /products                        → ProductRecord[]    (uploaded products, see js/products.js)
+     POST   /products/fit                    ← {returns:{start, values}} → {fits:Fit[], stats}  (closest asset classes)
+     POST   /products                        ← ProductRecord[] → ProductRecord[]  (add from pasted returns)
+     PATCH  /products/:id                    ← {name?, archived?} → ProductRecord
+     GET    /products/:id/analytics?factorModel=…  → ProductAnalytics
    Every analytics request carries the workspace's reporting currency in the
    X-Reporting-Currency header (useCurrency); figures come back in it.
 
@@ -78,12 +84,16 @@
    ScenarioResponse{unit, series:[{allocationId, base:Cell, scenarios:[{scenarioId, cell:Cell}]}]}
    FactorModel    {id, name, long, asOf, note, factors:[{id, name, unit, description, mapsTo?, signFlip?}], defaultFactors}
    ActiveRequest  {allocations, rowKey, basis, period, scenario, factorModel, returnMethod:'arithmetic'|'geometric',
-                   decompose:'factor'|'category'|'product', reference (as TableRequest),
+                   decompose:'factor'|'category'|'assetClass'|'product' (attributes both the active risk and the active return),
+                   reference (as TableRequest),
                    against:{mode:'reference'|'own'|'pick', ref?:{kind:'benchmark'|'instrument'|'allocation'|'sleeve', id, label?, holdings?}}}
    ActiveResponse {factorModel, modelAsOf, basis, period, series:[{allocationId, benchmark:{label, kind, note?}, reason?,
                    totalReturn, passiveReturn, activeReturn, totalRisk, passiveRisk, activeRisk, activePassiveCorr,
                    informationRatio, activeShare, riskSources:[{key, label, contribution}], specific, riskSourcesNote?,
-                   returnSources:[{key, label, weight, benchWeight, allocation, selection}], returnTotals:{allocation, selection},
+                   returnSources: by category or asset class [{key, label, weight, benchWeight, allocation, selection, contribution}],
+                                  by product [{key, label, weight, benchWeight, ret, contribution}],
+                                  by factor [{key, label, exposure, premium, contribution}] plus a specific line,
+                   returnTotals:{allocation?, selection?, factor?, specific?, arithmetic, attributed},
                    over?:{months, te36, cumActive} (historical), coverage, scenarioApplied}]}
      Risk is in % a year, contributions are Euler (they sum to the tracking error); returns are % a year.
    FactorRiskRequest {allocations, rowKey, factorModel}
@@ -97,6 +107,17 @@
    HistorySuiteResponse {months, period, series:[{allocationId, reason?, reference:{label}, returns:(number|null)[],
                    stats:{months, mean, sd, skew, kurtosis, bins:[{from, to, count}], worst:[{m, r}], positive,
                           upCapture, downCapture, upMonths, downMonths, beta, correlation, hitRate}}]}
+   OptimizeRequest {allocation, scenario, factorModel, options:{objective:'minVol'|'maxReturn'|'active', target (% a year),
+                   teMode:'target'|'min', longOnly, maxWeight (%), band (pp)|null, useIndices, includeAll, preview?}}
+                   the benchmark for tracking error is the allocation's own (benchmarkId)
+   OptimizeResponse{current:{ret, vol, sharpe, te, ir}, proposed?, assets?:[{key, kind:'product'|'index', categoryId,
+                   instrumentId, label, current, proposed}] (% of the total), frontier:[{ret, risk}], riskUnit:'vol'|'te',
+                   range:{minRet, maxRet, minRisk, maxRisk}, reason? (target out of reach), note?, error?}
+                   preview: {current, rangeVol, rangeTE|null, benchmark}
+   ProductAnalytics {id, name, type, identifier, source, assetClass, category, index,
+                   forward:{ret, vol, sharpe, beta, exposure:{[factorId]:β}, specific, factorShare, coverage},
+                   historical:{months, start, end, annReturn, vol, sharpe, maxDrawdown, best, worst, positive,
+                               growthStart, growth, indexGrowth, calendar, corr, r2}|null, fit|null}
    StructureResponse {currency, categories:[{id, name, short, color}], currencies:string[],
                    series:[{allocationId, reference:{label}|null, weights:{[categoryId]:%}, referenceWeights, active,
                             currency:{[code]:%}}]}
@@ -210,11 +231,11 @@
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); D.registerBenchmarks(store.benchmarks); return store; } } } catch (e) { /* storage unavailable */ }
-      store = fresh(); D.registerBenchmarks(store.benchmarks);
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); return store; } } } catch (e) { /* storage unavailable */ }
+      store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks);
       return store;
     }
-    function fresh() { return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), version: 1 }; }
+    function fresh() { return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }
@@ -249,7 +270,46 @@
         });
       },
       deleteWorkspace: function (id) { return wait(latency()).then(function () { store = load(); store.workspaces = store.workspaces.filter(function (w) { return w.id !== id; }); persist(); return {}; }); },
-      resetSampleData: function () { store = fresh(); D.registerBenchmarks(store.benchmarks); persist(); return Promise.resolve({}); },
+      resetSampleData: function () { store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); persist(); return Promise.resolve({}); },
+      /* uploaded products */
+      listProducts: function () { return wait(latency() * 0.4).then(function () { return U.clone(load().products); }); },
+      fitReturns: function (input) {
+        return wait(120).then(function () {
+          var vals = E.alignedReturns({ start: input.start, returns: input.values });
+          return { fits: E.fitAll(vals), stats: E.seriesStats(vals, D.history.months) };
+        });
+      },
+      addProducts: function (records) {
+        return wait(latency()).then(function () {
+          var list = load().products, now = new Date().toISOString(), names = D.instruments.map(function (i) { return i.name.toLowerCase(); });
+          var out = records.map(function (r) {
+            if (!r.name || !r.name.trim()) throw { code: 'invalid', message: 'Every product needs a name' };
+            if (!D.assetClassById[r.assetClass]) throw { code: 'invalid', message: 'Unknown asset class for ' + r.name };
+            if (r.returns.filter(function (v) { return v != null; }).length < 12) throw { code: 'invalid', message: r.name + ' needs at least 12 monthly returns' };
+            var name = r.name.trim(), k = 2; while (names.indexOf(name.toLowerCase()) >= 0) name = r.name.trim() + ' (' + k++ + ')'; names.push(name.toLowerCase());
+            return { id: U.uid('up'), name: name, identifier: r.identifier || ('UP-' + name.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase()), type: r.type || 'Fund', assetClass: r.assetClass, currency: r.currency || D.reporting, start: r.start, returns: r.returns.slice(), proxy: r.proxy !== false, source: 'uploaded', owner: 'F. Barker', createdAt: now, archived: false, description: r.description || '', origin: r.origin || null };
+          });
+          out.forEach(function (p) { list.unshift(p); });
+          D.registerProducts(list); persist(); return U.clone(out);
+        });
+      },
+      updateProduct: function (id, patch) {
+        return wait(latency() * 0.5).then(function () {
+          var p = load().products.filter(function (x) { return x.id === id; })[0]; if (!p) throw { code: 'not_found', message: 'Product not found' };
+          if (patch.name != null) { if (!patch.name.trim()) throw { code: 'invalid', message: 'Enter a name' }; p.name = patch.name.trim(); }
+          if (patch.archived != null) p.archived = !!patch.archived;
+          D.registerProducts(load().products); persist(); return U.clone(p);
+        });
+      },
+      productAnalytics: function (id, opts) { return wait(latency() * 0.5).then(function () { if (config.failAnalytics) fail(); load(); var r = E.productAnalytics(id, E.resolve(null), opts && opts.factorModel); if (!r) throw { code: 'not_found', message: 'Product not found' }; return r; }); },
+      optimize: function (req) {
+        return wait(req.options && req.options.preview ? 90 : latency()).then(function () {
+          if (config.failAnalytics) fail();
+          var a = req.allocation, bm = a.benchmarkId ? D.benchmarkById[a.benchmarkId] : null;
+          var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0);
+          return E.optimize(a, Object.assign({}, req.options, { scenario: inScope ? req.scenario : null, factorModel: req.factorModel, benchmark: bm ? { holdings: bm.holdings, label: bm.name } : null }));
+        });
+      },
       useCurrency: function (code) { D.setReportingCurrency(code); return Promise.resolve({ currency: D.reporting }); },
       /* benchmark library */
       listBenchmarks: function () { return wait(latency() * 0.4).then(function () { return { presets: U.clone(D.benchmarkPresets), custom: U.clone(load().benchmarks) }; }); },
@@ -272,9 +332,9 @@
           var score = function (text) { var t = (text || '').toLowerCase(); if (!needle) return 1; if (t === needle) return 100; if (t.indexOf(needle) === 0) return 60; if (t.indexOf(needle) >= 0) return 30; return needle.split(/\s+/).every(function (w) { return t.indexOf(w) >= 0; }) ? 15 : 0; };
           var out = [];
           D.instruments.forEach(function (i) {
-            var cat = D.categoryOf(i.id); if (only && cat.id !== only) return;
+            var cat = D.categoryOf(i.id); if (i.archived || (only && cat.id !== only)) return;
             var s = Math.max(score(i.name), score(i.identifier), score(D.assetClassById[i.assetClass].name) * 0.5, score(cat.name) * 0.4, score(i.type) * 0.4, score(i.manager) * 0.6);
-            if (s > 0) out.push({ score: s, kind: 'instrument', id: i.id, name: i.name, type: i.type, identifier: i.identifier, category: cat.name, meta: [i.type, i.identifier, D.assetClassById[i.assetClass].name, i.valuation + ' valuation'].join(' · '), coverage: i.coverage, instrument: i });
+            if (s > 0) out.push({ score: s, kind: 'instrument', id: i.id, name: i.name, type: i.type, identifier: i.identifier, category: cat.name, meta: [i.type, i.identifier, D.assetClassById[i.assetClass].name, i.source === 'uploaded' ? 'uploaded returns' : i.valuation + ' valuation'].join(' · '), coverage: i.coverage, uploaded: i.source === 'uploaded', instrument: i });
           });
           load().sleeves.filter(function (s) { return !s.archived && (!only || s.categoryId === only); }).forEach(function (s) { var sc = Math.max(score(s.name), score('sleeve') * 0.4, score(D.categoryById[s.categoryId].name) * 0.3); if (sc > 0) out.push({ score: sc, kind: 'sleeve', id: s.id, name: s.name, type: 'Sleeve', identifier: 'v' + s.versions[s.versions.length - 1].v, meta: 'Sleeve · ' + D.categoryById[s.categoryId].name + ' · ' + s.versions[s.versions.length - 1].holdings.length + ' products', sleeve: U.clone(s) }); });
           if (!only) D.benchmarks.forEach(function (b) { var sc = Math.max(score(b.name), score('portfolio') * 0.3, score('benchmark') * 0.4); if (sc > 0) out.push({ score: sc, kind: 'portfolio', id: b.id, name: b.name, type: 'Portfolio', identifier: b.id.toUpperCase(), meta: 'Portfolio · ' + b.description, portfolio: b }); });
@@ -434,7 +494,7 @@
             var bm = benchmarkFor(a, req);
             if (!bm.holdings) return { allocationId: a.id, benchmark: { label: bm.label, kind: bm.kind }, reason: bm.reason || 'No benchmark' };
             var inScope = !hist && !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0 && Rsc && Rsc.corrValid);
-            var res = E.active(subject, { holdings: bm.holdings }, { modelId: model.id, basis: req.basis, R: inScope ? Rsc : Rbase, period: period, decompose: req.decompose, returnMethod: req.returnMethod });
+            var res = E.active(subject, { holdings: bm.holdings }, { modelId: model.id, basis: req.basis, R: inScope ? Rsc : Rbase, period: period, attribute: req.attribute || req.decompose, returnMethod: req.returnMethod });
             res.allocationId = a.id; res.benchmark = { label: bm.label, kind: bm.kind, note: bm.note || null }; res.scenarioApplied = inScope; res.unallocated = !req.rowKey || req.rowKey === '__total' ? U.round(100 - E.allocated(a), 4) : 0;
             return res;
           });
@@ -535,6 +595,12 @@
       scenarioComparison: function (req) { return call('POST', '/analytics/scenarios', req); },
       summaries: function (allocations) { return call('POST', '/analytics/summaries', { allocations: allocations }); },
       activeAnalysis: function (req) { return call('POST', '/analytics/active', req); },
+      optimize: function (req) { return call('POST', '/analytics/optimize', req); },
+      listProducts: function () { return call('GET', '/products'); },
+      fitReturns: function (input) { return call('POST', '/products/fit', { returns: input }); },
+      addProducts: function (records) { return call('POST', '/products', records); },
+      updateProduct: function (id, patch) { return call('PATCH', '/products/' + encodeURIComponent(id), patch); },
+      productAnalytics: function (id, opts) { return call('GET', '/products/' + encodeURIComponent(id) + '/analytics?factorModel=' + encodeURIComponent((opts && opts.factorModel) || 'isg')); },
       factorRisk: function (req) { return call('POST', '/analytics/factor-risk', req); },
       forwardSuite: function (req) { return call('POST', '/analytics/forward-suite', req); },
       historySuite: function (req) { return call('POST', '/analytics/history-suite', req); },

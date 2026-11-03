@@ -166,7 +166,20 @@
       return U.mat.cholesky(A) !== null;
     },
     mulVec: function (A, x) { return A.map(function (row) { var s = 0; for (var i = 0; i < x.length; i++) s += row[i] * x[i]; return s; }); },
-    dot: function (a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+    dot: function (a, b) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; },
+    /** Solve Ax = b (Gaussian elimination, partial pivoting); null if singular. */
+    solve: function (A, b) {
+      var n = b.length, M = A.map(function (r, i) { return r.slice().concat([b[i]]); });
+      for (var c = 0; c < n; c++) {
+        var p = c; for (var r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+        if (Math.abs(M[p][c]) < 1e-12) return null;
+        var t = M[c]; M[c] = M[p]; M[p] = t;
+        for (var r2 = c + 1; r2 < n; r2++) { var f = M[r2][c] / M[c][c]; if (!f) continue; for (var k = c; k <= n; k++) M[r2][k] -= f * M[c][k]; }
+      }
+      var x = new Array(n).fill(0);
+      for (var i = n - 1; i >= 0; i--) { var s = M[i][n]; for (var j = i + 1; j < n; j++) s -= M[i][j] * x[j]; x[i] = s / M[i][i]; }
+      return x;
+    }
   };
 
   /* ── statistics on monthly return series ─────────────────────────── */
@@ -234,6 +247,8 @@
     check: ic('<path d="M4 10l4 4 8-8"/>'),
     ok: ic('<circle cx="10" cy="10" r="7"/><path d="M6.8 10.2l2.2 2.2 4.2-4.6"/>'),
     build: ic('<path d="M4 5h6M4 10h12M4 15h9"/>'),
+    target: ic('<circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3.6"/><path d="M10 10l5.5-5.5M13.2 4.2l2.3.3.3 2.3"/>'),
+    paste: ic('<path d="M7 3.5h6v2.5H7z"/><path d="M13 4.5h1.5A1.5 1.5 0 0 1 16 6v10a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16V6a1.5 1.5 0 0 1 1.5-1.5H7"/><path d="M7 10h6M7 13h4"/>'),
     shield: ic('<path d="M10 2.5l6 2.5v4.6c0 3.8-2.6 6.6-6 7.9-3.4-1.3-6-4.1-6-7.9V5l6-2.5z"/><path d="M7 10l2 2 4-4"/>'),
     reset: ic('<path d="M4 10a6 6 0 1 1 1.8 4.3"/><path d="M4 15v-4h4"/>'),
     sort: ic('<path d="M6 4v12M6 16l-2.5-2.5M6 16l2.5-2.5"/><path d="M14 16V4M14 4l-2.5 2.5M14 4l2.5 2.5"/>'),

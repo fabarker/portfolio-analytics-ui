@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · dialogs
-   new allocation (blank / template / clone / import), add investment,
+   new allocation (blank / template / clone / import),
    inspect instrument, snapshot, draft from snapshot, benchmark assignment,
    versions & activity, export, shortcuts
    ───────────────────────────────────────────────────────────────────────── */
@@ -10,6 +10,7 @@
   var Dg = UI.dialogs = {};
 
   Dg.nextColor = function () { return nextColor(); };
+  Dg.createAllocation = function (spec) { return createAllocation(spec); };
   function nextColor() { var used = S.ws.allocations.map(function (a) { return a.color; }); for (var i = 1; i <= 6; i++) if (used.indexOf('cat-' + i) < 0) return 'cat-' + i; return 'cat-' + ((S.ws.allocations.length % 6) + 1); }
   function mkHoldings(pairs) { return pairs.map(function (p) { return { id: U.uid('h'), instrumentId: p[0], weight: p[1] }; }); }
   function targetsFor(holdings) { var t = {}; holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) t[c] = U.round((t[c] || 0) + h.weight, 4); }); return t; }
@@ -90,32 +91,6 @@
     }
   };
 
-  /* ── add investment ──────────────────────────────────────────────── */
-  Dg.addInvestment = function (result, alloc) {
-    if (!alloc || alloc.kind !== 'live') { UI.toast('Choose a live allocation to add investments. Snapshots and compared sleeves are read-only.'); return; }
-    if (result.kind === 'sleeve') { UI.sleeves.apply(alloc, result.sleeve.categoryId, result.sleeve); return; }
-    var isGroup = result.kind !== 'instrument', ins = result.instrument, cat = ins ? D.categoryOf(ins.id) : null;
-    var tree = cat ? E.tree(alloc).filter(function (t) { return t.id === cat.id; })[0] : null, existing = ins ? alloc.holdings.filter(function (h) { return h.instrumentId === ins.id; })[0] : null, remaining = 100 - E.allocated(alloc);
-    var body = '<dl class="dlg-grid" style="margin:0 0 16px;font-size:13px"><div><dt class="label">Type</dt><dd style="margin:3px 0 0">' + esc(result.type) + ' · ' + esc(result.identifier) + '</dd></div>' +
-      (ins ? '<div><dt class="label">Category</dt><dd style="margin:3px 0 0">' + esc(cat.name) + '<br><span class="faint small">target ' + F.num(tree.target) + '% · ' + F.num(tree.implemented) + '% in products' + (tree.remainder > 1e-9 ? ' · ' + F.num(tree.remainder) + '% at index level' : '') + '</span></dd></div><div><dt class="label">Valuation · since</dt><dd style="margin:3px 0 0">' + esc(ins.valuation) + ' · ' + esc(F.month(ins.inception)) + '</dd></div><div><dt class="label">History</dt><dd style="margin:3px 0 0">' + (ins.coverage === 'full' ? 'Complete' : '<span class="tag tag-warn">' + (ins.coverage === 'none' ? 'None' : 'Proxy') + '</span> ' + esc(ins.proxyNote || '')) + '</dd></div>' : '<div class="wide"><dt class="label">Contents</dt><dd style="margin:3px 0 0">' + esc(result.meta) + '</dd></div>') + '</dl>' +
-      '<div class="dlg-grid"><div class="field"><label for="ai-w">' + (isGroup ? 'Total weight, % of portfolio' : 'Weight, % of total portfolio') + '</label><input type="number" id="ai-w" step="0.5" value="' + (existing ? existing.weight : (tree && tree.remainder > 1e-9 ? U.round(tree.remainder, 1) : Math.max(0, Math.min(5, U.round(remaining, 1))))) + '"><span class="field-hint">' + F.num(remaining) + '% unallocated now.' + (existing ? ' Already held at ' + F.num(existing.weight) + '%; this replaces that weight.' : '') + '</span><span class="field-err" id="ai-err"></span></div>' +
-      (ins ? '<label class="check" style="align-self:end"><input type="checkbox" id="ai-raise" checked> Raise the category target if the products exceed it</label>' : '') + '</div>';
-    UI.openDialog({ title: 'Add ' + result.name, sub: isGroup ? 'Copies the portfolio’s holdings into ' + esc(alloc.name) + ' at the weight below, scaled proportionally. Category targets rise to cover them.' : 'Adds the product to its category in ' + esc(alloc.name) + '. It implements the category’s index-modelled remainder first.', body: body, initialFocus: '#ai-w',
-      actions: [{ label: 'Cancel', ghost: true }, { label: existing ? 'Update weight' : 'Add to allocation', primary: true, close: false, onClick: function (c) {
-        var w = Number(U.$('#ai-w', c.el).value), err = U.$('#ai-err', c.el); if (!isFinite(w)) { err.textContent = 'Enter a weight.'; return false; }
-        var next = U.clone(alloc.holdings), cats = U.clone(E.categoryTargets(alloc));
-        if (isGroup) { var src = result.portfolio.holdings, tot = U.sum(src, function (h) { return h.weight; }); src.forEach(function (h) { var ex = next.filter(function (x) { return x.instrumentId === h.instrumentId; })[0], add = U.round(h.weight / tot * w, 2); if (ex) ex.weight = U.round(ex.weight + add, 2); else next.push({ id: U.uid('h'), instrumentId: h.instrumentId, weight: add }); }); }
-        else { var ex2 = next.filter(function (x) { return x.instrumentId === ins.id; })[0]; if (ex2) ex2.weight = w; else next.push({ id: U.uid('h'), instrumentId: ins.id, weight: w }); }
-        var raise = isGroup || (U.$('#ai-raise', c.el) && U.$('#ai-raise', c.el).checked);
-        if (raise) D.categories.forEach(function (ct) { var impl = U.sum(next.filter(function (h) { return E.categoryOf(h.instrumentId) === ct.id; }), function (h) { return h.weight; }); if (impl > cats[ct.id] + 1e-9) cats[ct.id] = U.round(impl, 4); });
-        var allocated = E.allocated({ holdings: next, categories: cats });
-        if (!alloc.leverage && (w < 0 || allocated > 100.0001)) { err.textContent = w < 0 ? 'Negative weights need shorts & leverage enabled.' : 'That takes the allocation to ' + F.num(allocated) + '%. Lower the weight or enable shorts & leverage.'; U.$('#ai-w', c.el).setAttribute('aria-invalid', 'true'); return false; }
-        S.update(alloc.name + ' · ' + result.name + ' added at ' + F.num(w) + '%', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === alloc.id; })[0]; x.holdings = next; x.categories = cats; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
-        if (ins) { var ex3 = S.ws.prefs.expanded.slice(); if (ex3.indexOf(cat.id) < 0) { ex3.push(cat.id); S.setPref('expanded', ex3); } S.setPref('selectedRow', cat.id + '/' + ins.id); }
-        UI.toast(result.name + ' added to ' + alloc.name + '.' + (ins && ins.coverage === 'none' ? ' It has no return history, so historical figures exclude it.' : ''));
-        c.close(true); return false;
-      } }] });
-  };
 
   Dg.inspectInstrument = function (ins) {
     var ac = D.assetClassById[ins.assetClass], cat = D.categoryOf(ins.id), as = D.assumptions.assetClasses[ins.assetClass], R = E.resolve(null);
@@ -220,7 +195,7 @@
   };
 
   Dg.shortcuts = function () {
-    var rows = [['/', 'Open the builder’s Add tab and focus the search'], ['b', 'Collapse or expand the builder'], ['s', 'Open or close the scenario drawer'], ['a', 'Open or close the card repository'], ['⌘Z · ⇧⌘Z', 'Undo · redo'], ['Esc', 'Close a dialog, menu, sheet or drawer'], ['↑ ↓ in the tree', 'Move between rows; ← → collapse and expand; Enter edits the weight; Space selects in select mode'], ['⌘-click a product', 'Add it to the sleeve selection'], ['← → ↑ ↓ on a card', 'Move it; with ⇧, resize it'], ['← → on a chart', 'Move the crosshair; ⇧ jumps a year'], ['?', 'This list']];
+    var rows = [['/', 'Find a product to add (quick add, every category)'], ['+ · Insert', 'Quick add under the focused category'], ['⌘V', 'Paste a range of returns from Excel to add products'], ['b', 'Collapse or expand the builder'], ['s', 'Open or close the scenario drawer'], ['a', 'Open or close the card repository'], ['⌘Z · ⇧⌘Z', 'Undo · redo'], ['Esc', 'Close a dialog, menu, sheet or drawer'], ['↑ ↓ in the tree', 'Move between rows; ← → collapse and expand; Enter edits the weight; Space selects in select mode'], ['⌘-click a product', 'Add it to the sleeve selection'], ['← → ↑ ↓ on a card', 'Move it; with ⇧, resize it'], ['← → on a chart', 'Move the crosshair; ⇧ jumps a year'], ['?', 'This list']];
     UI.openDialog({ title: 'Keyboard shortcuts', body: '<table class="tbl" style="font-size:13px"><tbody>' + rows.map(function (r) { return '<tr><td style="width:40%"><kbd>' + esc(r[0]) + '</kbd></td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</tbody></table>', actions: [{ label: 'Close', primary: true }] });
   };
 })();

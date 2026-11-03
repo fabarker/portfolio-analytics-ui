@@ -22,7 +22,7 @@ Edits are kept in the browser's `localStorage` so a demo survives a reload.
 list) simulate save failures, analytics failures and a slow service, and reset
 the sample data.
 
-Keyboard: `/` opens the builder's Add tab with the search focused, `b` collapses the builder, `s`
+Keyboard: `/` opens quick add searching every category, `b` collapses the builder, `s`
 opens the scenario drawer, `a` opens the card repository, `⌘Z` / `⇧⌘Z` undo
 and redo, arrow keys move a focused card (with `⇧`, resize it), `?` lists the
 rest.
@@ -59,8 +59,10 @@ the rail's jobs so each gets the full height:
   remainder; `Enter` adds it in one edit (a product from another category is
   filed there, and a target rises if the products need it), `Esc` removes the
   row and returns focus to the +.
-- **Add**: investment search with category filter chips. A chip on its own
-  browses that category; results say when a product is already held.
+  `/` opens quick add under the selected row's category, searching every
+  category. With no match, quick add offers *Add it from its returns*.
+- **Optimize**: mean-variance optimisation of the allocation being edited
+  (`js/ui/optimizer.js`, engine in `js/optimize.js`). See below.
 - **Sleeves**: the repository in the rail, grouped by category, with *Apply*
   (opens the apply dialog for the sleeve's category), *Compare* (adds it as a
   column) and a link to the repository screen. Tags show where a sleeve is
@@ -75,6 +77,67 @@ index level) and the allocated total in view, with the unallocated or borrowed
 amount when there is one. Collapsed, the rail keeps the
 four tab icons (with the badge); each opens the rail on its tab. On a phone the
 rail is an overlay with the same tabs.
+
+## Optimize
+
+The rail's Optimize tab re-weights the allocation being edited. It says where
+the allocation is now (return, volatility, tracking error), then offers three
+objectives:
+
+- **Minimise volatility** for a target return;
+- **Maximise return** for a target volatility;
+- **Return vs tracking error** against the allocation's own benchmark:
+  maximise return at a target tracking error, or minimise tracking error for a
+  target return.
+
+Targets start at today's figures, so the first run answers "the same, but
+better"; under the target the tab shows what the constraints can reach.
+Constraints: the total stays where it is; long only unless the allocation
+allows shorts; a maximum per holding (30%); optionally every category within
+±5 pp of today. The assets are the products held plus a category's index where
+the category already sits partly at index level; *Use category indices* lets
+every held category's index take weight from its products, and *Include
+categories not held* adds the rest.
+
+The result draws the efficient frontier (return against volatility or
+tracking error) with *Now* and *Optimised*, the figures before and after
+(return, volatility, Sharpe ratio, tracking error, information ratio) and every
+weight that moves, by category. **Apply** writes it as one undoable edit;
+**Save as new allocation** keeps the original and compares the proposal. A
+result says it is out of date when the allocation, benchmark, scenario or
+factor model changes. Return and volatility come from the platform assumptions
+(scenario aware), tracking error from the workspace's factor model, so the
+cards agree after applying. The solver is a dense ADMM (the OSQP iteration);
+a target volatility or tracking error is met by bisection on the return.
+
+## Products from pasted returns and the product directory
+
+Copy a range in Excel (dates in the first column, one product per column,
+names in the header row) and paste it anywhere outside a field, or use *Add
+products from returns* (header ⋮ menu, the rail's ⋮ menu, quick add, the
+product directory). Dropping a CSV on the dialog works too. The parser
+(`js/ui/importer.js`) reads ISO, day/month/year and month/day/year dates (it
+asks only when every date reads both ways), month names and Excel serial
+numbers; percentages, decimals or price levels (detected, switchable);
+daily and weekly returns compounded to months and quarterly spread across
+them. It names gaps, part months, months outside the model's history and
+values that look like the wrong units, and refuses fewer than twelve months.
+
+Each product is fitted to the asset class whose index it tracks most closely
+(R², switchable) and filed under that class's category (`js/products.js`):
+expected return is cash plus its beta times the class's premium (no alpha);
+volatility is its own; correlations are the class's scaled by its correlation
+with the index; factor loadings are the class's times its beta, with specific
+risk whatever its volatility leaves. Before its first month its history is the
+class index or empty. Uploaded products persist in the mock store and appear
+in quick add (tagged *Uploaded*) and, once held, in every card.
+
+The **product directory** (`#/products`) lists every product by category, with
+an *Uploaded* filter. A product shows forward-looking return, volatility,
+Sharpe ratio and beta; historical return, volatility, drawdown, best and worst
+months, correlation, growth of 100 against its index and calendar years;
+factor exposures under ISG or Axioma; and how the model treats it. Uploaded
+products can be renamed, downloaded and archived.
 
 ## Factor models and active risk
 
@@ -100,16 +163,21 @@ return model; factor-model risk does not change with a scenario.
 **Active risk & return** (Risk group) splits each compared allocation, or the
 selected row of each, into passive (its benchmark) and active: return,
 passive, active; risk, passive, tracking error; information ratio; active
-share on the asset-class mix. *Risk sources* splits tracking error by factor
-plus specific (or by category or product); *Return sources* gives allocation
-and selection effects by category; *Over time* (historical) draws rolling
+share on the asset-class mix. One switch in the card (*By* factor, category,
+asset class or product) attributes both *Risk sources* (tracking error
+contributions, with specific under factors) and *Return sources*: allocation
+and selection by category or asset class; active weight times excess return
+by product (benchmark-only holdings named); active exposure times an implied
+premium by factor, plus specific. The factor premia come from a ridge
+regression of asset-class excess returns (expected, or realised over the
+period) on the model's loadings. *Over time* (historical) draws rolling
 36-month tracking error and cumulative active return. It is measured against
 the context bar's Reference, each subject's own benchmark (an allocation's
 benchmark, a category's index basket, a product's stated benchmark, a
 sleeve's category index), or a picked benchmark, product, allocation or sleeve.
-The checks confirm that contributions sum to the tracking error, the effects to
-the active return, and passive and active risk with their correlation to the
-total.
+The checks confirm, for all four attributions, both models and both bases, that
+contributions sum to the tracking error and the return sources to the active
+return, and that passive and active risk with their correlation make the total.
 
 **Waterfalls.** Every contribution measure that adds up to a total can be drawn
 as a waterfall, one allocation at a time (tabs above the chart): Return
@@ -261,6 +329,8 @@ data/sleeves.js       the sleeve repository and the saved-card repository
 data/workspaces.js    three sample workspaces in the persisted shape, cards included
 js/util.js            DOM, formatting, maths, icons, tooltips, focus trap
 js/engine.js          the mock analytics engine (what a service replaces)
+js/products.js        uploaded products: registration, the asset-class fit, the directory's analytics
+js/optimize.js        mean-variance optimisation (dense ADMM QP, frontier, targets by bisection)
 js/api.js             the data access layer: one contract, two adapters (mock, http)
 js/state.js           the workspace store: undo/redo, autosave, revisions, cards, product selection
 js/ui/common.js       toasts, dialogs, popovers, confirm/prompt
@@ -271,9 +341,12 @@ js/ui/ddcard.js       the Drivers & Differences card
 js/ui/activecard.js   the Active risk & return card
 js/ui/suite.js        the forward-looking, historical and structure suite (outcomes, VaR, stress tests, capture, …)
 js/ui/benchmarks.js   the benchmark picker, the custom benchmark builder, the benchmark library screen
+js/ui/optimizer.js    the rail's Optimize tab
+js/ui/importer.js     add products from returns: the paste parser, the dialog, paste-anywhere
+js/ui/products.js     the product directory screen
 js/ui/context.js      the context bar (controls shown when a card reads them), the context in one line for exports
 js/ui/shell.js        routing, workspace list, context header, comparison strip, demo controls
-js/ui/builder.js      the rail: header, Build/Add/Sleeves/Check tabs, the category tree, selection, weights, leverage
+js/ui/builder.js      the rail: header, Build/Optimize/Sleeves/Check tabs, the category tree, quick add, selection, weights, leverage
 js/ui/sleeves.js      create and apply sleeves; the sleeve repository screen
 js/ui/drawer.js       scenarios, scope, assumption matrix, correlation matrix and pair editor
 js/ui/dialogs.js      new allocation (blank/template/clone/import), add investment, snapshot, versions, export
@@ -324,7 +397,13 @@ two adapters:
 | `projection(ProjectionRequest)` | `POST /analytics/projection` | `ProjectionResponse` |
 | `scenarioComparison(ScenarioRequest)` | `POST /analytics/scenarios` | `ScenarioResponse` |
 | `summaries(allocations)` | `POST /analytics/summaries` | `{[allocationId]: {ret, vol, sharpe}}` |
-| `activeAnalysis(req)` | `POST /analytics/active` | passive and active return and risk per allocation, with risk and return sources (see `js/api.js`) |
+| `activeAnalysis(req)` | `POST /analytics/active` | passive and active return and risk per allocation, with risk and return sources by factor, category, asset class or product (see `js/api.js`) |
+| `optimize(req)` | `POST /analytics/optimize` | a proposal for one allocation: weights, figures before and after, the frontier; or, as a preview, today's figures and the reachable range |
+| `listProducts()` | `GET /products` | uploaded `ProductRecord[]` |
+| `fitReturns({start, values})` | `POST /products/fit` | each asset class's fit (R², beta, correlation), closest first, and the series' statistics |
+| `addProducts(records)` | `POST /products` | the added products, named uniquely |
+| `updateProduct(id, patch)` | `PATCH /products/:id` | rename or archive |
+| `productAnalytics(id, {factorModel})` | `GET /products/:id/analytics` | forward-looking, historical and factor figures for one product |
 | `factorRisk(req)` | `POST /analytics/factor-risk` | risk by factor plus specific under a factor model |
 | `forwardSuite(req)` | `POST /analytics/forward-suite` | expected return and risk, VaR and expected shortfall, outcome probabilities, diversification, stress tests, with the reference |
 | `historySuite(req)` | `POST /analytics/history-suite` | monthly distribution, skew, kurtosis, worst months, up and down capture, beta, hit rate |
@@ -339,7 +418,8 @@ Every shape is documented at the top of the file that owns it:
   `Factor`, `Instrument`, reporting currencies. `data/benchmarks.js` —
   `Benchmark`, `CustomBenchmark`, constituent rows.
 - `data/assumptions.js` — `Assumptions`. `data/history.js` — `History`.
-- `js/api.js` — the request and response shapes of the analytics calls.
+- `js/api.js` — the request and response shapes of the analytics calls,
+  optimisation and products. `js/products.js` — `ProductRecord`, `Fit`.
 - `js/ui/cards.js` — the card type contract a new card implements.
 
 Conventions a service must keep (the UI relies on them):
@@ -399,6 +479,13 @@ Conventions a service must keep (the UI relies on them):
   card that followed it the switch's last value, so nothing on screen changes.
   Stress tests use the Axioma model, which holds every shocked factor.
   A saved card stores type, settings and name, never data.
+- **Optimisation.** Long only by default, 30% per holding, the total kept. The
+  optimiser re-weights what is held; index-level weight and categories not held
+  join only when asked. Return and volatility use the platform assumptions and
+  tracking error the factor model, matching the cards.
+- **Uploaded products.** Fitted to one asset class; no alpha is assumed in
+  their expected return. Returns are taken as given in the workspace's
+  currency (no conversion in the mock).
 - **Activity, not transactions.** The product shows analytics, not trades;
   "Versions & activity" records edits, sleeves, snapshots and scenarios.
 
@@ -416,7 +503,8 @@ loading its newer version, applying a sleeve, cards: settings, follow-row, data 
 adding from the repository, moving, resizing, removing, undo; the context
 bar; the clarity rules (no default tags, one door to scenarios, controls shown only when a card reads them,
 quiet card tools and rail inputs, the silver rule above each category, notes closed by default, identifiers on a wide rail);
-the elbow guides and quick add; per-card bases and the dual Headline; the eleven ISG and seventeen Axioma factors;
+the elbow guides and quick add (including `/` across every category); the Optimize tab (every objective and constraint, apply and undo, save as new);
+active attribution by factor, category, asset class and product; the paste parser, paste-anywhere, fitting, the product directory and an uploaded product's analytics; per-card bases and the dual Headline; the eleven ISG and seventeen Axioma factors;
 benchmarks (picker, builder rules, versions, library, fixed rate); the reporting currency; every new card and the waterfalls;
 persistence; the sleeve repository; failure states; three viewports),
 asserts on what the user would see, reports console errors, and writes

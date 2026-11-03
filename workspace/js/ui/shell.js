@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · shell
    hash routing (workspaces, a workspace, the sleeve repository, the
-   benchmark library), the context
+   benchmark library, the product directory), the context
    header, the comparison strip, keyboard shortcuts and the demo switches
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
@@ -17,9 +17,10 @@
     if ((m = h.match(/^#\/w\/([^/]+)/))) openWorkspace(decodeURIComponent(m[1]));
     else if ((m = h.match(/^#\/sleeves(?:\/([^/]+))?/))) showRepo(m[1] ? decodeURIComponent(m[1]) : null);
     else if ((m = h.match(/^#\/benchmarks(?:\/([^/]+))?/))) showBench(m[1] ? decodeURIComponent(m[1]) : null);
+    else if ((m = h.match(/^#\/products(?:\/([^/]+))?/))) showProducts(m[1] ? decodeURIComponent(m[1]) : null);
     else showHome();
   }
-  function showView(name) { els.home.hidden = name !== 'home'; els.ws.hidden = name !== 'ws'; els.repo.hidden = name !== 'repo'; els.bench.hidden = name !== 'bench'; }
+  function showView(name) { els.home.hidden = name !== 'home'; els.ws.hidden = name !== 'ws'; els.repo.hidden = name !== 'repo'; els.bench.hidden = name !== 'bench'; els.products.hidden = name !== 'products'; }
 
   /* ── home ────────────────────────────────────────────────────────── */
   var homeFilter = '', cardData = null;
@@ -28,7 +29,7 @@
     showView('home');
     document.title = 'Portfolio Analytics · Workspaces';
     els.home.innerHTML = '<header class="topbar"><a class="wordmark" href="#/"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></a><span class="spacer"></span>' +
-      '<a class="btn btn-ghost btn-sm" href="#/sleeves">' + I.layers + '<span>Sleeve repository</span></a><a class="btn btn-ghost btn-sm" href="#/benchmarks">' + I.chart + '<span>Benchmark library</span></a><button type="button" class="btn btn-ghost btn-sm" id="home-demo" aria-haspopup="menu" aria-expanded="false">' + I.sliders + '<span>Demo</span></button><span class="user"><span class="avatar" aria-hidden="true">FB</span><span>F. Barker</span></span></header>' +
+      '<a class="btn btn-ghost btn-sm" href="#/sleeves">' + I.layers + '<span>Sleeve repository</span></a><a class="btn btn-ghost btn-sm" href="#/benchmarks">' + I.chart + '<span>Benchmark library</span></a><a class="btn btn-ghost btn-sm" href="#/products">' + I.folder + '<span>Product directory</span></a><button type="button" class="btn btn-ghost btn-sm" id="home-demo" aria-haspopup="menu" aria-expanded="false">' + I.sliders + '<span>Demo</span></button><span class="user"><span class="avatar" aria-hidden="true">FB</span><span>F. Barker</span></span></header>' +
       '<div class="home-body"><div class="home-hero"><div><h1>Workspaces</h1><p>Build, test and compare multi-asset allocations. Each workspace holds its drafts, snapshots, scenarios, comparison and its cards.</p></div><button type="button" class="btn btn-primary" id="home-new">' + I.plus + '<span>New workspace</span></button></div>' +
       '<div class="home-tools"><div class="search-wrap">' + I.search + '<input type="search" id="home-search" placeholder="Find a workspace…" aria-label="Find a workspace" value="' + esc(homeFilter) + '"><kbd>/</kbd></div></div>' +
       '<div class="ws-cards" id="home-cards" aria-live="polite"><div class="ws-card skeleton" style="min-height:150px"></div><div class="ws-card skeleton" style="min-height:150px"></div><div class="ws-card skeleton" style="min-height:150px"></div></div></div>' +
@@ -67,6 +68,13 @@
     if (S.ws) { S.saveNow(); S.unload(); }
     showView('bench');
     UI.benchmarks.showLibrary(els.bench, id);
+  }
+
+  /* ── product directory ───────────────────────────────────────────── */
+  function showProducts(id) {
+    if (S.ws) { S.saveNow(); S.unload(); }
+    showView('products');
+    UI.products.show(els.products, id);
   }
 
   /* ── workspace ───────────────────────────────────────────────────── */
@@ -113,6 +121,8 @@
         { sep: true },
         { label: 'Sleeve repository', icon: I.layers, onClick: function () { shell.go('#/sleeves'); } },
         { label: 'Benchmark library', icon: I.chart, onClick: function () { shell.go('#/benchmarks'); } },
+        { label: 'Product directory', icon: I.folder, onClick: function () { shell.go('#/products'); } },
+        { label: 'Add products from returns…', icon: I.paste, onClick: function () { UI.importer.open({ text: '' }); } },
         { label: 'Keyboard shortcuts', icon: I.keyboard, kbd: '?', onClick: function () { UI.dialogs.shortcuts(); } },
         { label: 'Demo controls', icon: I.sliders, onClick: function () { demoMenu(U.$('#more-btn')); } },
         { sep: true },
@@ -211,7 +221,7 @@
     var tag = (e.target.tagName || '').toLowerCase(), typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable, mod = e.metaKey || e.ctrlKey;
     if (mod && e.key.toLowerCase() === 'z' && S.ws) { if (typing && tag !== 'select') return; e.preventDefault(); if (e.shiftKey) S.redo(); else S.undo(); return; }
     if (typing) return;
-    if (e.key === '/') { e.preventDefault(); if (S.ws) { UI.builder.showTab('add', { focus: true }); return; } var s = U.$('#home-search') || U.$('#repo-q'); if (s) { s.focus(); s.select(); } }
+    if (e.key === '/') { e.preventDefault(); if (S.ws) { UI.builder.findProduct(); return; } var s = U.$('#home-search') || U.$('#repo-q'); if (s) { s.focus(); s.select(); } }
     if (e.key === '?' && S.ws) { e.preventDefault(); UI.dialogs.shortcuts(); }
     if (e.key === 'b' && S.ws && !mod) { e.preventDefault(); UI.builder.toggleCollapsed(); }
     if (e.key === 's' && S.ws && !mod) { e.preventDefault(); S.setSession('drawerOpen', !S.session.drawerOpen); }
@@ -220,7 +230,7 @@
 
   /* ── wiring ──────────────────────────────────────────────────────── */
   shell.init = function () {
-    els.home = U.$('#view-home'); els.ws = U.$('#view-ws'); els.repo = U.$('#view-repo'); els.bench = U.$('#view-bench'); els.head = U.$('#ws-head'); els.compare = U.$('#ws-compare');
+    els.home = U.$('#view-home'); els.ws = U.$('#view-ws'); els.repo = U.$('#view-repo'); els.bench = U.$('#view-bench'); els.products = U.$('#view-products'); els.head = U.$('#ws-head'); els.compare = U.$('#ws-compare');
     window.addEventListener('hashchange', route);
     document.addEventListener('keydown', onKey);
     wireCompare();

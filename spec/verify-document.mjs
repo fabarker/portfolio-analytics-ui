@@ -24,7 +24,7 @@ check('The word “book” does not appear',!vocabulary.book);
 await page.screenshot({path:path.join(base,'document-overview.png'),fullPage:false});
 // The workspace section embeds the mockup and its screenshots.
 const ws=page.locator('#workspace-demo');
-check('Fourteen mockup screenshots embedded',(await ws.locator('.shots img').count())===14);
+check('Eighteen mockup screenshots embedded',(await ws.locator('.shots img').count())===18);
 check('Screenshots have alt text',await ws.locator('.shots img').evaluateAll(imgs=>imgs.every(i=>i.alt.length>20&&i.naturalWidth>0)));
 await ws.locator('[data-mock-load]').click();
 const frame=await (async()=>{for(let i=0;i<40;i++){const f=page.frames().find(f=>f.url().includes('workspace/index.html'));if(f){try{await f.waitForSelector('#cards .card',{timeout:15000});return f;}catch{return null;}}await page.waitForTimeout(250);}return null;})();

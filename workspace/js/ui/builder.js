@@ -8,8 +8,9 @@
    target weight (index-level modelling); products implement them; the
    unimplemented remainder shows as an index leaf. + on a category row adds
    an empty leaf that searches the product library (quick add). Sleeves are
-   created from a category or a product selection here. Add: search the
-   universe, filtered by category. Sleeves: the repository, with Apply and Compare.
+   created from a category or a product selection here. / opens quick add
+   searching every category. Optimize: mean-variance optimisation of the
+   allocation (ui/optimizer.js). Sleeves: the repository, with Apply and Compare.
    Check: what needs attention (its count is the tab's badge), the weight
    summary and the leverage switch.
    ───────────────────────────────────────────────────────────────────────── */
@@ -17,14 +18,14 @@
   'use strict';
   var PA = window.PA, U = PA.util, esc = U.esc, S = PA.store, UI = PA.ui, E = PA.engine, D = PA.data, I = U.icon, F = U.fmt;
   var B = UI.builder = {};
-  var root, foot, rail, collapsed = {}, searchQ = '', searchResults = null, searchTimer = null;
-  var addCat = '', sleeveList = null, sleeveCat = '';
+  var root, foot, rail, collapsed = {}, searchTimer = null;
+  var sleeveList = null, sleeveCat = '';
   /* Weights are typed, never stepped. A typed value is pending until Enter
      applies it (one edit, one recalculation); Esc discards it. Pending values
      survive re-renders and leaving the field: allocation id → row key → text. */
   var pending = {};
   var pendingOf = function (a) { return pending[a.id] || (pending[a.id] = {}); };
-  var TABS = [{ id: 'build', label: 'Build', icon: 'build', title: 'Categories and products' }, { id: 'add', label: 'Add', icon: 'search', title: 'Add an investment (/)' }, { id: 'sleeves', label: 'Sleeves', icon: 'layers', title: 'The sleeve repository' }, { id: 'check', label: 'Check', icon: 'shield', title: 'What needs attention' }];
+  var TABS = [{ id: 'build', label: 'Build', icon: 'build', title: 'Categories and products' }, { id: 'optimize', label: 'Optimize', icon: 'target', title: 'Mean-variance optimisation' }, { id: 'sleeves', label: 'Sleeves', icon: 'layers', title: 'The sleeve repository' }, { id: 'check', label: 'Check', icon: 'shield', title: 'What needs attention' }];
   var tabOf = function () { var t = S.session.railTab; return TABS.some(function (x) { return x.id === t; }) ? t : 'build'; };
 
   B.render = function () {
@@ -36,24 +37,35 @@
     U.$('#rail-strip-tabs').innerHTML = renderStrip(tab, iss);
     U.$('#rail-strip-dot').style.background = a ? UI.colorOf(a) : 'transparent';
     root.setAttribute('aria-labelledby', 'rail-tab-' + tab);
-    root.innerHTML = !a ? renderNoActive() : tab === 'add' ? renderAdd(a) : tab === 'sleeves' ? renderSleeves(a) : tab === 'check' ? renderCheck(a, iss) : renderBuild(a);
+    root.innerHTML = !a ? renderNoActive() : tab === 'optimize' ? UI.optimizer.render(a) : tab === 'sleeves' ? renderSleeves(a) : tab === 'check' ? renderCheck(a, iss) : renderBuild(a);
     wire(a, iss);
     if (focusKey) { var f = rail.querySelector('[data-fkey="' + CSS.escape(focusKey) + '"]'); if (f) f.focus({ preventScroll: true }); }
     renderFoot(a);
   };
 
+  B.currentTab = function () { return tabOf(); };
   /** Switch tab; opens the rail if it is collapsed (desktop) or closed (phone). */
   B.showTab = function (tab, opts) {
     opts = opts || {};
     if (!S.ws) return;
+    if (tab === 'add') { B.findProduct(opts.category); return; }
     S.session.railTab = tab;
-    if (opts.category !== undefined) { addCat = opts.category; searchResults = null; }
-    if (window.innerWidth <= 900) { if (!S.session.railOpen) S.setSession('railOpen', true); }
-    else if (S.ws.prefs.railCollapsed) B.toggleCollapsed();
+    openRail();
     B.render();
-    if (tab === 'add' && (addCat || searchQ.trim())) runSearch();
     if (tab === 'sleeves') loadSleeves();
-    if (opts.focus) setTimeout(function () { var el = tab === 'add' ? U.$('#inv-search') : U.$('#rail-tab-' + tab); if (el) { el.focus(); if (el.select) el.select(); } }, window.innerWidth <= 900 ? 280 : 0);
+    if (opts.focus) setTimeout(function () { var el = U.$('#rail-tab-' + tab); if (el) el.focus(); }, window.innerWidth <= 900 ? 280 : 0);
+  };
+  function openRail() { if (window.innerWidth <= 900) { if (!S.session.railOpen) S.setSession('railOpen', true); } else if (S.ws.prefs.railCollapsed) B.toggleCollapsed(); }
+  /**
+   * Find a product to add (/): quick add in Build, under the selected row's
+   * category (or the first), searching every category unless one is given.
+   */
+  B.findProduct = function (categoryId) {
+    var a = S.active(); if (!a) return;
+    if (a.kind !== 'live') { UI.toast(a.name + ' is read-only. Switch to a live allocation to add products.'); return; }
+    openRail();
+    var sel = S.ws.prefs.selectedRow, cat = categoryId || (sel && D.categoryById[sel.split('/')[0]] ? sel.split('/')[0] : D.categories[0].id);
+    setTimeout(function () { openQuick(a, cat, { all: !categoryId }); }, window.innerWidth <= 900 ? 280 : 0);
   };
 
   function renderHead(a) {
@@ -86,31 +98,6 @@
       (newer ? '<div class="sleeve-newer"><b>v' + newer.v + ' is available</b> · ' + esc(newer.note) + '</div>' : '') +
       '<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">' + (newer ? '<button type="button" class="btn btn-sm btn-primary" id="rail-sleeve-update">' + I.reset + '<span>Show v' + newer.v + '</span></button>' : '') + '<button type="button" class="btn btn-sm" id="rail-sleeve-open">' + I.folder + '<span>Open in repository</span></button><button type="button" class="btn btn-sm" id="rail-draft">' + I.copy + '<span>Make an editable copy</span></button></div></div></div>';
   }
-  /* ── Add ─────────────────────────────────────────────────────────── */
-  function renderAdd(a) {
-    if (a.kind !== 'live') return '<div class="rail-readonly">' + I.lock + '<div><b>' + esc(a.name) + ' is read-only.</b> Snapshots and compared sleeves cannot take new products. Switch to a live allocation in the header to add investments.</div></div>';
-    var tree = E.tree(a);
-    var chip = function (id, label, color) { return '<button type="button" class="rail-chip" data-cat="' + id + '" data-fkey="chip:' + (id || 'all') + '" aria-pressed="' + (addCat === id) + '">' + (color ? '<span class="sw" style="background:' + color + '" aria-hidden="true"></span>' : '') + esc(label) + '</button>'; };
-    var cat = addCat ? tree.filter(function (t) { return t.id === addCat; })[0] : null;
-    return '<div class="rail-sec"><label class="rail-eyebrow" for="inv-search">Add an investment</label>' +
-      '<div class="search-wrap">' + I.search + '<input type="search" id="inv-search" data-fkey="inv-search" placeholder="Search by name, identifier or type…" autocomplete="off" value="' + esc(searchQ) + '" aria-controls="inv-results" aria-describedby="inv-hint"><kbd>/</kbd></div>' +
-      '<div class="rail-chips" role="group" aria-label="Filter by category">' + chip('', 'All') + D.categories.map(function (c) { return chip(c.id, c.short, c.color); }).join('') + '</div>' +
-      (cat ? '<div class="field-hint">' + esc(cat.name) + ': target ' + F.num(cat.target) + '% · ' + F.num(cat.implemented) + '% in products' + (cat.remainder > 1e-9 ? ' · <b style="color:var(--rail-warn)">' + F.num(cat.remainder) + '% at index level</b>, which a new product fills first' : '') + '.</div>' : '') +
-      '<div class="search-results is-tab" id="inv-results" role="listbox" aria-label="Search results">' + renderResults(a) + '</div><span id="inv-hint" class="sr-only">Results update as you type. Choose a result to set a weight and add it.</span>' +
-      (!searchQ.trim() && !addCat ? '<div class="field-hint">Search funds, indices, securities, sleeves and portfolios, or pick a category to browse its products. Choosing a result asks for a weight before anything changes.</div>' : '') + '</div>';
-  }
-  function renderResults(a) {
-    a = a || S.active();
-    if (!searchQ.trim() && !addCat) return '';
-    if (searchResults === null) return '<div class="sr-empty">Searching…</div>';
-    if (!searchResults.length) return '<div class="sr-empty">' + (searchQ.trim() ? 'No investment matches “' + esc(searchQ) + '”' + (addCat ? ' in ' + esc(D.categoryById[addCat].name) : '') + '. Try an identifier, a manager or another category.' : 'Nothing to browse in this category.') + '</div>';
-    return searchResults.map(function (r, i) {
-      var held = r.kind === 'instrument' && a ? a.holdings.filter(function (h) { return h.instrumentId === r.id; })[0] : null;
-      var tag = held ? '<span class="tag" data-tip="Already in ' + esc(a.name) + '; choosing it changes its weight">Held ' + F.num(held.weight) + '%</span>' : r.kind === 'instrument' && r.coverage !== 'full' ? '<span class="tag tag-warn" data-tip="' + esc(r.instrument.proxyNote || 'Limited history') + '">' + (r.coverage === 'none' ? 'No history' : 'Proxy') + '</span>' : '<span class="tag">' + esc(r.type) + '</span>';
-      return '<button type="button" class="sr-item" role="option" data-result="' + i + '"><span><b>' + esc(r.name) + '</b><small>' + esc(r.meta) + '</small></span>' + tag + '</button>';
-    }).join('');
-  }
-
   /* ── Sleeves ─────────────────────────────────────────────────────── */
   function loadSleeves() { return UI.sleeves.refresh().then(function (list) { sleeveList = list; if (S.ws && tabOf() === 'sleeves') B.render(); }); }
   function renderSleeves(a) {
@@ -213,13 +200,13 @@
   }
   function quickList(t) {
     var q = quick, a = S.active(), cat = D.categoryById[q.cat], list = q.results;
-    var head = list === null ? '<div class="sr-empty">Searching…</div>' : !list.length ? '<div class="sr-empty">' + (q.all && !q.q.trim() ? 'Type to search every category.' : 'No product matches “' + esc(q.q) + '”' + (q.all ? '' : ' in ' + esc(cat.short)) + '.') + '</div>' :
+    var head = list === null ? '<div class="sr-empty">Searching…</div>' : !list.length ? '<div class="sr-empty">' + (q.all && !q.q.trim() ? 'Type to search every category.' : 'No product matches “' + esc(q.q) + '”' + (q.all ? '' : ' in ' + esc(cat.short)) + '. <button type="button" class="btn-link" data-paste>Add it from its returns</button>') + '</div>' :
       '<div role="listbox" id="qa-list" aria-label="Products">' + list.map(function (r, i) {
         var held = a ? a.holdings.filter(function (h) { return h.instrumentId === r.id; })[0] : null;
-        var tag = held ? '<span class="tag">Held ' + F.num(held.weight) + '%</span>' : r.coverage !== 'full' ? '<span class="tag tag-warn">' + (r.coverage === 'none' ? 'No history' : 'Proxy') + '</span>' : '';
+        var tag = held ? '<span class="tag">Held ' + F.num(held.weight) + '%</span>' : r.uploaded ? '<span class="tag tag-info">Uploaded</span>' : r.coverage !== 'full' ? '<span class="tag tag-warn">' + (r.coverage === 'none' ? 'No history' : 'Proxy') + '</span>' : '';
         return '<div role="option" class="qa-opt" id="qa-opt-' + i + '" data-qa-pick="' + i + '" aria-selected="' + (i === q.active) + '"><span><b>' + esc(r.name) + '</b><small>' + esc(r.type + ' · ' + r.identifier + (q.all ? ' · ' + r.category : '')) + '</small></span>' + tag + '</div>';
       }).join('') + '</div>';
-    return head + '<div class="qa-foot"><span>' + (q.all ? 'In every category · <button type="button" class="btn-link" id="qa-all">Only ' + esc(cat.short) + '</button>' : 'In ' + esc(cat.short) + ' · <button type="button" class="btn-link" id="qa-all">Search all categories</button>') + '</span><span aria-hidden="true">↑↓ · Enter · Esc</span></div>';
+    return head + '<div class="qa-foot"><span>' + (q.all ? 'In every category · <button type="button" class="btn-link" id="qa-all">Only ' + esc(cat.short) + '</button>' : 'In ' + esc(cat.short) + ' · <button type="button" class="btn-link" id="qa-all">Search all categories</button>') + '</span><button type="button" class="btn-link" data-paste data-tip="Paste a cell range from Excel: dates, then one column of returns per product">' + I.paste + 'Paste returns</button></div>';
   }
   function paintQuickList() {
     var dd = U.$('#qa-dd'); if (!dd || !quick) return; dd.innerHTML = quickList();
@@ -237,10 +224,15 @@
     });
   }
   B.quickAdd = function (catId) { var a = S.active(); if (a) openQuick(a, catId); };
-  function openQuick(a, catId) {
+  /** Quick add with a product already chosen (after adding it from its returns): only the weight is left. */
+  B.addProduct = function (instrumentId) {
+    var a = S.active(), ins = D.instrumentById[instrumentId]; if (!a || a.kind !== 'live' || !ins) return;
+    openRail(); openQuick(a, E.categoryOf(instrumentId)); quickPick(a, { id: ins.id, name: ins.name, type: ins.type, identifier: ins.identifier });
+  };
+  function openQuick(a, catId, opts) {
     if (a.kind !== 'live') return;
     var c = collapsed[a.id]; if (c) delete c[catId];
-    quick = { allocId: a.id, cat: catId, q: '', all: false, results: null, active: 0, chosen: null, filedUnder: null, weight: '' };
+    quick = { allocId: a.id, cat: catId, q: '', all: !!(opts && opts.all), results: null, active: 0, chosen: null, filedUnder: null, weight: '' };
     S.session.railTab = 'build'; B.render(); quickSearch();
     var inp = U.$('#qa-input'); if (inp) { inp.focus(); inp.closest('li').scrollIntoView({ block: 'nearest' }); }
   }
@@ -306,12 +298,12 @@
     var tabs = U.$('#rail-tabs');
     tabs.onclick = function (e) { var b = e.target.closest('[data-tab]'); if (b) B.showTab(b.dataset.tab); };
     tabs.onkeydown = function (e) { var ids = TABS.map(function (t) { return t.id; }), i = ids.indexOf(tabOf()), n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? ids.length - 1 : null; if (n === null) return; e.preventDefault(); B.showTab(ids[(n + ids.length) % ids.length], { focus: true }); };
-    U.$('#rail-strip-tabs').onclick = function (e) { var b = e.target.closest('[data-strip]'); if (b) B.showTab(b.dataset.strip, { focus: b.dataset.strip === 'add' }); };
+    U.$('#rail-strip-tabs').onclick = function (e) { var b = e.target.closest('[data-strip]'); if (b) B.showTab(b.dataset.strip); };
     if (!a) { root.onclick = null; var nb0 = U.$('#rail-new'); if (nb0) nb0.onclick = function () { UI.dialogs.newAllocation(); }; return; }
     root.onclick = function (e) {
-      var b = e.target.closest('[data-cat],[data-slcat],[data-slapply],[data-slcompare],[data-slopen],[data-issue]'); if (!b || !root.contains(b)) return;
+      var b = e.target.closest('[data-slcat],[data-slapply],[data-slcompare],[data-slopen],[data-issue],[data-paste]'); if (!b || !root.contains(b)) return;
       var d = b.dataset, s = sleeveList && sleeveList[Number(d.slapply || d.slcompare || d.slopen)];
-      if (d.cat !== undefined) { addCat = d.cat; searchResults = null; B.render(); runSearch(); }
+      if (d.paste !== undefined) { var q0 = quick; UI.importer.open({ text: '', categoryId: q0 ? (q0.all ? null : q0.cat) : null, name: q0 && q0.q.trim() ? q0.q.trim() : '' }); }
       else if (d.slcat !== undefined) { sleeveCat = d.slcat; B.render(); }
       else if (d.slapply) UI.sleeves.apply(a, s.categoryId, s);
       else if (d.slcompare) UI.sleeves.addToWorkspace(s, UI.sleeves.latest(s));
@@ -326,14 +318,7 @@
     var dr = U.$('#rail-draft'); if (dr) dr.onclick = function () { UI.dialogs.draftFromSnapshot(a); };
     var so = U.$('#rail-sleeve-open'); if (so) so.onclick = function () { UI.shell.go('#/sleeves/' + encodeURIComponent(a.sleeve.id)); };
     var su = U.$('#rail-sleeve-update'); if (su) su.onclick = function () { var s = UI.sleeves.known[a.sleeve.id]; if (s) UI.sleeves.setMemberVersion(a, s, UI.sleeves.latest(s)); };
-    var si = U.$('#inv-search');
-    if (si) {
-      si.oninput = function () { searchQ = si.value; searchResults = null; U.$('#inv-results').innerHTML = renderResults(); clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 160); };
-      si.onkeydown = function (e) { if (e.key === 'ArrowDown') { var first = U.$('#inv-results .sr-item'); if (first) { e.preventDefault(); first.focus(); } } if (e.key === 'Escape') { searchQ = ''; si.value = ''; searchResults = null; U.$('#inv-results').innerHTML = ''; } };
-      var res = U.$('#inv-results');
-      U.on(res, 'click', '[data-result]', function (e, b) { UI.dialogs.addInvestment(searchResults[Number(b.dataset.result)], a); });
-      res.onkeydown = function (e) { var items = U.$$('.sr-item', res), i = items.indexOf(document.activeElement); if (e.key === 'ArrowDown' && i < items.length - 1) { e.preventDefault(); items[i + 1].focus(); } if (e.key === 'ArrowUp') { e.preventDefault(); if (i > 0) items[i - 1].focus(); else si.focus(); } if (e.key === 'Escape') si.focus(); };
-    }
+    if (tabOf() === 'optimize') UI.optimizer.wire(root, a);
     var tree = U.$('#tree');
     if (tree) {
       U.$$('.tsel[data-ind]', tree).forEach(function (cb) { cb.indeterminate = true; });
@@ -366,7 +351,7 @@
       }
       var qli = tree.querySelector('li.is-adding');
       if (qli) {
-        U.on(qli, 'mousedown', '[data-qa-pick],#qa-all', function (e) { e.preventDefault(); });
+        U.on(qli, 'mousedown', '[data-qa-pick],#qa-all,[data-paste]', function (e) { e.preventDefault(); });
         U.on(qli, 'click', '[data-qa-pick]', function (e, o) { quickPick(a, quick.results[Number(o.dataset.qaPick)]); });
         U.on(qli, 'click', '#qa-all', function () { quick.all = !quick.all; quick.results = null; paintQuickList(); var p = U.$('#qa-input'); if (p) { p.placeholder = 'Search ' + (quick.all ? 'all products' : D.categoryById[quick.cat].short) + '…'; p.focus(); } quickSearch(); });
         U.on(qli, 'click', '#qa-cancel', function () { closeQuick(true); });
@@ -407,7 +392,7 @@
   }
   function issueAction(a, kind, key) {
     if (kind === 'show') showRow(a, key);
-    else if (kind === 'find') B.showTab('add', { category: key, focus: true });
+    else if (kind === 'find') B.findProduct(key);
     else if (kind === 'apply') UI.sleeves.apply(a, key);
     else if (kind === 'bench') UI.dialogs.assignBenchmark(a);
     else if (kind === 'model') PA.cards.aboutModel(key);
@@ -421,11 +406,6 @@
     S.update(a.name + ' · ' + D.categoryById[key].name + ' ' + F.num(before) + '% → ' + F.num(v) + '%', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.categories = cats; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
   }
   function holdingForKey(a, key) { var p = key.split('/'); if (p.length !== 2 || p[1] === '__index') return null; return a.holdings.filter(function (h) { return h.instrumentId === p[1]; })[0] || null; }
-  function runSearch() {
-    var q = searchQ, cat = addCat;
-    if (!q.trim() && !cat) { searchResults = null; var r0 = U.$('#inv-results'); if (r0) r0.innerHTML = ''; return; }
-    PA.api.searchInvestments(q, { limit: cat ? 40 : 12, category: cat || undefined }).then(function (list) { if (q !== searchQ || cat !== addCat) return; searchResults = list; var r = U.$('#inv-results'); if (r) r.innerHTML = renderResults(); U.announce(list.length + ' result' + (list.length === 1 ? '' : 's') + (q.trim() ? ' for ' + q : '') + (cat ? ' in ' + D.categoryById[cat].name : '')); });
-  }
   function ensureTableExpanded(key) { var parts = key.split('/'), ex = S.ws.prefs.expanded.slice(); if (parts.length > 1 && ex.indexOf(parts[0]) < 0) { ex.push(parts[0]); S.setPref('expanded', ex); } }
 
   function pendingHtml(a) {
@@ -457,6 +437,7 @@
       { label: S.session.selectMode ? 'Stop selecting products' : 'Select products for a sleeve', icon: I.check, disabled: ro, onClick: function () { S.session.railTab = 'build'; S.setSelectMode(!S.session.selectMode); } },
       { label: 'Expand every category', onClick: function () { allTo(false); } },
       { label: 'Collapse every category', onClick: function () { allTo(true); } },
+      { sep: true }, { label: 'Find a product to add', icon: I.search, disabled: ro, kbd: '/', onClick: function () { B.findProduct(); } }, { label: 'Add products from returns…', icon: I.paste, onClick: function () { UI.importer.open({ text: '' }); } },
       { sep: true }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } }, { label: 'Show portfolio total in table', icon: I.table, onClick: function () { S.setPref('selectedRow', '__total'); } }];
     else if (kind === 'category') {
       var t = E.tree(a).filter(function (x) { return x.id === key; })[0];
@@ -513,7 +494,7 @@
     initResize();
     S.subscribe(function (type, extra) {
       if (!S.ws) return;
-      if (type === 'load') { pending = {}; quick = null; searchQ = ''; searchResults = null; addCat = ''; sleeveCat = ''; sleeveList = null; B.applyWidth(); B.render(); var t = U.$('#rail-collapse'); if (t) t.setAttribute('aria-expanded', String(!S.ws.prefs.railCollapsed)); }
+      if (type === 'load') { pending = {}; quick = null; sleeveCat = ''; sleeveList = null; B.applyWidth(); B.render(); var t = U.$('#rail-collapse'); if (t) t.setAttribute('aria-expanded', String(!S.ws.prefs.railCollapsed)); }
       if (type === 'update' || type === 'undo' || type === 'redo') { B.render(); if (tabOf() === 'sleeves') loadSleeves(); }
       if (type === 'session' && extra.key === 'selection') B.render();
       if (type === 'pref' && extra.key === 'factorModel') B.render();

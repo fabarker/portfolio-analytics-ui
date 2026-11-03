@@ -142,7 +142,7 @@ await step('save as sleeve and compare', async () => {
 });
 await step('tabbed rail', async () => {
   check('The rail has no brand heading; its header names the allocation being edited', !/Portfolio Management Group/.test(await text('#rail')) && /Editing/i.test(await text('#rail-head')));
-  check('The rail has four tabs: Build, Add, Sleeves, Check', await count('#rail-tabs [role="tab"]') === 4 && await page.getAttribute('#rail-tab-build', 'aria-selected') === 'true');
+  check('The rail has four tabs: Build, Optimize, Sleeves, Check (no Add tab)', await count('#rail-tabs [role="tab"]') === 4 && await count('#rail-tab-optimize') === 1 && await count('#rail-tab-add') === 0 && await page.getAttribute('#rail-tab-build', 'aria-selected') === 'true');
   await page.selectOption('#active-pick', 'al_growth'); await page.waitForTimeout(600);
   await page.click('#rail-tab-check'); await page.waitForTimeout(300);
   const badge = Number(await text('#rail-tab-check .rail-badge'));
@@ -150,20 +150,70 @@ await step('tabbed rail', async () => {
   check('Check holds the weight summary and the leverage switch', await count('#builder .weights-summary') === 1 && await count('#lev-switch') === 1);
   await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove())); await page.mouse.move(900, 600); await shot('rail-check');
   await page.click('[data-fkey="issue:find:hedge_funds"]'); await page.waitForTimeout(700);
-  check('“Find products” opens Add filtered to that category', await page.getAttribute('#rail-tab-add', 'aria-selected') === 'true' && await page.getAttribute('[data-cat="hedge_funds"]', 'aria-pressed') === 'true' && await count('#inv-results .sr-item') >= 2);
-  await page.fill('#inv-search', 'kestrel'); await page.waitForTimeout(600);
-  check('Search within the category narrows the results', await count('#inv-results .sr-item') >= 1 && (await text('#inv-results')).includes('Kestrel'));
-  await page.fill('#inv-search', ''); await page.click('[data-cat=""]'); await page.waitForTimeout(300);
+  check('“Find products” opens quick add under that category, searching it', await page.getAttribute('#rail-tab-build', 'aria-selected') === 'true' && await count('#tree li.is-adding') === 1 && /Hedge Funds/.test(await page.getAttribute('#qa-input', 'aria-label')) && await count('#qa-list .qa-opt') >= 2);
+  await page.fill('#qa-input', 'kestrel'); await page.waitForTimeout(600);
+  check('Search within the category narrows the results', await count('#qa-list .qa-opt') >= 1 && (await text('#qa-list')).includes('Kestrel'));
+  await page.fill('#qa-input', 'zzzz'); await page.waitForTimeout(500);
+  check('With no match, quick add offers to add the product from its returns', await count('#tree li.is-adding .sr-empty [data-paste]') === 1 && await count('#tree li.is-adding .qa-foot [data-paste]') === 1);
+  await page.press('#qa-input', 'Escape'); await page.waitForTimeout(300);
   await page.click('#rail-tab-sleeves'); await page.waitForTimeout(900);
   check('Sleeves lists the repository with Apply and Compare', await count('#builder .rail-sleeve') >= 6 && await count('#builder [data-slapply]') === await count('#builder .rail-sleeve') && (await text('#builder')).includes('Test PE sleeve'));
   await page.click('#rail-tab-build'); await page.focus('#rail-tab-build'); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
-  check('Arrow keys move between tabs', await page.getAttribute('#rail-tab-add', 'aria-selected') === 'true');
-  await page.click('#rail-tab-build'); await page.waitForTimeout(200); await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press('/'); await page.waitForTimeout(300);
-  check('/ opens Add with the search focused', await page.getAttribute('#rail-tab-add', 'aria-selected') === 'true' && await page.evaluate(() => document.activeElement && document.activeElement.id === 'inv-search'));
+  check('Arrow keys move between tabs', await page.getAttribute('#rail-tab-optimize', 'aria-selected') === 'true');
+  await page.click('#rail-tab-build'); await page.waitForTimeout(200); await page.evaluate(() => document.activeElement && document.activeElement.blur()); await page.keyboard.press('/'); await page.waitForTimeout(500);
+  check('/ opens quick add searching every category, focused', await page.evaluate(() => document.activeElement && document.activeElement.id === 'qa-input') && /In every category/.test(await text('#tree li.is-adding .qa-foot')));
+  await page.fill('#qa-input', 'harbor'); await page.waitForTimeout(600);
+  check('…and finds products in any category', (await text('#qa-list')).includes('Harborview'));
+  await page.press('#qa-input', 'Escape'); await page.waitForTimeout(300);
   await page.click('#rail-collapse'); await page.waitForTimeout(500);
   check('Collapsed, the strip keeps the four tab icons and the Check badge', await count('#rail-strip-tabs [data-strip]') === 4 && await count('#rail-strip-tabs .rail-badge') === 1);
   await page.click('[data-strip="check"]'); await page.waitForTimeout(500);
   check('A strip icon expands the rail on its tab', !(await page.evaluate(() => PA.store.ws.prefs.railCollapsed)) && await page.getAttribute('#rail-tab-check', 'aria-selected') === 'true');
+  await page.click('#rail-tab-build'); await page.waitForTimeout(300);
+});
+await step('optimize', async () => {
+  await page.selectOption('#active-pick', 'al_core'); await page.waitForTimeout(600);
+  await page.click('#rail-tab-optimize'); await page.waitForTimeout(900);
+  check('Optimize states where the allocation is now and offers three objectives', /Now · return [\d.]+% · volatility [\d.]+% · tracking error [\d.]+%/.test(await text('.op-now')) && await count('input[name="op-obj"]') === 3);
+  const now = await page.evaluate(() => PA.ui.optimizer && Number(document.querySelector('.op-now b').textContent.replace('%', '')));
+  check('The target starts at today’s return', Math.abs(Number(await page.inputValue('#op-target')) - now) < 0.006);
+  const api = await page.evaluate(async () => {
+    var a = PA.store.allocation('al_core'), out = [], base = { longOnly: true, maxWeight: 30, band: null, useIndices: false, includeAll: false };
+    var run = function (o) { return PA.api.optimize({ allocation: a, scenario: null, factorModel: 'isg', options: Object.assign({}, base, o) }); };
+    var okW = function (r, o) { var tot = r.assets.reduce(function (t, x) { return t + x.proposed; }, 0); return Math.abs(tot - r.total) < 0.011 && r.assets.every(function (x) { return x.proposed >= -1e-9 && x.proposed <= (o.maxWeight || 30) + 0.011; }); };
+    var r1 = await run({ objective: 'minVol', target: 6.5 }); out.push(['minVol meets its return with less volatility', okW(r1, {}) && r1.proposed.ret >= 6.49 && r1.proposed.vol < r1.current.vol]);
+    var r2 = await run({ objective: 'maxReturn', target: 9 }); out.push(['maxReturn stays at its volatility', okW(r2, {}) && r2.proposed.vol <= 9.01 && r2.proposed.ret > 6]);
+    var r3 = await run({ objective: 'active', teMode: 'target', target: 2 }); out.push(['active: maximum return at a tracking error', okW(r3, {}) && r3.proposed.te <= 2.01 && r3.proposed.ret >= r3.current.ret - 1e-6]);
+    var r4 = await run({ objective: 'active', teMode: 'min', target: 7, band: 5 }); var bandOk = r4.assets && (function () { var by = {}, cur = {}; r4.assets.forEach(function (x) { by[x.categoryId] = (by[x.categoryId] || 0) + x.proposed; cur[x.categoryId] = (cur[x.categoryId] || 0) + x.current; }); return Object.keys(by).every(function (k) { return Math.abs(by[k] - cur[k]) <= 5.011; }); })();
+    out.push(['active: minimum tracking error for a return, categories within ±5 pp', r4.proposed && okW(r4, {}) && r4.proposed.ret >= 6.99 && r4.proposed.te < r3.proposed.te && bandOk]);
+    var r5 = await run({ objective: 'minVol', target: 40 }); out.push(['an unreachable target says so', !r5.proposed && /out of reach/.test(r5.reason)]);
+    var r6 = await run({ objective: 'maxReturn', target: 12, maxWeight: 15, useIndices: true, includeAll: true }); out.push(['with indices and categories not held, every category can take weight; no holding above 15%', okW(r6, { maxWeight: 15 }) && r6.assets.some(function (x) { return x.kind === 'index'; })]);
+    return out;
+  });
+  check('The optimiser honours every objective and constraint', api.every(x => x[1]), JSON.stringify(api.filter(x => !x[1]).map(x => x[0])));
+  await page.click('#op-run'); await page.waitForTimeout(1600);
+  check('A result shows the frontier with now and optimised, the figures before and after, and the weight changes', await count('.op-fig svg .op-front') === 1 && await count('.op-fig .op-cur') === 1 && await count('.op-fig .op-pro') === 1 && /Volatility/.test(await text('.op-figs')) && await count('.op-chg tr.is-cat') >= 5);
+  await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove())); await page.mouse.move(900, 600);
+  /* the whole tab, controls and result, laid out as two columns */
+  await page.setViewportSize({ width: 1600, height: 2300 }); await page.waitForTimeout(500); await page.evaluate(() => { document.getElementById('builder').scrollTop = 0; });
+  const rb = await page.locator('#rail').boundingBox(), cut = Math.round((await page.locator('.op-res').boundingBox()).y) - 6, foot = Math.round((await page.locator('#rail-foot').boundingBox() || { y: 2000 }).y);
+  const top = await page.screenshot({ clip: { x: rb.x, y: 0, width: rb.width, height: cut } }), bottom = await page.screenshot({ clip: { x: rb.x, y: cut, width: rb.width, height: Math.min(foot, Math.round(await page.evaluate(() => { var r = document.querySelector('.op-res'); return r.getBoundingClientRect().bottom + 8; }))) - cut } });
+  await page.setViewportSize({ width: 1600, height: 1100 }); await page.waitForTimeout(400);
+  const pair = await browser.newPage({ viewport: { width: Math.round(rb.width) * 2 + 24, height: 400 }, deviceScaleFactor: 1 });
+  await pair.setContent('<body style="margin:0;display:flex;align-items:flex-start;gap:24px;background:#fff"><img src="data:image/png;base64,' + top.toString('base64') + '"><img src="data:image/png;base64,' + bottom.toString('base64') + '"></body>');
+  await pair.waitForTimeout(200); await pair.screenshot({ path: path.join(shots, 'optimize.png'), fullPage: true }); await pair.close();
+  const before = await page.evaluate(() => JSON.stringify(PA.store.allocation('al_core').holdings.map(h => h.weight)));
+  await page.click('#op-apply'); await page.waitForTimeout(1800);
+  const after = await page.evaluate(() => JSON.stringify(PA.store.allocation('al_core').holdings.map(h => h.weight)));
+  check('Apply re-weights the allocation as one undoable edit', after !== before && /re-weighted/.test(await page.locator('.toast').last().innerText()));
+  await page.evaluate(() => PA.store.undo()); await page.waitForTimeout(1500);
+  check('Undo restores the weights', await page.evaluate(() => JSON.stringify(PA.store.allocation('al_core').holdings.map(h => h.weight))) === before);
+  await page.click('input[name="op-obj"][value="maxReturn"]'); await page.waitForTimeout(300); await page.click('#op-run'); await page.waitForTimeout(1600);
+  const nMembers = await count('.member');
+  await page.click('#op-save'); await page.waitForTimeout(1800);
+  check('Save as new allocation keeps the original and compares the proposal (when the comparison has room)', await count('.member') === Math.min(6, nMembers + 1) && await page.evaluate(() => PA.store.ws.allocations.some(a => /· optimised$/.test(a.name))) && await page.evaluate(() => JSON.stringify(PA.store.allocation('al_core').holdings.map(h => h.weight))) === before);
+  await page.evaluate(() => PA.store.undo()); await page.waitForTimeout(1500);
+  await page.selectOption('#active-pick', 'al_core'); await page.waitForTimeout(400);
   await page.click('#rail-tab-build'); await page.waitForTimeout(300);
 });
 await step('apply a sleeve', async () => {
@@ -279,20 +329,38 @@ await step('active risk & return', async () => {
   check('The active card lists every compared allocation against the Reference', await act.locator('.act-tbl tbody tr').count() === await count('.member') && /vs Global 60\/40/.test(await act.locator('.card-sub').innerText()));
   const rec = await page.evaluate(async () => {
     var ws = PA.store.ws, out = [];
-    for (const fm of ['isg', 'axioma']) for (const basis of ['forward', 'historical']) {
-      var r = await PA.api.activeAnalysis({ allocations: PA.store.members(), rowKey: '__total', basis: basis, period: { preset: 'common' }, scenario: null, factorModel: fm, decompose: 'factor', returnMethod: 'arithmetic', reference: ws.comparison, against: { mode: 'reference' } });
-      r.series.forEach(function (x) { if (x.reason) return; var src = x.riskSources.reduce(function (t, y) { return t + y.contribution; }, 0) + x.specific; out.push(Math.abs(src - x.modelTE) < 1e-6, Math.abs(x.returnTotals.allocation + x.returnTotals.selection - x.returnTotals.arithmetic) < 1e-6); if (basis === 'forward') out.push(Math.abs(x.passiveRisk * x.passiveRisk + x.activeRisk * x.activeRisk + 2 * x.activePassiveCorr * x.passiveRisk * x.activeRisk - x.totalRisk * x.totalRisk) < 1e-6, Math.abs(x.totalReturn - x.passiveReturn - x.activeReturn) < 1e-9); });
+    for (const fm of ['isg', 'axioma']) for (const basis of ['forward', 'historical']) for (const by of ['factor', 'category', 'assetClass', 'product']) {
+      var r = await PA.api.activeAnalysis({ allocations: PA.store.members(), rowKey: '__total', basis: basis, period: { preset: 'common' }, scenario: null, factorModel: fm, decompose: by, returnMethod: 'arithmetic', reference: ws.comparison, against: { mode: 'reference' } });
+      r.series.forEach(function (x) {
+        if (x.reason) return;
+        var src = x.riskSources.reduce(function (t, y) { return t + y.contribution; }, 0) + (by === 'factor' ? x.specific : 0), ret = x.returnSources.reduce(function (t, y) { return t + y.contribution; }, 0);
+        out.push(Math.abs(src - x.modelTE) < 1e-6, Math.abs(ret - x.returnTotals.attributed) < 1e-6);
+        if (by === 'category' || by === 'assetClass') out.push(Math.abs(x.returnTotals.allocation + x.returnTotals.selection - x.returnTotals.arithmetic) < 1e-6);
+        if (basis === 'forward') out.push(Math.abs(x.returnTotals.attributed - x.activeReturn) < 1e-6);
+        if (basis === 'forward' && by === 'factor') out.push(Math.abs(x.passiveRisk * x.passiveRisk + x.activeRisk * x.activeRisk + 2 * x.activePassiveCorr * x.passiveRisk * x.activeRisk - x.totalRisk * x.totalRisk) < 1e-6, Math.abs(x.totalReturn - x.passiveReturn - x.activeReturn) < 1e-9);
+      });
     }
     return out;
   });
-  check('Factor plus specific sum to tracking error; allocation plus selection to active return; passive, active and correlation to total risk', rec.length > 20 && rec.every(Boolean), rec.filter(function (v) { return !v; }).length + ' failed');
+  check('By factor, category, asset class and product: risk sources sum to the tracking error and return sources to the active return; passive, active and correlation to total risk', rec.length > 100 && rec.every(Boolean), rec.filter(function (v) { return !v; }).length + ' failed of ' + rec.length);
   await page.click('#cx-ref'); await page.waitForTimeout(250); await page.click('.ref-menu .menu-item:has(span:text-is("Strategic Core"))'); await page.waitForTimeout(2000);
   check('An allocation measured against itself has no active risk', /no active risk/.test(await act.locator('.act-tbl tbody tr').first().innerText()));
   await page.click('#cx-ref'); await page.waitForTimeout(250); await page.click('.ref-menu .menu-item:has(span:text-is("Global 60/40"))'); await page.waitForTimeout(1800);
   await act.locator('[data-act-view="risk"]').click(); await page.waitForTimeout(800);
   check('Risk sources reconcile in the card’s notes', /Tracking error [\d.]+ = factors [\d.]+ \+ specific [\d.]+/.test(await act.locator('.act-eq').textContent()) && await act.locator('.act-src tbody tr').count() >= 4);
   await act.locator('[data-act-view="return"]').click(); await page.waitForTimeout(800);
-  check('Return sources show allocation and selection by category', /Benchmark [\d.]+ \+ allocation [−+-][\d.]+ \+ selection [−+-][\d.]+ = /.test(await act.locator('.act-eq').textContent()));
+  check('Return sources are attributed by the same grouping: factors plus specific', /Benchmark [\d.]+ \+ factors [−+-][\d.]+ \+ specific [−+-][\d.]+ = /.test(await act.locator('.act-eq').textContent()) && await act.locator('.act-by [aria-pressed="true"]').innerText() === 'Factor');
+  await act.locator('[data-act-by="category"]').click(); await page.waitForTimeout(1500);
+  check('By category: allocation and selection', /Benchmark [\d.]+ \+ allocation [−+-][\d.]+ \+ selection [−+-][\d.]+ = /.test(await act.locator('.act-eq').textContent()) && /Category/i.test(await act.locator('.act-src thead').innerText()));
+  await act.locator('[data-act-by="assetClass"]').click(); await page.waitForTimeout(1500);
+  check('By asset class: allocation and selection across the finer classes', /Asset class/i.test(await act.locator('.act-src thead').innerText()) && /US Equity/.test(await act.locator('.act-src').innerText()));
+  await act.locator('[data-act-by="product"]').click(); await page.waitForTimeout(1500);
+  check('By product: active weight times excess return, benchmark-only holdings named', /product contributions/.test(await act.locator('.act-eq').textContent()) && /benchmark only/.test(await act.locator('.act-src').innerText()));
+  await act.locator('[data-act-view="risk"]').click(); await page.waitForTimeout(800);
+  check('The same switch attributes the tracking error by product', /^Product/i.test(await act.locator('.act-src thead th').first().innerText()));
+  await act.locator('[data-act-view="return"]').click(); await page.waitForTimeout(600); await page.mouse.move(5, 5);
+  await act.screenshot({ path: path.join(shots, 'active-attribution.png') });
+  await act.locator('[data-act-by="factor"]').click(); await page.waitForTimeout(1200);
   await act.locator('[data-settings]').click(); await page.waitForTimeout(250);
   await page.selectOption('#cs-against', 'pick'); await page.waitForTimeout(300);
   check('Pick one reveals the benchmark picker', await count('.card-pop #cs-pick') === 1);
@@ -427,6 +495,61 @@ await step('the card suite', async () => {
   await page.locator('[data-card="s4"]').screenshot({ path: path.join(shots, 'waterfall.png') });
   await page.locator('[data-card="s0"]').scrollIntoViewIfNeeded(); await page.locator('[data-card="s0"]').screenshot({ path: path.join(shots, 'expected-return-risk.png') });
   await page.locator('[data-card="s3"]').scrollIntoViewIfNeeded(); await page.locator('[data-card="s3"]').screenshot({ path: path.join(shots, 'stress-tests.png') });
+});
+await step('add products from returns', async () => {
+  const parse = await page.evaluate(() => {
+    var P = PA.ui.importer.parse, out = [];
+    var mdy = P('Date,Alpha\n01/31/2020,1.0\n02/29/2020,-2.0\n03/31/2020,0.5\n'); out.push(['m/d/y read from a day above 12', mdy.order === 'mdy' && mdy.columns[0].start === '2020-01']);
+    var dec = P('Date\tA\n2021-01-31\t0.012\n2021-02-28\t-0.004\n2021-03-31\t0.008'); out.push(['decimals detected', dec.unit === 'decimal' && Math.abs(dec.columns[0].values[0] - 0.012) < 1e-12]);
+    var pct = P('Date\tA\n31/01/2021\t1.2%\n28/02/2021\t(0.4%)\n31/03/2021\t0.8%'); out.push(['percent signs and bracketed negatives', pct.unit === 'percent' && Math.abs(pct.columns[0].values[1] + 0.004) < 1e-12 && pct.order === 'dmy']);
+    var px = P('Date\tIdx\n2021-01-31\t100\n2021-02-28\t102\n2021-03-31\t99.96'); out.push(['price levels become returns', px.unit === 'price' && Math.abs(px.columns[0].values[0] - 0.02) < 1e-9]);
+    var ser = P('Date\tA\n44227\t1\n44255\t2\n44286\t3'); out.push(['Excel serial dates', ser.columns[0].start === '2021-01']);
+    var mon = P('Month\tA\nJan-21\t1\nFeb-21\t2\nMar-21\t3'); out.push(['month names', mon.columns[0].start === '2021-01' && mon.columns[0].values.length === 3]);
+    var amb = P('Date\tA\n01/02/2021\t1\n01/03/2021\t2\n01/04/2021\t3'); out.push(['ambiguous dates are flagged', amb.orderAmbiguous === true && amb.order === 'dmy']);
+    var lines = ['Date\tDaily']; var d = new Date(Date.UTC(2021, 0, 1)); while (d < Date.UTC(2022, 2, 1)) { if (d.getUTCDay() % 6) lines.push(d.toISOString().slice(0, 10) + '\t0.05%'); d = new Date(d.getTime() + 864e5); }
+    var day = P(lines.join('\n')); out.push(['daily compounds to months', day.frequency === 'daily' && day.columns[0].start === '2021-01' && day.columns[0].values.length === 14 && Math.abs(day.columns[0].values[0] - (Math.pow(1.0005, 21) - 1)) < 1e-9]);
+    var q = P('Date\tQ\n2021-03-31\t3%\n2021-06-30\t-1.5%\n2021-09-30\t2%\n2021-12-31\t1%'); out.push(['quarterly spreads over its months', q.frequency === 'quarterly' && q.columns[0].values.length === 12 && q.columns[0].start === '2021-01']);
+    var short = P('Date\tA\n2021-01-31\t1\n2021-02-28\t2\n2021-03-31\t3'); out.push(['fewer than 12 months is refused', /at least 12/.test(short.columns[0].error)]);
+    out.push(['a pasted returns table is recognised; prose is not', PA.ui.importer.looksLikeReturns(PA.ui.importer.sample()) && !PA.ui.importer.looksLikeReturns('hello\nworld\nthree\nfour')]);
+    return out;
+  });
+  check('The paste parser reads dates, units and cadences as Excel gives them', parse.every(x => x[1]), JSON.stringify(parse.filter(x => !x[1]).map(x => x[0])));
+  await page.evaluate(() => { document.activeElement && document.activeElement.blur(); var dt = new DataTransfer(); dt.setData('text/plain', PA.ui.importer.sample()); document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true })); });
+  await page.waitForTimeout(1500);
+  check('Pasting a returns range anywhere opens Add products from returns with it read', await count('.dialog .im-read') === 1 && /2 products · monthly returns/.test(await text('.dialog .im-sum')));
+  check('Each product is fitted to its closest asset class', await page.$eval('[data-im-ac="0"]', el => el.value) === 'us_eq' && await page.$eval('[data-im-ac="1"]', el => el.value) === 'hy' && /R² 0\.\d\d/.test(await text('.dialog .im-tbl')));
+  await page.locator('.dialog').screenshot({ path: path.join(shots, 'import-returns.png') });
+  await page.click('.dialog [data-action="1"]'); await page.waitForTimeout(1800);
+  const up = await page.evaluate(() => PA.data.instruments.filter(i => i.source === 'uploaded').map(i => ({ id: i.id, name: i.name, cat: PA.data.categoryOf(i.id).id, fit: !!i.fit })));
+  check('Adding files them under their categories, modelled from their history', up.length === 2 && up.filter(u => /Atlas/.test(u.name))[0].cat === 'public_equity' && up.filter(u => /Harrow/.test(u.name))[0].cat === 'other_fixed_income' && up.every(u => u.fit) && /in the product directory/.test(await page.locator('.toast').last().innerText()));
+  await page.evaluate(() => PA.ui.builder.findProduct()); await page.waitForTimeout(400); await page.fill('#qa-input', 'atlas'); await page.waitForTimeout(600);
+  check('Uploaded products appear in the product search, tagged', /Atlas Quality Growth/.test(await text('#qa-list')) && await count('#qa-list .tag-info') >= 1);
+  await page.press('#qa-input', 'Escape'); await page.waitForTimeout(300);
+  const atlas = up.filter(u => /Atlas/.test(u.name))[0].id;
+  await page.evaluate(() => { var a = PA.store.active(); PA.store.update('Leverage on for the check', function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].leverage = true; }, { refresh: false }); }); await page.waitForTimeout(300);
+  await page.evaluate((id) => PA.ui.builder.addProduct(id), atlas); await page.waitForTimeout(500);
+  await page.fill('#qa-weight', '3'); await page.press('#qa-weight', 'Enter'); await page.waitForTimeout(2200);
+  const an = await page.evaluate(async (id) => {
+    var a = PA.store.active(), key = 'public_equity/' + id, out = { alloc: a && a.name };
+    try {
+    for (const basis of ['forward', 'historical']) { var r = await PA.api.analyzeTable({ revision: 0, allocations: [a], basis: basis, metric: 'return', values: 'absolute', riskUnits: 'share', factors: [], reference: PA.store.ws.comparison, period: { preset: '5y' }, scenario: null }); out[basis] = r.cells[a.id][key] && r.cells[a.id][key].base.value; }
+    var f = await PA.api.factorRisk({ allocations: [a], rowKey: '__total', factorModel: 'axioma' }); out.factor = f.series[0].total > 0;
+    } catch (e) { out.err = e.stack || e.message || String(e); }
+    return out;
+  }, atlas);
+  check('Added from quick add and held, it carries forward and historical analytics like any product', an.forward != null && isFinite(an.forward) && an.historical != null && isFinite(an.historical) && an.factor, JSON.stringify(an));
+  await page.goto(url + '#/products/' + encodeURIComponent(atlas)); await page.waitForTimeout(1800);
+  check('The product directory lists every product, the uploaded ones tagged', await count('#view-products .repo-item') >= 30 && await count('#view-products .repo-item .tag-info') === 2);
+  check('A product shows forward-looking and historical figures, its growth against its index, factor exposures and how it was fitted', /Forward-looking/.test(await text('#view-products .repo-detail')) && /Historical · /.test(await text('#view-products .repo-detail')) && await count('#view-products .repo-detail svg.viz') === 1 && await count('.pd-fac tr') >= 3 && /Fitted to US Equity/.test(await text('.pd-how')));
+  await page.click('.pd-seg [data-model="axioma"]'); await page.waitForTimeout(900);
+  check('Exposures switch between ISG and Axioma', /Axioma/.test(await text('.pd-fac + p')));
+  await page.mouse.move(5, 5); await shot('product-directory');
+  await page.reload(); await page.waitForTimeout(2000);
+  check('Uploaded products persist', await count('#view-products .repo-item .tag-info') === 2);
+  await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(600);
+  const w = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, win: window.innerWidth }));
+  check('The directory has no horizontal page scroll at phone width', w.doc <= w.win + 1, JSON.stringify(w));
+  await page.setViewportSize({ width: 1600, height: 1100 }); await page.waitForTimeout(300);
 });
 await step('failure states', async () => {
   await page.goto(url + '#/w/ws_global_review'); await page.waitForTimeout(2500);

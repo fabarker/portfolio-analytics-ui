@@ -47,7 +47,7 @@ the user asks for them.
   area is a free-form grid of cards from a card repository. The spec in
   `spec/` (version 2, 2026-11-02) describes this iteration, embeds the
   mockup in an iframe and inlines `workspace/screenshots/` at build time
-  (fourteen of them, listed in `build-document.mjs`),
+  (eighteen of them, listed in `build-document.mjs`),
   so run the workspace checks before `build-document.mjs`.
 - `spec/` — the built spec plus its sources; `cd spec && node build-document.mjs`
   rebuilds it, `verify-document.mjs` checks it.
@@ -63,6 +63,13 @@ the user asks for them.
   no Basis toggle (per-card bases, dual-basis Headline, 34-entry catalogue),
   required reporting currency). Added the same day at the user's request:
   ISG's eleven factors and Axioma's seventeen, and waterfall views for every
-  contribution measure.
+  contribution measure. Also 2026-11-03 (built directly, no design page): the
+  rail's Add tab became **Optimize** (mean-variance: min vol for a target
+  return, max return for a target vol, or return vs tracking error to the
+  allocation's benchmark; `/` now opens quick add across every category);
+  Active risk & return attributes risk and return by factor, category, asset
+  class or product; products can be added by pasting an Excel range of returns
+  (dates, one column per product, names in the header) and appear in a new
+  **product directory** (`#/products`) with forward and historical analytics.
 - `reference/venn/` — reference screenshots.
 - Remote: https://github.com/fabarker/portfolio-analytics-ui.git (branch main).

@@ -27,7 +27,7 @@
     history: { past: [], future: [] },
     railOpen: false, drawerOpen: false, drawerTab: 'assumptions', selectedPair: null,
     selectMode: false, selection: [],      /* product holding ids chosen for a sleeve */
-    railTab: 'build',                       /* builder tab: build · add · sleeves · check */
+    railTab: 'build',                       /* builder tab: build · optimize · sleeves · check */
     rowFilter: '', sort: null, addCardOpen: false
   };
 

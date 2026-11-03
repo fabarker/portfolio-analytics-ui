@@ -24,8 +24,7 @@
                valuation: daily | monthly | quarterly
                coverage: 'full' (history from inception), 'proxy' (asset-class
                index stands in before inception), 'none' (no return history)
-   Benchmark   an allocation-shaped object: {id, name, kind:'benchmark',
-                holdings:[{instrumentId, weight}], description}
+   Benchmarks are in data/benchmarks.js (presets and the library).
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -137,24 +136,6 @@
     I('etf_infra',  'Global Infrastructure ETF',         'ETF',  'GINFX',  'infra',   { inception: '2010-02', manager: 'Meridian Asset Management', fee: 14 })
   ];
 
-  var B = function (id, name, description, holdings) {
-    return { id: id, name: name, kind: 'benchmark', description: description, holdings: holdings.map(function (h) { return { instrumentId: h[0], weight: h[1] }; }) };
-  };
-  D.benchmarks = [
-    B('bm_6040', 'Global 60/40', '60% global equity, 40% global bonds, index implemented',
-      [['idx_us_eq', 36], ['idx_dev_eq', 18], ['idx_em_eq', 6], ['idx_govt', 28], ['idx_ig', 12]]),
-    B('bm_7030', 'Global 70/30', '70% global equity, 30% global bonds',
-      [['idx_us_eq', 42], ['idx_dev_eq', 21], ['idx_em_eq', 7], ['idx_govt', 21], ['idx_ig', 9]]),
-    B('bm_4060', 'Conservative 40/60', '40% global equity, 60% global bonds and cash',
-      [['idx_us_eq', 24], ['idx_dev_eq', 12], ['idx_em_eq', 4], ['idx_govt', 36], ['idx_ig', 18], ['idx_cash', 6]]),
-    B('bm_acwi', 'Global Equity Index', 'All-country equity, market weighted',
-      [['idx_us_eq', 62], ['idx_dev_eq', 27], ['idx_em_eq', 11]]),
-    B('bm_agg', 'Global Aggregate Bonds', 'Governments and investment-grade credit',
-      [['idx_govt', 62], ['idx_ig', 38]]),
-    B('bm_endow', 'Endowment Composite', 'Diversified reference with private markets and alternatives',
-      [['idx_us_eq', 20], ['idx_dev_eq', 10], ['idx_em_eq', 6], ['idx_pe', 18], ['idx_govt', 8], ['idx_ig', 6], ['idx_hy', 4], ['idx_hf', 14], ['idx_re', 8], ['idx_cmd', 2], ['idx_infra', 4]])
-  ];
-
   /* Starting points for a new allocation. Category targets equal the sums. */
   D.templates = [
     { id: 'tpl_6040', name: 'Strategic 60/40', description: 'Core equity and bonds through low-cost vehicles',
@@ -178,8 +159,42 @@
   D.instruments.forEach(function (i) { D.instrumentById[i.id] = i; });
   D.factorById = {};
   D.factors.forEach(function (f) { D.factorById[f.id] = f; });
-  D.benchmarkById = {};
-  D.benchmarks.forEach(function (b) { D.benchmarkById[b.id] = b; });
+  /* Reporting currencies. A workspace reports every figure in one of these,
+     chosen when it is created. cash: the local 3-month rate, % a year, which
+     sets the risk-free rate and the Cash category index. */
+  var Cy = function (code, name, symbol, cash, common) { return { code: code, name: name, symbol: symbol, cash: cash, common: !!common }; };
+  D.currencies = [
+    Cy('USD', 'US dollar', '$', 3.2, true), Cy('EUR', 'Euro', '€', 2.1, true), Cy('GBP', 'Pound sterling', '£', 3.6, true), Cy('CHF', 'Swiss franc', 'CHF ', 0.6, true), Cy('JPY', 'Japanese yen', '¥', 0.6, true),
+    Cy('AUD', 'Australian dollar', 'A$', 3.7), Cy('CAD', 'Canadian dollar', 'C$', 2.8), Cy('DKK', 'Danish krone', 'kr ', 2.0), Cy('HKD', 'Hong Kong dollar', 'HK$', 3.3),
+    Cy('NOK', 'Norwegian krone', 'kr ', 3.9), Cy('NZD', 'New Zealand dollar', 'NZ$', 3.4), Cy('SEK', 'Swedish krona', 'kr ', 2.0), Cy('SGD', 'Singapore dollar', 'S$', 2.4)
+  ];
+  /* Look-through currency of each asset class, % (unhedged). Cash is held in
+     the reporting currency. EM: emerging-market currencies together. */
+  D.currencyLookThrough = {
+    us_eq: { USD: 100 }, intl_eq: { EUR: 42, JPY: 22, GBP: 14, CHF: 9, AUD: 5, CAD: 8 }, em_eq: { EM: 100 }, pe: { USD: 66, EUR: 24, GBP: 6, EM: 4 },
+    govt: { USD: 44, EUR: 27, JPY: 15, GBP: 7, CAD: 3, AUD: 2, EM: 2 }, ig: { USD: 58, EUR: 26, GBP: 8, CAD: 4, JPY: 2, AUD: 2 }, hy: { USD: 72, EUR: 22, GBP: 6 },
+    hf: { USD: 84, EUR: 10, GBP: 6 }, re: { USD: 50, EUR: 20, JPY: 12, GBP: 10, AUD: 8 }, cmd: { USD: 100 }, infra: { USD: 44, EUR: 30, GBP: 16, AUD: 10 }
+  };
+  D.currencyByCode = {};
+  D.currencies.forEach(function (c) { D.currencyByCode[c.code] = c; });
+  D.currencyByCode.EM = { code: 'EM', name: 'Emerging-market currencies', symbol: '' };
+  D.reporting = 'USD';
+  /**
+   * Point the mock at a workspace's reporting currency: the Cash index, the
+   * risk-free rate and the currency factors are stated against it. (A service
+   * does this server side; the UI only passes the currency.)
+   */
+  D.setReportingCurrency = function (code) {
+    var c = D.currencyByCode[code] || D.currencyByCode.USD; D.reporting = c.code;
+    var cash = D.instrumentById.idx_cash; cash.name = c.code + ' 3-Month Cash Index'; cash.identifier = c.code + '3M'; cash.currency = c.code;
+    D.instruments.forEach(function (i) { if (i.spread != null) { i.name = c.code + ' 3-Month Cash + ' + i.spread + '%'; i.identifier = c.code + '3M+' + i.spread; i.currency = c.code; } });
+    if (D.assumptions) D.assumptions.riskFree = c.cash;
+    var fx = c.code === 'USD' ? 'Foreign Currency' : 'Foreign Currency vs ' + c.code, fxd = 'Sensitivity of unhedged exposure to a basket of currencies against ' + c.code + '.';
+    D.factorById.fx.name = fx; D.factorById.fx.description = fxd;
+    var mfx = c.code === 'USD' ? 'FX' : 'FX vs ' + c.code;
+    (D.factorModels || []).forEach(function (m) { m.factors.forEach(function (f) { if (f.id === 'fx') { f.name = mfx; f.description = 'Unhedged foreign currency against ' + c.code + ', the reporting currency.'; } }); });
+  };
+
   /** Category of an instrument, through its asset class. */
   D.categoryOf = function (instrumentId) { var i = D.instrumentById[instrumentId]; return i ? D.categoryById[D.assetClassById[i.assetClass].category] : null; };
 })();

@@ -23,6 +23,8 @@
   <div id="view-home" class="home" hidden></div>
   <!-- Sleeve repository -->
   <div id="view-repo" class="home" hidden></div>
+  <!-- Benchmark library -->
+  <div id="view-bench" class="home" hidden></div>
 
   <!-- Workspace: rail | main | drawer -->
   <div id="view-ws" class="ws" hidden>
@@ -56,7 +58,6 @@
       <div class="canvas" id="canvas">
         <div class="notice-stack" id="notices"></div>
         <div class="controls" id="context-bar" role="region" aria-label="Analysis context"></div>
-        <div class="context-line" id="context-line" aria-live="polite"></div>
         <div class="cards-grid" id="cards" aria-label="Analysis cards"></div>
       </div>
     </main>
@@ -79,6 +80,7 @@
 <script src="data/assumptions.js"></script>
 <script src="data/factormodels.js"></script>
 <script src="data/history.js"></script>
+<script src="data/benchmarks.js"></script>
 <script src="data/sleeves.js"></script>
 <script src="data/workspaces.js"></script>
 <script src="js/engine.js"></script>
@@ -90,10 +92,12 @@
 <script src="js/ui/cardtypes.js"></script>
 <script src="js/ui/ddcard.js"></script>
 <script src="js/ui/activecard.js"></script>
+<script src="js/ui/suite.js"></script>
 <script src="js/ui/context.js"></script>
 <script src="js/ui/shell.js"></script>
 <script src="js/ui/builder.js"></script>
 <script src="js/ui/sleeves.js"></script>
+<script src="js/ui/benchmarks.js"></script>
 <script src="js/ui/drawer.js"></script>
 <script src="js/ui/dialogs.js"></script>
 <script src="js/app.js"></script>

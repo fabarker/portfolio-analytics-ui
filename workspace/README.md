@@ -33,13 +33,32 @@ The rail is split: the header and tabs are navy, the panel below them is
 white so the tree reads like the cards (its colours are `--rail-*` tokens in
 `css/tokens.css`, redefined for the panel under "Split rail" in
 `css/workspace.css`). The rail has no brand heading. Its header names the allocation being edited
-(a selector, with its kind, history basis and benchmark), and four tabs split
+(a selector with a ⋮ menu beside it: select products for a sleeve, expand or
+collapse every category, rename, assign a benchmark, snapshot). Under the name
+it says only what is not the default: a snapshot or sleeve tag, *Backtest* or
+*Edited*, and the benchmark, or *No benchmark* as a warning. Four tabs split
 the rail's jobs so each gets the full height:
 
-- **Build**: the category tree below, with select mode for sleeves. Weights
-  are typed: no stepper buttons. A typed value is marked pending until
+- **Build**: the category tree below, with select mode for sleeves. Each
+  category sits under a faint silver rule (`--rail-sep`), marked by its colour
+  tile, with its target in bold. Its products are leaves: indented past the
+  category's name and joined to it by elbow guides (`--rail-guide`) that stop
+  at the last leaf. A second
+  line appears only for an exception (*2.0% at index level*, products over
+  target, a sleeve tag) or, when collapsed, the product count. A product is a
+  line: its name, its share of the category (the full wording in the tooltip)
+  and its weight. Type and identifier show when the rail is dragged to 420px
+  or wider. Weights read as figures and turn into inputs on hover or focus.
+  Weights are typed: no stepper buttons. A typed value is marked pending until
   `Enter` applies it (one edit, one recalculation); `Esc` discards it, `↑`/`↓`
   move between weights, and pending values survive leaving the field.
+  **Quick add:** the + on every category row (or `+`/`Insert` on a focused
+  category) adds an empty leaf with a search into the product library, limited
+  to that category with *Search all categories* one click away. Choosing a
+  product moves to its weight, prefilled with the category's index-level
+  remainder; `Enter` adds it in one edit (a product from another category is
+  filed there, and a target rises if the products need it), `Esc` removes the
+  row and returns focus to the +.
 - **Add**: investment search with category filter chips. A chip on its own
   browses that category; results say when a product is already held.
 - **Sleeves**: the repository in the rail, grouped by category, with *Apply*
@@ -52,22 +71,28 @@ the rail's jobs so each gets the full height:
   badge. The weight summary and the shorts & leverage switch live here too.
 
 A footer under every tab keeps the category bar (solid in products, hatched at
-index level) and the allocated total in view. Collapsed, the rail keeps the
+index level) and the allocated total in view, with the unallocated or borrowed
+amount when there is one. Collapsed, the rail keeps the
 four tab icons (with the badge); each opens the rail on its tab. On a phone the
 rail is an overlay with the same tabs.
 
 ## Factor models and active risk
 
-**Two factor models, one switch.** *Factor model* in the context bar (ISG ·
+**Two factor models, one switch.** ISG has eleven factors: Equity, Term,
+Liquidity, Funding, FX, EM, Dollar, Size, Value, Commodities and Momentum.
+Axioma has the same eleven, under the same ids, plus Credit, Short Volatility,
+Quality, Carry, Local Inflation and Local Equity. *Factor model* in the context bar (ISG ·
 Axioma) sets the risk model for every card that uses one: Factor exposures,
 the Factors metric of Drivers & Differences, the factor view of Risk by
-category, and Active risk & return. Each of those cards shows a model chip in
-its header, plain while it follows the workspace and filled with a pin when the
-card has its own model. The chip's menu pins, unpins, adds a copy pinned to
-the other model beside the card (*Compare with …*), and describes the model and
-its coverage. Only cards that follow the switch refetch. A card keeps one
-factor pick per model; with none for a model, the other model's pick maps
-across where factors have a counterpart and the card says so. Axioma does not
+category, Active risk & return and Headline. The control shows only when such
+a card is in the workspace; its tooltip counts pinned cards. A card that
+follows the workspace names no model (the bar does). The card menu pins it to
+a model, unpins it, adds a copy pinned to the other model beside it (*Compare
+with …*), and describes the model and its coverage; a pinned card shows a model
+chip in its header and says so in its subtitle. Only cards that follow the
+switch refetch. A card keeps one
+factor pick per model; with none for a model, the other model's pick carries
+over (Axioma's own six have no ISG counterpart, and the card says which were left out). Axioma does not
 cover privately valued funds: they take their category index's loadings, and
 the card and the rail's Check tab say so. The platform assumptions remain the
 return model; factor-model risk does not change with a scenario.
@@ -86,9 +111,82 @@ The checks confirm that contributions sum to the tracking error, the effects to
 the active return, and passive and active risk with their correlation to the
 total.
 
+**Waterfalls.** Every contribution measure that adds up to a total can be drawn
+as a waterfall, one allocation at a time (tabs above the chart): Return
+contribution by category (opens as one), Risk contribution by category (by
+category, or by factor plus specific), Risk by factor, Return attribution (from
+the reference's return to the allocation's), and the risk and return sources of
+Active risk & return (*Risk and return sources: Waterfall* in its settings).
+Steps take the category's colour, or slate for factors; a negative step is
+drawn light, and the last row is the total from zero.
+
+## Clarity: say it once, tag the exception
+
+The page follows five rules (the plan is `../design/workspace-clarity.html`):
+
+- **Say it once.** The context bar is the one statement of what every card
+  shares. It is a toolbar on the canvas, not a box. *Reporting in USD* states
+  the workspace's currency once (it opens the currency dialog). It shows only the
+  controls some card reads: *Factor model* with a factor card, *Period* with a
+  history card, *Horizon* and band with a Projections or Probability of
+  outcomes card. *vs* is a menu: presets, custom benchmarks, each
+  allocation's own, or a compared portfolio, plus *Create custom benchmark* and
+  the benchmark library. There is no Basis switch: each card has its own. *Scenarios* names the active
+  scenario and how many compared allocations it applies to. There is no
+  context line under the bar and no scenario button in the header. Card
+  subtitles open with the card's basis (*→ Forward-looking* in blue, or
+  *◷ Historical · last 3 years* in slate, the glyph so it never relies on
+  colour), then name the measure (metric, unit, scope), adding the model or
+  scenario only where the card departs from the bar.
+- **Tag the exception.** Snapshot, Sleeve, Edited, Proxy, Coverage and No
+  benchmark get a tag; live allocations do not. *Editing* is the rail's eyebrow
+  and the accent ring on the comparison pill. Table columns carry a basis
+  label only where they differ.
+- **One style per job.** Uppercase tracked type is for table heads, eyebrows
+  and the rail tabs. Buttons and control labels are sentence case.
+- **Quiet until needed.** A card's grip, settings and menu, sort glyphs and the
+  rail's weight boxes appear on hover or focus (always on touch). Legends are
+  text. The Allocations bars draw a row total only when it is not 100%.
+- **One interaction away.** Method notes sit behind *About these figures* at
+  the foot of each card; *Show method notes on every card* in the header ⋮
+  opens them all (the workspace preference `showNotes`). Caveats (coverage,
+  mapping, basis per allocation) stay visible. Snapshot, versions and layout
+  live in the header ⋮ menu. Exports carry the context as one line.
+
+**Headline** (the Summary group, first in the sample workspace) gives one row
+per compared allocation with both bases side by side: a forward-looking group
+(expected return, risk, active return, tracking error) and a historical group
+for the period (return, volatility, active return, tracking error, maximum
+drawdown), then the allocated total, highlighted when it is not 100%. It makes
+two `activeAnalysis` requests and reuses `historyPack`.
+
+## Benchmarks and the reporting currency
+
+**One picker, two kinds.** Presets are maintained by the platform team and are
+read-only. Custom benchmarks mix any indices, products, other benchmarks and
+one fixed rate (*cash + x% a year*, which follows the reporting currency),
+with weights that must total 100%; the builder shows the mix by category,
+rebalancing and who can use it (shared, or only me). They are saved to the
+**benchmark library** (`#/benchmarks`, from the home page, the header ⋮ or the
+“vs” menu), versioned like sleeves: an allocation or the shared reference
+keeps the version it was given (`cbm_x@2`) and the picker says when a newer
+one is available. Presets can be duplicated as custom; custom benchmarks can be
+edited as a new version, duplicated, archived and restored. Assign benchmark
+and the “vs” menu offer the same list; custom benchmarks can also be added as
+fixed columns from the comparison strip.
+
+**Reporting currency.** A new workspace asks for its name and reporting
+currency, with nothing preselected; *Create* stays disabled until both are
+given, and the API rejects a workspace without one. Every figure is reported
+in it: the Cash index, the risk-free rate and fixed-rate benchmark rows use its
+3-month rate, the FX factor is stated against it, and the stress test shocks
+it. It can change later (the context bar or the header ⋮, undoable). Existing
+workspaces stay in USD. Hedging is not modelled; Currency exposure shows the
+unhedged look-through mix.
+
 ## The three ideas
 
-**The builder is a tree: portfolio → category → product.** Categories are
+**The builder is a tree: category → product.** Categories are
 modelled at index level: each has its own target weight; products implement
 part or all of it; whatever is unimplemented shows as an *index* leaf and is
 modelled by the category's index basket. Raising a target above its products
@@ -119,15 +217,28 @@ newer one, the rail and the column's menu offer to show it. *Make an editable
 copy* turns it into a live allocation.
 
 **The analytics area is a collection of cards.** Each card is one piece of
-analysis from a catalogue of fourteen types (allocations side by side, the
-Drivers & Differences table, cumulative return, drawdowns, underwater,
-summary statistics, calendar-year returns, stress periods, rolling return and
-volatility, risk by category, factor exposures, correlation between
-allocations, projections with bands, scenario comparison). Cards sit on a
+analysis from a catalogue of 34 entries over 30 types, grouped by basis:
+**Summary** (Headline, Drivers & Differences, whose metric list is grouped by
+basis); **Forward-looking** (expected return & risk, projections with bands,
+probability of outcomes, value at risk & expected shortfall, hypothetical
+stress tests, scenario comparison, return contribution by category, risk
+contribution by category, risk by factor, factor exposures, active risk &
+return, diversification); **Historical** (cumulative return, summary
+statistics, calendar-year returns as a heat grid, monthly returns, worst
+drawdowns, underwater, rolling return and volatility, rolling active return &
+tracking error, stress periods, correlation, return attribution, up & down
+capture, distribution of monthly returns, and the realised versions of return
+contribution, risk contribution, factor exposures and active risk & return);
+**Structure** (allocations side by side, active weights vs the reference,
+currency exposure). A type that can read either basis has two entries that
+add the same card with its basis fixed; the card menu offers *Show historical
+instead*. The new forward, historical and structure cards live in
+`js/ui/suite.js`. Cards sit on a
 free-form 12-column grid: drag by the header, resize from the corner, or use
 the keyboard; a dropped card pushes the cards it lands on down and the grid
 compacts. Each card keeps its own settings; the context bar holds what every
-card shares (basis, period, reference, scenario, horizon and band). Cards
+card shares (reporting currency, factor model, period, reference, scenario,
+horizon and band), each shown only when a card reads it. Cards
 that support it can *follow the selected row* of the Drivers & Differences
 table. The card repository (*Add card*) offers the catalogue plus cards saved
 with their settings, shared across workspaces.
@@ -141,7 +252,8 @@ css/components.css    buttons, inputs, tags, tables, dialogs, popovers, toasts
 css/workspace.css     the workspace layout, home list, rail, drawer, responsive rules, print
 css/cards.css         cards and the grid, the card sheet, builder additions, the sleeve repository
 fonts/                house typefaces (GS Sans, GS Sans Condensed, Goldman Sans, Roboto)
-data/universe.js      categories with index baskets, asset classes, factors, instruments, benchmarks, templates
+data/universe.js      categories with index baskets, asset classes, factors, instruments, templates, reporting currencies
+data/benchmarks.js    preset benchmarks, the custom benchmark library, the fixed-rate constituent
 data/assumptions.js   platform capital-market assumptions (a small factor model)
 data/factormodels.js  the ISG and Axioma factor models; products' stated benchmarks
 data/history.js       monthly returns Jan 2012 – Oct 2026, generated deterministically
@@ -152,12 +264,14 @@ js/engine.js          the mock analytics engine (what a service replaces)
 js/api.js             the data access layer: one contract, two adapters (mock, http)
 js/state.js           the workspace store: undo/redo, autosave, revisions, cards, product selection
 js/ui/common.js       toasts, dialogs, popovers, confirm/prompt
-js/ui/viz.js          chart primitives: lines with crosshair, bars, stacked bars, small multiples, dot plot, heat matrix
+js/ui/viz.js          chart primitives: lines with crosshair, bars, stacked bars, small multiples, dot plot, heat matrix, scatter, diverging bars, waterfall, distribution
 js/ui/cards.js        the card grid: layout engine, chrome, settings, data fetching, the card repository sheet
 js/ui/cardtypes.js    the catalogue of card types
 js/ui/ddcard.js       the Drivers & Differences card
 js/ui/activecard.js   the Active risk & return card
-js/ui/context.js      the context bar and context line
+js/ui/suite.js        the forward-looking, historical and structure suite (outcomes, VaR, stress tests, capture, …)
+js/ui/benchmarks.js   the benchmark picker, the custom benchmark builder, the benchmark library screen
+js/ui/context.js      the context bar (controls shown when a card reads them), the context in one line for exports
 js/ui/shell.js        routing, workspace list, context header, comparison strip, demo controls
 js/ui/builder.js      the rail: header, Build/Add/Sleeves/Check tabs, the category tree, selection, weights, leverage
 js/ui/sleeves.js      create and apply sleeves; the sleeve repository screen
@@ -187,7 +301,7 @@ two adapters:
 |---|---|---|
 | `listWorkspaces()` | `GET /workspaces` | `WorkspaceSummary[]` |
 | `getWorkspace(id)` | `GET /workspaces/:id` | `Workspace` |
-| `createWorkspace({name, description})` | `POST /workspaces` | `Workspace` |
+| `createWorkspace({name, currency, description})` | `POST /workspaces` | `Workspace` (currency required) |
 | `saveWorkspace(ws)` | `PUT /workspaces/:id` | `{savedAt, version}` |
 | `deleteWorkspace(id)` | `DELETE /workspaces/:id` | `{}` |
 | `getUniverse()` | `GET /universe` | categories, asset classes, factors, benchmarks, templates, instruments |
@@ -196,6 +310,10 @@ two adapters:
 | `listSleeves()` | `GET /sleeves` | `Sleeve[]` |
 | `saveSleeve(sleeve)` | `PUT /sleeves/:id` | `Sleeve` (create, rename, re-file, or add a version) |
 | `archiveSleeve(id, archived)` | `PATCH /sleeves/:id` | `Sleeve` |
+| `useCurrency(code)` | header `X-Reporting-Currency` | the workspace's reporting currency, sent with every request |
+| `listBenchmarks()` | `GET /benchmarks` | `{presets, custom}` |
+| `saveBenchmark(b)` | `PUT /benchmarks/:id` | `CustomBenchmark` (create, or add a version; weights must total 100) |
+| `archiveBenchmark(id, archived)` | `PATCH /benchmarks/:id` | `CustomBenchmark` |
 | `listSavedCards()` | `GET /cards` | `SavedCard[]` |
 | `saveCard(card)` | `PUT /cards/:id` | `SavedCard` |
 | `deleteSavedCard(id)` | `DELETE /cards/:id` | `{}` |
@@ -208,6 +326,9 @@ two adapters:
 | `summaries(allocations)` | `POST /analytics/summaries` | `{[allocationId]: {ret, vol, sharpe}}` |
 | `activeAnalysis(req)` | `POST /analytics/active` | passive and active return and risk per allocation, with risk and return sources (see `js/api.js`) |
 | `factorRisk(req)` | `POST /analytics/factor-risk` | risk by factor plus specific under a factor model |
+| `forwardSuite(req)` | `POST /analytics/forward-suite` | expected return and risk, VaR and expected shortfall, outcome probabilities, diversification, stress tests, with the reference |
+| `historySuite(req)` | `POST /analytics/history-suite` | monthly distribution, skew, kurtosis, worst months, up and down capture, beta, hit rate |
+| `structure(req)` | `POST /analytics/structure` | category weights against the reference, look-through currency mix |
 
 Every shape is documented at the top of the file that owns it:
 
@@ -215,7 +336,8 @@ Every shape is documented at the top of the file that owns it:
   and `sleeveRef` tags), `Card`, `Scenario`, `Prefs`, `Activity`.
 - `data/sleeves.js` — `Sleeve`, `SleeveVersion`, `SavedCard`.
 - `data/universe.js` — `Category` (with its index basket), `AssetClass`,
-  `Factor`, `Instrument`, `Benchmark`.
+  `Factor`, `Instrument`, reporting currencies. `data/benchmarks.js` —
+  `Benchmark`, `CustomBenchmark`, constituent rows.
 - `data/assumptions.js` — `Assumptions`. `data/history.js` — `History`.
 - `js/api.js` — the request and response shapes of the analytics calls.
 - `js/ui/cards.js` — the card type contract a new card implements.
@@ -270,11 +392,12 @@ Conventions a service must keep (the UI relies on them):
 - **Undo scope.** Allocation edits, comparison membership, scenarios, and
   adding, removing or changing a card are undoable. Moving or resizing a card
   and display preferences are remembered but not undone.
-- **Cards.** A card's own settings (metric, units, factors, count, basis of a
-  projection) belong to the card; the context bar holds what every card
-  shares. *Basis* applies to the cards that can show either history or the
-  model (Drivers & Differences, Risk by category, Factor exposures); history
-  cards always use the period, forward cards always use the horizon and band.
+- **Cards.** A card's own settings (metric, units, factors, count, basis)
+  belong to the card; the context bar holds what every card shares. A card's
+  basis is fixed when it is added: forward cards follow the scenario, history
+  cards the period. Workspaces saved with the old shared Basis switch give each
+  card that followed it the switch's last value, so nothing on screen changes.
+  Stress tests use the Axioma model, which holds every shocked factor.
   A saved card stores type, settings and name, never data.
 - **Activity, not transactions.** The product shows analytics, not trades;
   "Versions & activity" records edits, sleeves, snapshots and scenarios.
@@ -291,7 +414,11 @@ the main flows (category and product edits, sleeves from a category and a
 selection, saving a sleeve and comparing it, comparing a repository sleeve and
 loading its newer version, applying a sleeve, cards: settings, follow-row, data tables,
 adding from the repository, moving, resizing, removing, undo; the context
-bar; persistence; the sleeve repository; failure states; three viewports),
+bar; the clarity rules (no default tags, one door to scenarios, controls shown only when a card reads them,
+quiet card tools and rail inputs, the silver rule above each category, notes closed by default, identifiers on a wide rail);
+the elbow guides and quick add; per-card bases and the dual Headline; the eleven ISG and seventeen Axioma factors;
+benchmarks (picker, builder rules, versions, library, fixed rate); the reporting currency; every new card and the waterfalls;
+persistence; the sleeve repository; failure states; three viewports),
 asserts on what the user would see, reports console errors, and writes
 screenshots to `screenshots/`. It uses the same Playwright runtime as
 `../spec/verify-document.mjs`.

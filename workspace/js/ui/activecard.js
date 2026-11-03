@@ -72,10 +72,9 @@
       eq = '<div class="act-eq"><b>' + esc(S.allocation(focus).name) + '</b>: return ' + F.num(fx.totalReturn, 2) + ' = passive ' + F.num(fx.passiveReturn, 2) + ' + active ' + F.signed(fx.activeReturn, 2) + (s.returnMethod === 'geometric' ? ' (geometric)' : '') +
         (fx.activePassiveCorr != null ? ' · risk² ' + F.num(fx.totalRisk * fx.totalRisk, 1) + ' = ' + F.num(fx.passiveRisk * fx.passiveRisk, 1) + ' + ' + F.num(fx.activeRisk * fx.activeRisk, 2) + ' + 2 × ' + F.num(fx.activePassiveCorr, 2) + ' × ' + F.num(fx.passiveRisk, 1) + ' × ' + F.num(fx.activeRisk, 2) : '') + '</div>';
     }
-    if (data.basis === 'forward') notes.push('Return from the platform assumptions' + (ctx.scenario ? ' (scenario where applied)' : '') + '; risk from the ' + D.factorModelById[data.factorModel].name + ' factor model' + (ctx.scenario ? ', which the scenario does not change' : '') + '.');
-    else notes.push('Realised over ' + (data.period ? data.period.label : 'the period') + ': tracking error is the volatility of monthly active returns, annualised.');
     data.series.forEach(function (x) { if (x.coverage) notes.push(x.coverage + '.'); });
-    return '<div class="tblwrap act-tbl"><table class="tbl"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' + eq + H.foot(uniq(notes).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join(''));
+    var method = data.basis === 'forward' ? 'Return from the platform assumptions' + (ctx.scenario ? ' (scenario where applied)' : '') + '; risk from the ' + D.factorModelById[data.factorModel].name + ' factor model' + (ctx.scenario ? ', which the scenario does not change' : '') + '.' : 'Realised over ' + (data.period ? data.period.label : 'the period') + ': tracking error is the volatility of monthly active returns, annualised.';
+    return '<div class="tblwrap act-tbl"><table class="tbl"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' + H.foot(uniq(notes).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('')) + C.notes(card, [eq, esc(method), 'Active share is half the sum of absolute differences in the asset-class mix.']);
   }
   function uniq(a) { var seen = {}; return a.filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }); }
 
@@ -92,8 +91,8 @@
       src.map(function (r, i) { return '<tr><td><span class="sw" style="background:' + colorFor(r, i) + '"></span>' + esc(r.label) + '</td><td class="num">' + F.signed(r.contribution, 2) + '</td><td class="bar-col">' + dbar(r.contribution, max, colorFor(r, i)) + '</td><td class="num">' + (te > 0 ? F.num(r.contribution / te * 100, 0) + '%' : '—') + '</td></tr>'; }).join('') +
       '<tr class="total"><td>Tracking error</td><td class="num">' + F.num(te, 2) + '</td><td></td><td class="num">100%</td></tr></tbody></table>';
     var eq = mode === 'factor' ? '<div class="act-eq">Tracking error ' + F.num(te, 2) + ' = factors ' + F.num(te - x.specific, 2) + ' + specific ' + F.num(x.specific, 2) + ' (contributions, % a year)</div>' : '<div class="act-eq">Contributions by ' + mode + ' sum to the tracking error of ' + F.num(te, 2) + '% a year; each includes its specific risk.</div>';
-    var notes = [x.riskSourcesNote, 'Negative contributions offset others (hedges); the bar draws only the positive ones.', x.coverage ? x.coverage + '.' : null].filter(Boolean);
-    return chips(ctx, focus) + stack + eq + '<div class="tblwrap">' + list + '</div>' + H.foot(notes.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join(''));
+    if (s.sources === 'waterfall') return chips(ctx, focus) + '<div class="viz-host" data-wf-draw="risk"></div>' + H.foot(x.coverage ? '<span>' + esc(x.coverage) + '.</span>' : '') + C.notes(card, [eq, x.riskSourcesNote ? esc(x.riskSourcesNote) : null, 'A negative step offsets risk from the others.']);
+    return chips(ctx, focus) + stack + '<div class="tblwrap">' + list + '</div>' + H.foot(x.coverage ? '<span>' + esc(x.coverage) + '.</span>' : '') + C.notes(card, [eq, x.riskSourcesNote ? esc(x.riskSourcesNote) : null, 'Negative contributions offset others (hedges); the bar draws only the positive ones.']);
   }
 
   function returnView(data, ctx, s, card) {
@@ -105,12 +104,13 @@
       rows.map(function (r) { return '<tr><td><span class="sw" style="background:' + r.color + '"></span>' + esc(r.short) + '</td><td class="num">' + F.num(r.weight, 1) + '</td><td class="num">' + F.num(r.benchWeight, 1) + '</td><td class="num">' + sgn(r.allocation) + '</td><td class="bar-col">' + dbar(r.allocation, max, r.color) + '</td><td class="num">' + sgn(r.selection) + '</td><td class="bar-col">' + dbar(r.selection, max, r.color) + '</td></tr>'; }).join('') +
       '<tr class="total"><td>Total</td><td></td><td></td><td class="num">' + F.signed(t.allocation, 2) + '</td><td></td><td class="num">' + F.signed(t.selection, 2) + '</td><td></td></tr></tbody></table>';
     var eq = '<div class="act-eq">' + (data.basis === 'forward' ? 'Benchmark ' + F.num(x.passiveReturn, 2) + ' + allocation ' + F.signed(t.allocation, 2) + ' + selection ' + F.signed(t.selection, 2) + ' = ' + esc(a.name) + ' ' + F.num(x.passiveReturn + t.allocation + t.selection, 2) : 'Allocation ' + F.signed(t.allocation, 2) + ' + selection ' + F.signed(t.selection, 2) + ' = ' + F.signed(t.allocation + t.selection, 2) + ' pp a year') + '</div>';
-    var notes = ['Allocation: being over- or underweight a category, times how that category did against the whole benchmark. Selection: what the products returned against the benchmark’s own holdings in the category (its index where it holds none).', 'Weight held at index level earns the category index, so its selection effect is only the index against the benchmark’s mix in that category.', x.returnSourcesNote, s.returnMethod === 'geometric' ? 'The headline active return is geometric; the sources are arithmetic.' : null].filter(Boolean);
-    return chips(ctx, focus) + eq + '<div class="tblwrap">' + tbl + '</div>' + H.foot(notes.map(function (n) { return '<span>' + esc(n) + '</span>'; }).join(''));
+    var notes = ['Allocation: being over- or underweight a category, times how that category did against the whole benchmark. Selection: what the products returned against the benchmark’s own holdings in the category (its index where it holds none).', 'Weight held at index level earns the category index, so its selection effect is only the index against the benchmark’s mix in that category.', x.returnSourcesNote, s.returnMethod === 'geometric' ? 'The headline active return is geometric; the sources are arithmetic.' : null].filter(Boolean).map(esc);
+    if (s.sources === 'waterfall') return chips(ctx, focus) + '<div class="viz-host" data-wf-draw="return"></div>' + C.notes(card, [eq].concat(notes));
+    return chips(ctx, focus) + '<div class="tblwrap">' + tbl + '</div>' + C.notes(card, [eq].concat(notes));
   }
 
   function timeView(body, data, ctx) {
-    if (data.basis !== 'historical') { body.querySelector('.act-view').innerHTML = '<div class="chart-empty">Tracking error over time needs observed returns. <button type="button" class="btn btn-sm" data-act-hist>Switch Basis to Historical</button></div>'; return; }
+    if (data.basis !== 'historical') { body.querySelector('.act-view').innerHTML = '<div class="chart-empty">Tracking error over time needs observed returns. <button type="button" class="btn btn-sm" data-act-hist>Show historical instead</button></div>'; return; }
     var host = body.querySelector('.act-view'), months = null, te = [], cum = [];
     ctx.members.forEach(function (a) { var x = seriesOf(data, a); if (x && x.over) { months = x.over.months; te.push({ id: a.id, name: a.name, color: H.colorOf(a), values: x.over.te36, dim: H.dim(ctx, a) }); cum.push({ id: a.id, name: a.name, color: H.colorOf(a), values: x.over.cumActive, dim: H.dim(ctx, a) }); } });
     if (!months) { host.innerHTML = '<div class="chart-empty">Not enough overlapping history with the benchmark.</div>'; return; }
@@ -121,17 +121,19 @@
     H.wireLegend(host);
   }
 
-  C.register({ id: 'active-risk', title: 'Active risk & return', description: 'Return and risk split into passive (the benchmark) and active, with tracking error, information ratio, active share, and where the active risk and return come from.', group: 'Risk', size: { w: 12, h: 8 }, min: { w: 6, h: 5 }, basis: 'both', supportsRow: true, factorModel: true,
+  C.register({ id: 'active-risk', title: 'Active risk & return', description: 'Return and risk split into passive (the benchmark) and active, with tracking error, information ratio, active share, and where the active risk and return come from.', group: 'Forward-looking', size: { w: 12, h: 8 }, min: { w: 6, h: 5 }, basis: 'either', supportsRow: true, factorModel: true,
+    entries: [{ settings: { basis: 'forward' } }, { title: 'Realised active risk & return', description: 'Realised tracking error, active return and information ratio over the period, with where they came from.', group: 'Historical', settings: { basis: 'historical' } }],
     settings: [
       { key: 'against', label: 'Active against', type: 'select', options: [['reference', 'Follow the Reference (context bar)'], ['own', 'Each subject’s own benchmark'], ['pick', 'Pick one…']], default: 'reference' },
       { key: 'pick', label: 'Benchmark, product, allocation or sleeve', type: 'select', options: function () { return pickOptions(); }, default: 'benchmark:bm_6040', when: function (s) { return s.against === 'pick'; } },
       { key: 'decompose', label: 'Decompose risk by', type: 'select', options: [['factor', 'Factor (the factor model)'], ['category', 'Category'], ['product', 'Product']], default: 'factor' },
       { key: 'returnMethod', label: 'Active return', type: 'select', options: [['arithmetic', 'Arithmetic difference'], ['geometric', 'Geometric']], default: 'arithmetic' },
-      { key: 'showPassive', label: 'Show passive figures', type: 'toggle', default: true }],
-    subtitle: function (ctx, s, card) { var st = C.state[card.id]; return 'vs ' + againstLabel(ctx, s) + H.rowSuffix(ctx, card) + ' · ' + (ctx.prefs.basis === 'forward' ? 'Forward-looking' : 'Historical' + (st && st.data && st.data.period ? ' · ' + st.data.period.label : '')) + ' · ' + C.modelLabel(card) + ' · % a year'; },
+      { key: 'showPassive', label: 'Show passive figures', type: 'toggle', default: true },
+      { key: 'sources', label: 'Risk and return sources', type: 'select', options: [['table', 'Table with bars'], ['waterfall', 'Waterfall']], default: 'table' }],
+    subtitle: function (ctx, s, card) { return 'vs ' + againstLabel(ctx, s) + H.rowSuffix(ctx, card) + C.modelDeparture(card) + ' · % a year'; },
     data: function (ctx, s, card) {
       return against(s).then(function (ag) {
-        return C.fetch('activeAnalysis', { revision: ctx.revision, allocations: U.clone(ctx.members), rowKey: card.followRow ? ctx.row : '__total', basis: ctx.prefs.basis, period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario), factorModel: C.modelIdOf(card), returnMethod: s.returnMethod, decompose: s.decompose, reference: U.clone(ctx.ws.comparison), against: ag });
+        return C.fetch('activeAnalysis', { revision: ctx.revision, allocations: U.clone(ctx.members), rowKey: card.followRow ? ctx.row : '__total', basis: ctx.basis, period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario), factorModel: C.modelIdOf(card), returnMethod: s.returnMethod, decompose: s.decompose, reference: U.clone(ctx.ws.comparison), against: ag });
       });
     },
     render: function (body, data, ctx, s, card) {
@@ -143,11 +145,15 @@
       else if (view === 'risk') host.innerHTML = riskView(data, ctx, s, card);
       else if (view === 'return') host.innerHTML = returnView(data, ctx, s, card);
       else timeView(body, data, ctx);
+      var wfh = host.querySelector('[data-wf-draw]');
+      if (wfh) { var fa = S.allocation(focusOf(card, ctx)), fx = fa && seriesOf(data, fa);
+        if (wfh.dataset.wfDraw === 'risk') { var srcs = fx.riskSources.slice(); if ((s.decompose || 'factor') === 'factor') srcs.push({ key: '__specific', label: 'Specific', contribution: fx.specific, color: H.SPECIFIC_INK }); V.waterfall(wfh, { height: Math.max(170, body.clientHeight - 110), steps: srcs.map(function (r) { return { label: r.label, value: r.contribution, color: r.color || H.FACTOR_INK }; }), total: { label: 'Tracking error', color: UI.colorOf(fa) }, unit: 'pp', dp: 2, aria: 'Waterfall of ' + fa.name + '’s tracking error by source' }); }
+        else V.waterfall(wfh, { height: Math.max(170, body.clientHeight - 110), start: { label: 'Benchmark · ' + fx.benchmark.label, value: fx.passiveReturn, color: 'var(--ink-3)' }, steps: fx.returnSources.map(function (r) { return { label: r.short, value: r.allocation + r.selection, color: r.color, tip: r.short + ' (allocation ' + F.signed(r.allocation, 2) + ', selection ' + F.signed(r.selection, 2) + ')' }; }), total: { label: fa.name + ' · attributed', color: UI.colorOf(fa) }, unit: '%', dp: 2, aria: 'Waterfall from the benchmark return to ' + fa.name + '’s return' }); }
       var setView = function (v, focusTab) { var c = S.card(card.id), p = U.clone(c.settings || {}); p.view = v; S.updateCard(c.id, { settings: p }); if (focusTab) setTimeout(function () { var el = document.querySelector('[data-card="' + CSS.escape(card.id) + '"] [data-act-view="' + v + '"]'); if (el) el.focus(); }, 0); };
       U.on(body, 'click', '[data-act-view]', function (e, b) { setView(b.dataset.actView); });
       U.on(body, 'keydown', '[data-act-view]', function (e, b) { if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return; e.preventDefault(); var ids = VIEWS.map(function (v) { return v[0]; }), i = ids.indexOf(b.dataset.actView); setView(ids[(i + (e.key === 'ArrowRight' ? 1 : ids.length - 1)) % ids.length], true); });
       U.on(body, 'click', '[data-act-focus]', function (e, b) { C.state[card.id].focus = b.dataset.actFocus; C.repaint(card.id); var nb = document.querySelector('[data-card="' + CSS.escape(card.id) + '"] [data-act-focus="' + CSS.escape(b.dataset.actFocus) + '"]'); if (nb) nb.focus(); });
-      U.on(body, 'click', '[data-act-hist]', function () { S.setPref('basis', 'historical'); });
+      U.on(body, 'click', '[data-act-hist]', function () { C.setBasis(card, 'historical'); });
     },
     dataTable: function (data, ctx) {
       return V.table([{ label: 'Allocation' }, { label: 'Against' }, { label: 'Return', num: true }, { label: 'Passive', num: true }, { label: 'Active', num: true }, { label: 'Risk', num: true }, { label: 'Passive', num: true }, { label: 'Tracking error', num: true }, { label: 'Info. ratio', num: true }, { label: 'Active share', num: true }],

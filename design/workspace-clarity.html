@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Workspace Clarity Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Plan for reducing visual clutter on the workspace page and making the builder rail easier to scan, with every call tied to the file it lands in.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column; the summary first, the calls as tables, the
+   detail behind <details>. Mock-ups keep the app's own light surface. */
+:root{
+  --pg:#f3f5f8; --surface:#ffffff; --ink:#14213a; --ink-2:#4a5872; --ink-3:#66748b; --line:#dde3ea;
+  --navy:#12233f; --gold:#b07a12; --accent:#2a6ad0; --accent-bg:#e8f0fc;
+  --ok:#1a7f37; --ok-bg:#e6f4ea; --warn:#8a5a00; --warn-bg:#fdf3dc; --no:#8a2a22; --no-bg:#fbe9e7;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --gold:#f3c46b; --accent:#8fb4ff; --accent-bg:#1c2b47;
+  --ok:#7ad79a; --ok-bg:#15301f; --warn:#f3c46b; --warn-bg:#33280f; --no:#f6a8a0; --no-bg:#3a1c18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --gold:#f3c46b; --accent:#8fb4ff; --accent-bg:#1c2b47;
+  --ok:#7ad79a; --ok-bg:#15301f; --warn:#f3c46b; --warn-bg:#33280f; --no:#f6a8a0; --no-bg:#3a1c18; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--ink);font:15.5px/1.6 var(--f-body)}
+.wrap{max-width:880px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 72px;display:grid;gap:36px}
+h1,h2,h3,h4{text-wrap:balance;margin:0;line-height:1.15}
+h1{font:600 clamp(30px,5vw,44px)/1.08 var(--f-cond);letter-spacing:-.01em}
+h2{font:600 26px/1.15 var(--f-cond)}
+h3{font:600 17px/1.3 var(--f-body)}
+h4{font:600 15px/1.3 var(--f-body)}
+p{margin:0}
+.eyebrow{font:600 11.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.lede{color:var(--ink-2);max-width:66ch;margin-top:12px}
+section{display:grid;gap:16px;scroll-margin-top:70px}
+.prose{display:grid;gap:12px;max-width:68ch;color:var(--ink-2)}
+.prose b,.prose strong{color:var(--ink)}
+ul.tight,ol.tight{margin:0;padding-left:20px;display:grid;gap:7px;color:var(--ink-2)}
+ul.tight b,ol.tight b{color:var(--ink)}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--accent-bg);padding:1px 5px;border-radius:4px;color:var(--ink);overflow-wrap:anywhere}
+a{color:var(--accent);text-underline-offset:3px}
+blockquote{margin:0;padding:10px 16px;border-left:3px solid var(--line);color:var(--ink-2);font-style:italic}
+
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:6px;overflow-x:auto;padding:8px;border-radius:10px;background:var(--surface);border:1px solid var(--line);scrollbar-width:none}
+nav.toc::-webkit-scrollbar{display:none}
+nav.toc a{flex:none;padding:5px 10px;border-radius:999px;font:600 12.5px/1.2 var(--f-cond);letter-spacing:.04em;color:var(--ink-2);text-decoration:none;border:1px solid var(--line)}
+nav.toc a:hover{color:var(--ink);border-color:var(--ink-3)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--pg)}
+
+.summary{display:grid;gap:12px;padding:18px 20px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.moves{display:grid;gap:10px;margin:0;padding:0;list-style:none;counter-reset:mv}
+.moves li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:start}
+.moves li::before{counter-increment:mv;content:counter(mv);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font:600 13px/1 var(--f-mono);grid-row:span 2}
+.moves .c{font-weight:600;color:var(--ink)}
+.moves .m{color:var(--ink-2);font-size:14.5px}
+.moves .m b{color:var(--ink)}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fig{padding:12px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);display:grid;gap:2px}
+.fig b{font:600 26px/1.1 var(--f-cond);color:var(--ink);font-variant-numeric:tabular-nums}
+.fig span{font-size:13px;color:var(--ink-2)}
+
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.role{padding:13px 15px;border-radius:10px;background:var(--surface);border:1px solid var(--line);display:grid;gap:5px;font-size:14px;color:var(--ink-2)}
+.role b{color:var(--ink);font-size:15px}
+.role .tag{justify-self:start}
+.rule{display:grid;gap:6px;padding:14px 16px;border-left:3px solid var(--accent);background:var(--accent-bg);border-radius:0 10px 10px 0}
+.rule .eyebrow{color:var(--accent)}
+.rule p{color:var(--ink)}
+
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font:600 11.5px/1.3 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);background:var(--pg);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td b{color:var(--ink)}
+td{color:var(--ink-2)}
+td.el{color:var(--ink);font-weight:500;min-width:150px}
+td.where{font-family:var(--f-mono);font-size:12px;color:var(--ink-3);white-space:nowrap}
+tr.grp td{background:var(--pg);color:var(--ink);font:600 13px/1.3 var(--f-cond);letter-spacing:.06em;padding:7px 12px}
+tr.grp td span{font:400 12px/1.3 var(--f-mono);color:var(--ink-3);letter-spacing:0;margin-left:10px}
+.wide table{min-width:720px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font:600 11px/1.6 var(--f-cond);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.pill.keep{background:var(--ok-bg);color:var(--ok)}
+.pill.quiet{background:var(--accent-bg);color:var(--accent)}
+.pill.away{background:var(--warn-bg);color:var(--warn)}
+.pill.out{background:var(--no-bg);color:var(--no)}
+.pill.add{background:var(--navy);color:#fff}
+.key{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13.5px;color:var(--ink-2);align-items:center}
+
+.cards{display:grid;gap:10px}
+.card{display:grid;gap:5px;padding:13px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.card .q{font-weight:600}
+.card .d{color:var(--ink-2);font-size:14.5px}
+.card .d b{color:var(--ink)}
+.phases{display:grid;gap:12px}
+.phase{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;padding:14px 16px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.phase .n{grid-row:span 4;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font:600 14px/1 var(--f-mono)}
+.phase p{color:var(--ink-2)}
+.phase .meta{font-size:13px;color:var(--ink-3)}
+.phase .checks{font-size:13.5px;color:var(--ink-3)}
+details{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+details summary{cursor:pointer;padding:12px 16px;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(-45deg);transition:transform .15s;flex:none}
+details[open] summary::before{transform:rotate(45deg)}
+details summary span{font-weight:400;color:var(--ink-3);font-size:13.5px}
+details .in{padding:0 16px 16px;display:grid;gap:12px;color:var(--ink-2);font-size:14.5px}
+details .in b{color:var(--ink)}
+details .tbl-wrap{border-radius:8px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ── mock-up screens: the app's own light look, in both page themes ── */
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media (max-width:700px){.pair{grid-template-columns:minmax(0,1fr)}}
+.screen{border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#f6f8fa;color:#14213a;font-size:13px;line-height:1.45;box-shadow:0 1px 2px rgba(16,24,40,.06);min-width:0}
+.screen .cap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 12px;background:#12233f;color:#c9d4e3;font:600 11px/1.3 var(--f-cond);letter-spacing:.12em;text-transform:uppercase}
+.screen .cap span:last-child{color:#f3c46b}
+.screen .in{padding:12px;display:grid;gap:10px}
+.screen .note{font-size:12px;color:#5a6a82;padding:0 2px}
+/* rail */
+.rail{background:#fff;border:1px solid #dde4ec;border-radius:8px;overflow:hidden;font-size:12.5px}
+.rail .hd{background:#12233f;color:#fff;padding:10px 12px 8px;display:grid;gap:4px}
+.rail .hd .ey{display:flex;align-items:center;gap:6px;font:700 9.5px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:#f3c46b}
+.rail .hd .ey i{width:8px;height:8px;border-radius:50%;background:#eb6834;display:inline-block}
+.rail .hd .nm{display:flex;align-items:center;justify-content:space-between;font-size:15px}
+.rail .hd .nm span{color:#8fa2bc;font-size:12px}
+.rail .hd .mt{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:11px;color:#b6c2d2}
+.rail .tabs{display:grid;grid-template-columns:repeat(4,1fr);background:#12233f;border-bottom:1px solid #233754;font:700 9px/1 var(--f-cond);letter-spacing:.12em;text-transform:uppercase;color:#7e90a8;text-align:center}
+.rail .tabs span{padding:6px 0 8px}
+.rail .tabs span.on{color:#fff;box-shadow:inset 0 -2px 0 #f3c46b}
+.rail .body{padding:8px 10px 10px 12px;display:grid;gap:2px}
+.rail .tools{display:flex;justify-content:space-between;align-items:center;font:700 9.5px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:#66748b;padding:4px 2px 8px}
+.rail .tools span{display:flex;gap:10px}
+.rail .foot{border-top:1px solid #e3e8ef;background:#f5f7fa;padding:8px 12px;display:grid;gap:5px;font-size:11px;color:#66748b}
+.rail .foot .bar{height:5px;border-radius:3px;overflow:hidden;display:flex;background:#e3e8ef}
+.rail .foot .bar i{display:block;height:100%}
+.rail .foot .row{display:flex;justify-content:space-between}
+.rail .foot b{color:#14213a}
+.tg{display:inline-block;padding:0 6px;border-radius:999px;border:1px solid #d5dde7;background:#f1f4f8;color:#4a5872;font:700 8.5px/1.7 var(--f-cond);letter-spacing:.08em;text-transform:uppercase}
+.tg.ok{background:#e7f4ec;border-color:#b7e0c5;color:#1a7f37}
+.tg.warn{background:#fdf3dc;border-color:#e2c27a;color:#8a5a00}
+.tg.nv{background:#223a60;border-color:#3a5478;color:#b6c2d2}
+.tg.nvwarn{background:#3a3010;border-color:#8a6d1e;color:#f3c46b}
+/* rail, today */
+.r{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;min-height:34px;padding:2px 2px 2px 0;border-radius:4px}
+.r .l{display:flex;align-items:center;gap:5px;min-width:0}
+.r .tw{width:14px;color:#66748b;font-size:11px;text-align:center;flex:none}
+.r .sq{width:8px;height:8px;border-radius:2px;flex:none;background:var(--c);box-shadow:0 0 0 1px rgba(20,33,58,.28)}
+.r .n{display:grid;min-width:0}
+.r .n b{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r.p .n b{font-weight:500}
+.r .n small{font:400 10px/1.3 var(--f-cond);letter-spacing:.02em;color:#66748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r .v{display:flex;align-items:center;gap:3px}
+.r .in{width:52px;height:24px;border:1px solid #c3cedb;border-radius:4px;background:#fff;font-family:var(--f-cond);font-size:12px;text-align:right;padding:0 5px;line-height:22px;font-variant-numeric:tabular-nums}
+.r.c .in{font-weight:700}
+.r .pc{font:400 10px/1 var(--f-cond);color:#66748b;width:10px}
+.r.p{padding-left:14px}
+.r.root{border-bottom:1px solid #e3e8ef;border-radius:0;margin-bottom:3px;padding-bottom:5px}
+.r.root .n b{font-size:13px}
+.r.ix{background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(20,33,58,.035) 6px 8px)}
+.r.ix .n b{font-style:italic;font-weight:400;color:#4a5872}
+.r .ro{width:52px;text-align:right;padding-right:6px;font-family:var(--f-cond);font-size:12px;color:#4a5872}
+.cov{display:inline-block;width:5px;height:5px;border-radius:50%;background:#8a5a00;margin-left:4px;vertical-align:middle}
+.rail .hint{font-size:10.5px;color:#66748b;line-height:1.4;padding:6px 2px 0}
+.rail .hint kbd{border:1px solid #c3cedb;border-radius:3px;padding:0 3px;font-size:9.5px;background:#fff}
+/* rail, proposed */
+.band{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-left:3px solid var(--c);padding-left:9px;margin:11px 0 3px;position:relative}
+.band::before{content:"";position:absolute;left:-3px;right:0;top:-6px;height:1px;background:#e1e5eb}
+.band .bh{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px;min-height:30px}
+.band .bh .tw{width:12px;color:#66748b;font-size:11px;text-align:center}
+.band .bh b{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.band .bh .w{font-family:var(--f-cond);font-weight:700;font-size:13.5px;font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:4px;border:1px solid transparent}
+.band .bh .w small,.band .bl .w small{font-weight:400;color:#66748b;font-size:10px;margin-left:1px}
+.band .bh .w.hov{border-color:#c3cedb;background:#fff}
+.band .ex{font-size:11px;color:#8a5a00;margin:-4px 0 4px 18px}
+.band .ex.q{color:#66748b}
+.band .bl{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;min-height:27px;padding-left:18px;color:#1c2733}
+.band .bl .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}
+.band .bl .of{font:400 11px/1 var(--f-cond);color:#66748b;white-space:nowrap;font-variant-numeric:tabular-nums}
+.band .bl .w{font-family:var(--f-cond);font-size:12.5px;font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:4px;border:1px solid transparent;min-width:46px;text-align:right}
+.band .bl .w.hov{border-color:#c3cedb;background:#fff}
+.band .bl.ix .nm{font-style:italic;color:#4a5872}
+.band .bl.ix .w{color:#66748b}
+.band .bl .nm .tg{margin-left:6px;vertical-align:1px}
+.band .bl.hl{background:#f1f4f8;border-radius:4px;margin-left:-4px;padding-left:22px}
+/* context bar mock */
+.m-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:9px 12px;background:#fff;border:1px solid #dde4ec;border-radius:8px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.m-bar.flat{border-color:transparent;box-shadow:none;background:transparent;border-bottom:1px solid #dde4ec;border-radius:0;padding:6px 2px 10px}
+.m-ctl{display:flex;align-items:center;gap:7px}
+.m-lab{font:700 10px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:#5a6a82}
+.m-lab.sc{font:500 12px/1 var(--f-body);letter-spacing:0;text-transform:none;color:#66748b}
+.m-seg{display:inline-flex;border:1px solid #c3cedb;border-radius:5px;overflow:hidden;background:#fff}
+.m-seg span{padding:4px 9px;font:600 11.5px/1 var(--f-cond);color:#4a5872}
+.m-seg span+span{border-left:1px solid #c3cedb}
+.m-seg span.on{background:#12233f;color:#fff}
+.m-sel{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border:1px solid #c3cedb;border-radius:5px;background:#fff;color:#14213a;font-size:12px;white-space:nowrap}
+.m-sel::after{content:"";width:6px;height:6px;border-right:1.5px solid #66748b;border-bottom:1.5px solid #66748b;transform:rotate(45deg) translateY(-2px)}
+.m-btn{display:inline-flex;align-items:center;height:26px;padding:0 9px;border:1px solid #c3cedb;border-radius:5px;background:#fff;color:#14213a;font:700 10.5px/1 var(--f-cond);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.m-btn.sc{font:600 12px/1 var(--f-body);letter-spacing:0;text-transform:none}
+.m-btn.pri{background:#1f5fbf;border-color:#1f5fbf;color:#fff}
+.m-btn.ghost{border-color:transparent;color:#5b6b7c}
+.m-sp{flex:1}
+.m-line{font-size:11.5px;color:#4a5872;padding:0 2px}
+.m-line b{color:#14213a}
+/* card head mock */
+.m-card{background:#fff;border:1px solid #dde4ec;border-radius:8px;overflow:hidden}
+.m-card .hd{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #eef1f4}
+.m-card .grip{color:#afbac7;font-size:14px;line-height:1}
+.m-card .t{flex:1;min-width:0}
+.m-card h5{margin:0;font:600 13.5px/1.25 var(--f-body);color:#14213a;display:flex;gap:6px;align-items:center}
+.m-card .sub{font-size:11px;color:#5b6b7c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;border:1px solid #c3cedb;background:#fff;color:#14213a;font:700 10.5px/1 var(--f-cond);letter-spacing:.06em}
+.m-ico{width:24px;height:24px;border-radius:4px;display:grid;place-items:center;color:#5b6b7c;font-size:13px}
+.m-ico.faded{opacity:.25}
+.m-card .bd{padding:8px 10px;display:grid;gap:6px}
+.m-tools{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.m-cols{display:grid;grid-template-columns:1.4fr 1fr 1fr;font-size:11.5px}
+.m-cols div{padding:5px 8px;border-bottom:1px solid #eef1f4}
+.m-cols .h{font:700 11.5px/1.3 var(--f-body);display:grid;gap:2px}
+.m-cols .h small{font:500 9.5px/1.2 var(--f-cond);color:#8494a4;letter-spacing:.04em}
+.m-cols .h.act{box-shadow:inset 0 3px 0 #1f5fbf}
+.m-cols .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+.m-cols .u{font:700 9.5px/1.3 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:#8494a4;text-align:right}
+.m-cols .n{text-align:right;font-family:var(--f-cond);font-variant-numeric:tabular-nums}
+.m-cols .cat{background:#f0f2f5;font-weight:700}
+.m-cols .cat.lite{font-weight:400}
+.m-cols .cat.lite b{font-weight:700}
+.m-foot{font-size:10.5px;color:#5b6b7c;padding:6px 10px;border-top:1px solid #eef1f4;display:flex;gap:12px;flex-wrap:wrap}
+.m-det{font-size:11.5px;color:#4a5872;padding:6px 10px;border-top:1px solid #eef1f4}
+.m-det::before{content:"› ";color:#8494a4}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Portfolio Analytics · design plan · 2 November 2026 · built the same day</div>
+  <h1 style="margin-top:10px">Workspace Clarity Plan</h1>
+  <p class="lede">What to change so the workspace page can be read at a glance and the builder rail can be scanned. Every recommendation is tied to the component and file it lands in, and all of it stays within plain HTML, CSS and JS. The screenshots and line references are from the mockup as it is today.</p>
+</header>
+
+<div class="rule"><div class="eyebrow">Status · built 2 November 2026</div><p>All four phases are in the mockup with the eight defaults below. 104 mockup checks and 36 spec checks pass. Where the build differs from this page: a product’s share of its category shows as a bare figure (“44%”), with “44.4% of Public Equity” in its tooltip, because “of category” cost the name too much width; the rail marks the selected row with its wash only, since a side bar would collide with the category colour; sleeve names in tags are no longer uppercase; the Drivers &amp; differences table moves a product’s type and identifier into a tooltip on its name; and because Headline uses a factor model, the Factor model control shows whenever Headline is in the workspace.</p></div>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#summary">Summary</a><a href="#roles">Who reads it</a><a href="#why">Why it is busy</a><a href="#rules">Rules</a><a href="#styling">1 · Styling</a><a href="#minimum">2 · Minimum</a><a href="#rail">3 · Rail</a><a href="#conflicts">Conflicts</a><a href="#headline">Headline card</a><a href="#phases">Phases</a><a href="#decisions">Decisions</a><a href="#files">Files</a>
+</nav>
+
+<section id="summary">
+  <div class="summary">
+    <div class="eyebrow">Read this first</div>
+    <ol class="moves">
+      <li><span class="c">The page feels busy → one style per job.</span><span class="m">About a dozen different kinds of element share the same uppercase, letter-spaced style: buttons, control labels, tags, table heads, tabs, breadcrumbs, menu heads. Buttons and labels go to sentence case; tags mark exceptions only; card controls, legends and sort glyphs stay quiet until hovered. <b>Mostly CSS, no behaviour change.</b></span></li>
+      <li><span class="c">Too much is visible → say it once, tag the exception.</span><span class="m">On the first screen the basis is stated seven times, “Live” appears seven times and “Editing” three. The context bar becomes the single statement of context, cards state only what they measure, the context line goes, and method notes sit one click away. <b>Small edits in context.js, shell.js, cards.js and ddcard.js.</b></span></li>
+      <li><span class="c">The rail is hard to read → categories become bands, products become lines.</span><span class="m">Category rows get a faint silver rule above them, a colour bar, a bold target and a second line only when something needs attention. Product rows get a plain name, a quiet weight and one fact. The root row, the tools row and the permanent hint go. 21 bordered boxes become plain figures that turn into inputs on hover or focus. <b>builder.js render functions plus the tree CSS.</b></span></li>
+    </ol>
+    <p style="color:var(--ink-2)">One addition: a <b style="color:var(--ink)">Headline</b> card, one row per allocation with four figures, placed first so the answer comes before the table. Eight decisions for you are listed at the <a href="#decisions">end</a>.</p>
+  </div>
+  <div class="figs">
+    <div class="fig"><b>7×</b><span>the basis is stated above the fold</span></div>
+    <div class="fig"><b>7</b><span>“Live” tags on the first screen</span></div>
+    <div class="fig"><b>10</b><span>controls in the context bar; two change nothing in the sample workspace</span></div>
+    <div class="fig"><b>21</b><span>bordered weight boxes in the rail for one allocation</span></div>
+    <div class="fig"><b>~12</b><span>element kinds in the same uppercase style</span></div>
+  </div>
+</section>
+
+<section id="roles">
+  <h2>Who reads this page</h2>
+  <div class="prose">
+    <p>The spec (section 04) names three roles and one principle:</p>
+  </div>
+  <blockquote>Portfolio managers primarily need rapid construction, understandable trade-offs, and stable comparisons. Analysts and researchers need precise assumptions, look-through detail, multi-factor inspection, and inspectable methodology. They use the same interface; the distinction is how far they drill.</blockquote>
+  <div class="roles">
+    <div class="role"><span class="pill keep" style="justify-self:start">PM</span><b>Portfolio manager</b>Builds and edits. Needs the weight, the total, what changed, and the difference against the reference.</div>
+    <div class="role"><span class="pill keep" style="justify-self:start">Analyst</span><b>Investment analyst</b>Look-through, coverage, methodology, factor detail, the data table behind a chart.</div>
+    <div class="role"><span class="pill keep" style="justify-self:start">Researcher</span><b>Researcher</b>Scenarios, assumptions, projections, horizon and band.</div>
+    <div class="role"><span class="pill quiet" style="justify-self:start">Reader · assumed</span><b>Reader</b>Opens a colleague’s workspace to read it, not change it. Needs the headline and the comparison. Not in the spec; see decision 1.</div>
+  </div>
+  <div class="rule"><div class="eyebrow">The rule the calls follow</div><p>The default view is the PM’s and the reader’s view. Analyst and researcher detail is one interaction away, and where someone uses it all day, it can be switched on per workspace and stays on.</p></div>
+</section>
+
+<section id="why">
+  <h2>Why it feels busy</h2>
+  <div class="prose"><p>None of this is a single mistake. Each piece was added for a reason, and together they compete. The specifics, with where they come from:</p></div>
+  <ul class="tight">
+    <li><b>Context is said many times.</b> The basis appears in the context bar (<code>context.js render</code>), again in the context line (<code>renderLine</code>), again in the Drivers &amp; differences subtitle (“Forward-looking · Platform CMA v2026.Q4”), and once more under each of the four column heads as “Platform model” (<code>ddcard.js tableHtml</code>, the <code>gmeta</code> span). Seven statements of one setting.</li>
+    <li><b>Default states are tagged.</b> <code>UI.kindTag</code> (<code>common.js:145</code>) returns a “Live” tag for the default kind, so it appears on every live allocation in the strip, the rail head and the table heads. “Editing” is shown in the rail eyebrow, as a tag on the strip pill (which already has an accent ring) and as a tag on the table column (which already has an accent stripe). The header’s scenario button reads “Base case” when there is no scenario.</li>
+    <li><b>One style does a dozen jobs.</b> <code>.btn</code>, <code>.label</code>, <code>.eyebrow</code>, <code>.tag</code>, <code>.status</code>, <code>.tbl thead th</code>, <code>.rail-tab</code>, <code>.rail-eyebrow</code>, <code>.crumbs a</code>, <code>.act-tabs button</code>, <code>.menu-head</code> and <code>.sleeve-tag</code> all use uppercase letter-spaced condensed type. Every button on the page shouts (ADD ALLOCATION, SNAPSHOT, EXPAND ALL, FIND PRODUCTS), so the style no longer signals anything.</li>
+    <li><b>Controls for things that are not on the page.</b> Horizon and band are read only by the Projections card; the sample workspace has none, so two of the ten context-bar controls change nothing. Period only matters to historical cards. The bar shows everything regardless.</li>
+    <li><b>The same allocations are keyed three times above the fold.</b> The comparison strip, the table column heads and the Cumulative return legend each list the four allocations with their colours, and the Allocations card adds a seven-category legend. Lower down, Active risk adds a fourth set of chips.</li>
+    <li><b>Explanations are permanent.</b> Method notes sit under Drivers &amp; differences (<code>ddcard.js notes</code>, two to four sentences), under most cards (<code>cardtypes.js foot</code>, <code>activecard.js</code>), and under the rail tree (“Weights are % of the total portfolio: type a value and press Enter…”).</li>
+    <li><b>Three levels of box, all bordered.</b> The context bar has a border and shadow; each card has a border and shadow; each control inside them has a border. In the rail, 21 weight inputs are bordered boxes stacked in one column.</li>
+    <li><b>Chrome on every card at rest.</b> Grip, model chip, settings icon and menu icon are always visible (<code>cards.js cardHtml</code>), and card subtitles pack four or five facts into one truncated line.</li>
+    <li><b>In the rail, categories and products share one row template.</b> <code>builder.js renderTree</code> uses one <code>row()</code> for both levels: same 36px height, same subtitle style, same input, same menu. The differences are a 14px indent, an 8px colour square and a chevron, so category boundaries are hard to find.</li>
+  </ul>
+</section>
+
+<section id="rules">
+  <h2>Five rules that generate every call below</h2>
+  <ol class="tight">
+    <li><b>Say it once.</b> A setting is stated where it is set. A card repeats it only when the card departs from it.</li>
+    <li><b>Tag the exception, not the default.</b> Snapshot, Sleeve, Edited, Proxy, Coverage, No benchmark get a tag. Live, Platform model, Base case, Fully allocated do not.</li>
+    <li><b>One style per job.</b> Uppercase tracked type means a column head or a section eyebrow and nothing else. Bold means the figure that answers the question, once per level.</li>
+    <li><b>Quiet until needed.</b> Controls that act on a thing appear when the pointer or focus is on that thing. On touch screens they stay visible.</li>
+    <li><b>Detail scales with space.</b> A wider rail shows identifiers; a taller card shows its notes. Nothing is lost, it is reached.</li>
+  </ol>
+</section>
+
+<section id="styling">
+  <h2>1 · Styling that eases the eye</h2>
+  <div class="prose"><p>These are token and component changes. They alter no behaviour and can ship first. The Proposal Tool vocabulary (<code>.btn</code>, <code>.tag</code>, <code>.tbl</code>) stays; only its loudness changes.</p></div>
+  <div class="tbl-wrap wide"><table>
+    <thead><tr><th>What</th><th>Today</th><th>Change</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td class="el">Type roles</td><td>Uppercase tracked condensed type on ~12 element kinds</td><td>Reserve it for <code>.tbl thead th</code>, <code>.eyebrow</code> and the rail tabs (the chosen rail design). Buttons become sentence case, 13px, weight 600. Control labels become sentence case, 12px, weight 500, grey. Tags keep small caps but lose the letter-spacing.</td><td class="where">components.css .btn .label .tag<br>workspace.css .rail-eyebrow .crumbs</td></tr>
+      <tr><td class="el">Tags</td><td>Every kind and state gets a pill</td><td>Only exceptions get a pill. Neutral grey for a kind (Snapshot, Sleeve), amber for a data caveat (Proxy, Coverage, Edited, No benchmark). <code>tag-ok</code> is no longer used on the page.</td><td class="where">common.js kindTag · components.css .tag-*</td></tr>
+      <tr><td class="el">Boxes</td><td>Bar, cards and controls all bordered and shadowed</td><td>The context bar loses its border and shadow and becomes a toolbar on the canvas with a hairline below. Cards keep the border, drop the shadow. Grid gap 12px → 16px so cards breathe instead of needing a shadow to separate.</td><td class="where">workspace.css .controls · cards.css .card .cards-grid</td></tr>
+      <tr><td class="el">Quiet controls</td><td>Card grip, settings, menu and sort glyphs always drawn</td><td>Hidden at rest, shown on <code>.card:hover</code>, <code>:focus-within</code> and under <code>@media (hover:none)</code>. Same for the sort glyph: shown on the hovered head or the sorted column. The rail row menu already works this way.</td><td class="where">cards.css .card-grip .card-tools · components.css .sortbtn</td></tr>
+      <tr><td class="el">Quiet inputs</td><td>21 bordered weight boxes in one column</td><td>Border and background transparent at rest; the border returns on hover and focus. Still a text input, still Enter to apply, Esc to discard. The pending state keeps its dashed amber border.</td><td class="where">workspace.css .tree-row .tw-input</td></tr>
+      <tr><td class="el">Legends</td><td>Pill buttons with borders on seven cards</td><td>Dot and name as text; the button stays (emphasis toggling is unchanged), with <code>aria-pressed=false</code> shown by dimming.</td><td class="where">workspace.css .viz-legend button</td></tr>
+      <tr><td class="el">Emphasis budget in tables</td><td>Category rows: fill and bold numbers. Selected row: wash and bar. Active column: stripe and tag.</td><td>One device per level. Category rows keep the fill, numbers go regular. Selected row keeps wash and bar (it is the anchor other cards follow). Active column keeps the stripe, loses the tag.</td><td class="where">components.css .tbl tr.cat · ddcard.js tableHtml</td></tr>
+      <tr><td class="el">Rail small type</td><td>Subtitles in condensed type, 11px, letter-spaced</td><td>Body face, 11.5px, no tracking. Condensed plus tracking at that size is the hardest text on the page to read.</td><td class="where">workspace.css .tree-row .tname small</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="minimum">
+  <h2>2 · What stays visible, and what moves one interaction away</h2>
+  <div class="prose"><p>Each row is a call you can agree with or push back on. “Roles” names who depends on the element; where roles disagree the row points to the <a href="#conflicts">conflicts</a> section.</p></div>
+  <div class="key"><span class="pill keep">Keep</span> as is · <span class="pill quiet">Quiet</span> stays visible, loses weight · <span class="pill away">One away</span> behind a hover, a click or a setting · <span class="pill out">Remove</span> gone, with its job covered elsewhere</div>
+  <div class="tbl-wrap wide"><table>
+    <thead><tr><th>Element</th><th>Call</th><th>Why</th><th>Roles</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="5">Workspace header <span>shell.js renderHeader · workspace.css .ws-head</span></td></tr>
+      <tr><td class="el">Workspace name</td><td><span class="pill keep">Keep</span></td><td>Identity.</td><td>All</td><td class="where">#ws-name</td></tr>
+      <tr><td class="el">Base case / scenario button</td><td><span class="pill out">Remove</span></td><td>A second door to the same drawer. The context bar’s Scenarios button already names the active scenario and its override count, and <code>s</code> opens the drawer.</td><td>Researcher loses nothing</td><td class="where">#scenario-btn · shell.js:81</td></tr>
+      <tr><td class="el">Saved 16:41:00</td><td><span class="pill quiet">Quiet</span></td><td>“Saved” with the green dot; the time moves to the tooltip. “Saving…” and “Not saved · Retry” stay exactly as loud as they are.</td><td>PM needs failures visible; nobody needs seconds</td><td class="where">renderSaveStatus · shell.js:124</td></tr>
+      <tr><td class="el">Undo · Redo</td><td><span class="pill keep">Keep</span></td><td>The safety net for typed edits.</td><td>PM</td><td class="where">#undo-btn #redo-btn</td></tr>
+      <tr><td class="el">Add allocation</td><td><span class="pill keep">Keep</span></td><td>The header’s one primary action.</td><td>PM</td><td class="where">#add-alloc</td></tr>
+      <tr><td class="el">Snapshot</td><td><span class="pill away">One away</span></td><td>Already in the ⋮ menu, in each member’s menu and in the rail. Used at review points, not continuously.</td><td>PM at milestones</td><td class="where">#snap-btn · shell.js:83</td></tr>
+      <tr><td class="el">Versions &amp; activity</td><td><span class="pill away">One away</span></td><td>Already in the ⋮ menu.</td><td>Analyst, occasionally</td><td class="where">#history-btn</td></tr>
+      <tr><td class="el">Export</td><td><span class="pill keep">Keep</span></td><td>The reader’s main action.</td><td>Reader</td><td class="where">#export-btn</td></tr>
+
+      <tr class="grp"><td colspan="5">Comparison strip <span>shell.js renderCompare · common.js kindTag</span></td></tr>
+      <tr><td class="el">Member pills with colour dot</td><td><span class="pill keep">Keep</span></td><td>This is the page’s one legend.</td><td>All</td><td class="where">.member</td></tr>
+      <tr><td class="el">Live tag</td><td><span class="pill out">Remove</span></td><td>The default kind. Snapshot and Sleeve tags stay; <code>kindTag</code> returns an empty string for live.</td><td>All</td><td class="where">common.js:145</td></tr>
+      <tr><td class="el">Editing tag</td><td><span class="pill out">Remove</span></td><td>The pill’s accent ring (<code>.member.is-active</code>) and the rail header already say it.</td><td>PM</td><td class="where">shell.js:132</td></tr>
+      <tr><td class="el">“4 of 6”</td><td><span class="pill quiet">Quiet</span></td><td>Shown only at the limit: “6 of 6 · remove one to add”.</td><td>PM</td><td class="where">.compare-note</td></tr>
+
+      <tr class="grp"><td colspan="5">Context bar <span>context.js render · renderLine · workspace.css .controls .context-line</span></td></tr>
+      <tr><td class="el">Basis</td><td><span class="pill keep">Keep</span></td><td>Changes most cards.</td><td>All</td><td class="where">data-cx="basis"</td></tr>
+      <tr><td class="el">Factor model</td><td><span class="pill keep">Keep</span> · conditional</td><td>Shown when at least one card uses a model (<code>PA.cards.usesModel</code>). The pinned-card count moves into this control’s tooltip.</td><td>Analyst</td><td class="where">data-cx="model"</td></tr>
+      <tr><td class="el">Period</td><td><span class="pill keep">Keep</span> · conditional</td><td>Shown when the basis is historical or a historical card is present (<code>types[c.type].basis</code>).</td><td>Analyst, reader</td><td class="where">#cx-period</td></tr>
+      <tr><td class="el">Reference</td><td><span class="pill keep">Keep</span></td><td>“Against what” is part of every difference on the page.</td><td>PM, reader</td><td class="where">#cx-ref #cx-bm</td></tr>
+      <tr><td class="el">Horizon · band</td><td><span class="pill away">One away</span></td><td>Read only by Projections. Shown when that card is in the workspace. In the sample workspace they change nothing today.</td><td>Researcher</td><td class="where">#cx-horizon #cx-band</td></tr>
+      <tr><td class="el">Scenarios</td><td><span class="pill keep">Keep</span></td><td>The single entry point to the drawer. Gains the scope count when a scenario is active: “Rates +100bp · 3 of 4”.</td><td>Researcher</td><td class="where">#cx-scenario</td></tr>
+      <tr><td class="el">Layout menu</td><td><span class="pill away">One away</span></td><td>Into the header ⋮ menu. Used when tidying, not when reading.</td><td>Analyst (data tables)</td><td class="where">#cx-layout → shell.js more-btn</td></tr>
+      <tr><td class="el">Add card</td><td><span class="pill keep">Keep</span></td><td>&nbsp;</td><td>Analyst</td><td class="where">#cx-add</td></tr>
+      <tr><td class="el">Labels (BASIS, PERIOD…)</td><td><span class="pill quiet">Quiet</span></td><td>Sentence case, 12px, grey. The Basis control reads “Forward-looking | Historical” and needs no louder label than that.</td><td>All</td><td class="where">.ctl .label</td></tr>
+      <tr><td class="el">Context line</td><td><span class="pill out">Remove</span></td><td>Restates the bar in words. Its two unique facts move to their owners: pinned-card counts to the model control, scenario scope to the Scenarios button. See conflict 3.</td><td>Reader</td><td class="where">#context-line · renderLine</td></tr>
+
+      <tr class="grp"><td colspan="5">Card chrome, every card <span>cards.js cardHtml · paintChip · cards.css</span></td></tr>
+      <tr><td class="el">Title</td><td><span class="pill keep">Keep</span></td><td>&nbsp;</td><td>All</td><td class="where">.card-title h3</td></tr>
+      <tr><td class="el">Subtitle</td><td><span class="pill quiet">Quiet</span></td><td>Names the measure only: metric, unit, scope (“Return contribution · pp of portfolio return · whole portfolio”). Basis, model, period and scenario appear only when the card departs from the workspace: a pinned model, a followed row, a scenario applied to some columns.</td><td>All</td><td class="where">each type’s subtitle() · cardtypes.js ddcard.js activecard.js</td></tr>
+      <tr><td class="el">Model chip</td><td><span class="pill quiet">Quiet</span></td><td>Shown only when pinned, which is the exception. Pin, Follow and “Compare with…” move to the card menu; the settings popover already has the model select.</td><td>Analyst</td><td class="where">paintChip · modelMenu → cardMenu</td></tr>
+      <tr><td class="el">Grip, settings, menu</td><td><span class="pill quiet">Quiet</span></td><td>Visible on hover or focus; always visible on touch.</td><td>All</td><td class="where">cards.css .card-grip .card-tools</td></tr>
+      <tr><td class="el">Calculating / Failed bar</td><td><span class="pill keep">Keep</span></td><td>An exception, by definition.</td><td>All</td><td class="where">.card-status</td></tr>
+      <tr><td class="el">Legend buttons</td><td><span class="pill quiet">Quiet</span></td><td>Dot and name, no pill. Still toggles emphasis.</td><td>All</td><td class="where">cardtypes.js legend() · .viz-legend</td></tr>
+      <tr><td class="el">Method notes (card-foot, tbl-note)</td><td><span class="pill away">One away</span></td><td>Behind a native <code>&lt;details&gt;</code> at the card foot: “About these figures”. A per-workspace setting opens them all. See conflict 1.</td><td>Analyst</td><td class="where">cardtypes.js foot() · ddcard.js notes() · activecard.js H.foot · new pref showNotes</td></tr>
+      <tr><td class="el">Data table</td><td><span class="pill keep">Keep</span> in menu</td><td>&nbsp;</td><td>Analyst</td><td class="where">cardMenu</td></tr>
+
+      <tr class="grp"><td colspan="5">Drivers &amp; differences <span>ddcard.js toolbar · tableHtml · notes</span></td></tr>
+      <tr><td class="el">Metric · Values</td><td><span class="pill keep">Keep</span></td><td>The two questions the table answers.</td><td>All</td><td class="where">toolbar()</td></tr>
+      <tr><td class="el">Risk units · Scenario columns</td><td><span class="pill keep">Keep</span></td><td>Already conditional on the metric and the scenario.</td><td>Analyst, researcher</td><td class="where">toolbar()</td></tr>
+      <tr><td class="el">Find a row</td><td><span class="pill quiet">Quiet</span></td><td>A search icon that opens the field. Seven categories with four products each rarely need it; thirty rows will.</td><td>Analyst</td><td class="where">.row-search</td></tr>
+      <tr><td class="el">Expand all · Collapse all</td><td><span class="pill away">One away</span></td><td>One chevron in the “Category / product” head cell toggles all. Two uppercase buttons become one glyph.</td><td>All</td><td class="where">data-dd-expand data-dd-collapse → th.rowhead</td></tr>
+      <tr><td class="el">Column meta “Platform model”</td><td><span class="pill quiet">Quiet</span></td><td>Shown only when the columns differ from each other (actual history against backtest, Edited, Coverage). Four identical labels say nothing; one different label says a lot. See conflict 4.</td><td>Analyst</td><td class="where">tableHtml gmeta · col.basisLabel</td></tr>
+      <tr><td class="el">“vs Global 60/40” in Differences</td><td><span class="pill keep">Keep</span></td><td>It is what the numbers mean.</td><td>All</td><td class="where">col.referenceLabel</td></tr>
+      <tr><td class="el">Live and Editing tags in heads</td><td><span class="pill out">Remove</span></td><td>Snapshot and Sleeve stay. The editing column keeps its top stripe.</td><td>&nbsp;</td><td class="where">tableHtml h1</td></tr>
+      <tr><td class="el">Sort glyphs on every column</td><td><span class="pill quiet">Quiet</span></td><td>On hover, or when that column is sorted.</td><td>Analyst</td><td class="where">.sortbtn svg</td></tr>
+      <tr><td class="el">Category rows: fill and bold numbers</td><td><span class="pill quiet">Quiet</span></td><td>Keep the fill, drop bold on the numbers.</td><td>All</td><td class="where">.tbl tr.cat</td></tr>
+      <tr><td class="el">Selected row</td><td><span class="pill keep">Keep</span></td><td>The anchor other cards follow.</td><td>All</td><td class="where">tr.is-selected</td></tr>
+      <tr><td class="el">Notes footer</td><td><span class="pill away">One away</span></td><td>See method notes above.</td><td>Analyst</td><td class="where">notes()</td></tr>
+
+      <tr class="grp"><td colspan="5">Other cards <span>cardtypes.js · viz.js · activecard.js</span></td></tr>
+      <tr><td class="el">Allocations: category legend</td><td><span class="pill quiet">Quiet</span></td><td>Text, not pills. It is the page’s colour key, so it stays.</td><td>All</td><td class="where">cardtypes.js:35</td></tr>
+      <tr><td class="el">Allocations: in-bar values</td><td><span class="pill keep">Keep</span></td><td>They are the data.</td><td>All</td><td class="where">viz.js stackedBars</td></tr>
+      <tr><td class="el">Allocations: “100.0%” on every row</td><td><span class="pill quiet">Quiet</span></td><td>Drawn only when a row is not fully allocated; then it is an exception worth reading.</td><td>PM</td><td class="where">viz.js:115</td></tr>
+      <tr><td class="el">Active risk: reconciliation line</td><td><span class="pill away">One away</span></td><td>The “return = passive + active · risk² = …” line goes into the card’s notes.</td><td>Analyst</td><td class="where">activecard.js .act-eq</td></tr>
+      <tr><td class="el">Active risk: view tabs, focus chips</td><td><span class="pill keep">Keep</span></td><td>They are the card’s navigation.</td><td>All</td><td class="where">.act-tabs .act-chips</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Before and after: the context bar and a card head</h3>
+  <div class="pair">
+    <div class="screen"><div class="cap"><span>Context bar</span><span>Today</span></div><div class="in">
+      <div class="m-bar">
+        <div class="m-ctl"><span class="m-lab">Basis</span><span class="m-seg"><span class="on">Forward-looking</span><span>Historical</span></span></div>
+        <div class="m-ctl"><span class="m-lab">Factor model</span><span class="m-seg"><span class="on">ISG</span><span>Axioma</span></span></div>
+        <div class="m-ctl"><span class="m-lab">Period</span><span class="m-sel">Common history</span></div>
+        <div class="m-ctl"><span class="m-lab">Reference</span><span class="m-sel">Shared benchmark</span><span class="m-sel">Global 60/40</span></div>
+        <div class="m-ctl"><span class="m-lab">Horizon</span><span class="m-sel">10 years</span><span class="m-sel">80% band</span></div>
+        <span class="m-btn">⚗ Scenarios</span><span class="m-sp"></span><span class="m-btn ghost">▦</span><span class="m-btn pri">+ Add card</span>
+      </div>
+      <div class="m-line"><b>4</b> of 6 compared · differences vs <b>Global 60/40</b> &nbsp; <b>Forward-looking</b> cards use Platform CMA v2026.Q4 as of 31 Oct 2026 &nbsp; Period: <b>common history</b> &nbsp; Factor model: <b>ISG</b> for 1 card</div>
+      <div class="note">Two rows of controls, five uppercase labels, then the same facts again as a sentence. Horizon and band change nothing here.</div>
+    </div></div>
+    <div class="screen"><div class="cap"><span>Context bar</span><span>Proposed</span></div><div class="in">
+      <div class="m-bar flat">
+        <div class="m-ctl"><span class="m-lab sc">Basis</span><span class="m-seg"><span class="on">Forward-looking</span><span>Historical</span></span></div>
+        <div class="m-ctl"><span class="m-lab sc">Factor model</span><span class="m-seg"><span class="on">ISG</span><span>Axioma</span></span></div>
+        <div class="m-ctl"><span class="m-lab sc">Period</span><span class="m-sel">Common history</span></div>
+        <div class="m-ctl"><span class="m-lab sc">vs</span><span class="m-sel">Global 60/40</span></div>
+        <span class="m-btn sc">Scenarios</span><span class="m-sp"></span><span class="m-btn sc pri">Add card</span>
+      </div>
+      <div class="note">One row on the canvas, no box around it, no sentence under it. Horizon and band appear when a Projections card is added; the reference mode sits inside the “vs” select’s first group.</div>
+    </div></div>
+  </div>
+  <div class="pair">
+    <div class="screen"><div class="cap"><span>Card head · Drivers &amp; differences</span><span>Today</span></div><div class="in">
+      <div class="m-card">
+        <div class="hd"><span class="grip">⋮⋮</span><div class="t"><h5>Drivers &amp; differences</h5><div class="sub">Forward-looking · Platform CMA v2026.Q4 · Return contribution, pp of portfolio return, annual expected</div></div><span class="m-chip">ISG</span><span class="m-ico">⚙</span><span class="m-ico">⋯</span></div>
+        <div class="bd">
+          <div class="m-tools"><span class="m-lab">Metric</span><span class="m-sel">Return contribution</span><span class="m-lab">Values</span><span class="m-seg"><span class="on">Contributions</span><span>Differences</span></span><span class="m-sel" style="min-width:110px;color:#8494a4">Find a row…</span><span class="m-btn ghost">Expand all</span><span class="m-btn ghost">Collapse all</span></div>
+          <div class="m-cols">
+            <div></div><div class="h act"><span><span class="dot" style="background:#2a78d6"></span>Strategic Core <span class="tg ok">Live</span> <span class="tg warn">Editing</span></span><small>Platform model</small></div><div class="h"><span><span class="dot" style="background:#eb6834"></span>Income Tilt <span class="tg ok">Live</span></span><small>Platform model</small></div>
+            <div class="u" style="text-align:left">Category / product</div><div class="u">pp ⇅</div><div class="u">pp ⇅</div>
+            <div class="cat">Public Equity</div><div class="cat n">3.7</div><div class="cat n">2.5</div>
+            <div style="padding-left:22px">Meridian US Large Cap ETF <small style="color:#8494a4">ETF · MRLC</small></div><div class="n">1.7</div><div class="n">1.3</div>
+          </div>
+        </div>
+        <div class="m-foot"><span>— means unavailable, with a reason on hover or focus. 0 is an observed or calculated zero.</span></div>
+      </div>
+    </div></div>
+    <div class="screen"><div class="cap"><span>Card head · Drivers &amp; differences</span><span>Proposed</span></div><div class="in">
+      <div class="m-card">
+        <div class="hd"><span class="grip" style="opacity:.2">⋮⋮</span><div class="t"><h5>Drivers &amp; differences</h5><div class="sub">Return contribution · pp of portfolio return, annual expected</div></div><span class="m-ico faded">⚙</span><span class="m-ico faded">⋯</span></div>
+        <div class="bd">
+          <div class="m-tools"><span class="m-lab sc">Metric</span><span class="m-sel">Return contribution</span><span class="m-seg"><span class="on">Contributions</span><span>Differences</span></span><span class="m-sp"></span><span class="m-ico">⌕</span></div>
+          <div class="m-cols">
+            <div class="u" style="text-align:left">⌄ Category / product</div><div class="h act"><span><span class="dot" style="background:#2a78d6"></span>Strategic Core</span></div><div class="h"><span><span class="dot" style="background:#eb6834"></span>Income Tilt</span></div>
+            <div></div><div class="u">pp</div><div class="u">pp</div>
+            <div class="cat lite"><b>Public Equity</b></div><div class="cat lite n">3.7</div><div class="cat lite n">2.5</div>
+            <div style="padding-left:22px">Meridian US Large Cap ETF</div><div class="n">1.7</div><div class="n">1.3</div>
+          </div>
+        </div>
+        <div class="m-det">About these figures</div>
+      </div>
+      <div class="note">The chip appears only when pinned. Column meta appears only where columns differ. Notes open on click. The grip and icons appear on hover.</div>
+    </div></div>
+  </div>
+</section>
+
+<section id="rail">
+  <h2>3 · The rail: categories as bands, products as lines</h2>
+  <div class="prose">
+    <p>The tabbed rail and the Split colouring stay. The change is inside the Build tab, where today both levels of the tree come from the same row template (<code>builder.js renderTree</code>, the <code>row()</code> helper at line 161). The proposal gives each level its own shape, so the eye finds a category boundary before it reads a word.</p>
+  </div>
+  <div class="pair">
+    <div class="screen"><div class="cap"><span>Build tab · Income Tilt</span><span>Today</span></div><div class="in">
+      <div class="rail">
+        <div class="hd"><div class="ey"><i></i>Editing</div><div class="nm">Income Tilt <span>⌄</span></div><div class="mt"><span class="tg nv" style="background:#1e3a2a;border-color:#2f5a3f;color:#8fd3a8">Live</span> Current-weight backtest · vs Global 40/60</div></div>
+        <div class="tabs"><span class="on">Build</span><span>Add</span><span>Sleeves</span><span>Check</span></div>
+        <div class="body">
+          <div class="tools">Portfolio <span><span>✓ Select</span><span>Expand</span><span>Collapse</span></span></div>
+          <div class="r root"><div class="l"><span class="tw"></span><div class="n"><b>Income Tilt</b><small>13 products · 7 categories</small></div></div><div class="v"><span class="ro">100.0</span><span class="pc">%</span></div></div>
+          <div class="r c" style="--c:#2a78d6"><div class="l"><span class="tw">⌄</span><span class="sq"></span><div class="n"><b>Public Equity</b><small>3 products · 30.0% implemented</small></div></div><div class="v"><span class="in">30.0</span><span class="pc">%</span></div></div>
+          <div class="r p"><div class="l"><div class="n"><b>Meridian US Large Cap ETF</b><small>ETF · MRLC · 50.0% of Public Equity</small></div></div><div class="v"><span class="in">15.0</span><span class="pc">%</span></div></div>
+          <div class="r p"><div class="l"><div class="n"><b>Northbridge International Equity</b><small>Fund · NBIEX · 33.3% of Public Equity</small></div></div><div class="v"><span class="in">10.0</span><span class="pc">%</span></div></div>
+          <div class="r p"><div class="l"><div class="n"><b>Castellan Emerging Markets Fund</b><small>Fund · CSEMX · 16.7% of Public Equity</small></div></div><div class="v"><span class="in">5.0</span><span class="pc">%</span></div></div>
+          <div class="r c" style="--c:#eda100"><div class="l"><span class="tw">⌄</span><span class="sq"></span><div class="n"><b>Real Assets</b><small>2 products · 8.0% implemented · 2.0% index</small></div></div><div class="v"><span class="in">10.0</span><span class="pc">%</span></div></div>
+          <div class="r p"><div class="l"><div class="n"><b>Harborview Core Real Estate</b><small>Fund · HCRE · 60.0% of Real Assets</small></div></div><div class="v"><span class="in">6.0</span><span class="pc">%</span></div></div>
+          <div class="r p"><div class="l"><div class="n"><b>Greystone Infrastructure Partners<span class="cov"></span></b><small>Fund · GIP · 20.0% of Real Assets</small></div></div><div class="v"><span class="in">2.0</span><span class="pc">%</span></div></div>
+          <div class="r p ix"><div class="l"><div class="n"><b>Real Assets Index</b><small>unimplemented remainder · idx_re 45%, idx_infra 35%, idx_cmd…</small></div></div><div class="v"><span class="ro">2.0</span><span class="pc">%</span></div></div>
+          <div class="r c" style="--c:#8bd0b0"><div class="l"><span class="tw">›</span><span class="sq"></span><div class="n"><b>Other Fixed Income</b><small>2 products · 13.0% implemented</small></div></div><div class="v"><span class="in">13.0</span><span class="pc">%</span></div></div>
+          <div class="hint">Weights are % of the total portfolio: type a value and press <kbd>Enter</kbd> to apply it and recalculate; <kbd>Esc</kbd> discards it. A category’s target is modelled by its index until products implement it.</div>
+        </div>
+        <div class="foot"><div class="bar"><i style="width:30%;background:#2a78d6"></i><i style="width:27%;background:#1baf7a"></i><i style="width:13%;background:#8bd0b0"></i><i style="width:5%;background:#e87ba4"></i><i style="width:10%;background:#4a3aa7"></i><i style="width:10%;background:#eda100"></i><i style="width:5%;background:#9aa7b6"></i></div><div class="row"><span>Allocated <b>100.0%</b></span><span>Fully allocated</span></div></div>
+      </div>
+    </div></div>
+    <div class="screen"><div class="cap"><span>Build tab · Income Tilt</span><span>Proposed</span></div><div class="in">
+      <div class="rail">
+        <div class="hd"><div class="ey"><i></i>Editing</div><div class="nm">Income Tilt <span>⌄ &nbsp; ⋮</span></div><div class="mt">Backtest · vs Global 40/60</div></div>
+        <div class="tabs"><span class="on">Build</span><span>Add</span><span>Sleeves</span><span>Check</span></div>
+        <div class="body">
+          <div class="band" style="--c:#2a78d6">
+            <div class="bh"><span class="tw">⌄</span><b>Public Equity</b><span class="w">30.0<small>%</small></span></div>
+            <div class="bl"><span class="nm">Meridian US Large Cap ETF</span><span class="of">50% of category</span><span class="w">15.0</span></div>
+            <div class="bl hl"><span class="nm">Northbridge International Equity</span><span class="of">33%</span><span class="w hov">10.0</span></div>
+            <div class="bl"><span class="nm">Castellan Emerging Markets Fund</span><span class="of">17%</span><span class="w">5.0</span></div>
+          </div>
+          <div class="band" style="--c:#eda100">
+            <div class="bh"><span class="tw">⌄</span><b>Real Assets</b><span class="w">10.0<small>%</small></span></div>
+            <div class="ex">2% at index level</div>
+            <div class="bl"><span class="nm">Harborview Core Real Estate</span><span class="of">60%</span><span class="w">6.0</span></div>
+            <div class="bl"><span class="nm">Greystone Infrastructure Partners<span class="cov"></span></span><span class="of">20%</span><span class="w">2.0</span></div>
+            <div class="bl ix"><span class="nm">Real Assets Index</span><span class="of">remainder</span><span class="w">2.0</span></div>
+          </div>
+          <div class="band" style="--c:#8bd0b0">
+            <div class="bh"><span class="tw">›</span><b>Other Fixed Income</b><span class="w">13.0<small>%</small></span></div>
+            <div class="ex q">2 products</div>
+          </div>
+          <div class="band" style="--c:#e87ba4">
+            <div class="bh"><span class="tw">›</span><b>Hedge Funds</b><span class="w">5.0<small>%</small></span></div>
+            <div class="ex q">1 product</div>
+          </div>
+        </div>
+        <div class="foot"><div class="bar"><i style="width:30%;background:#2a78d6"></i><i style="width:27%;background:#1baf7a"></i><i style="width:13%;background:#8bd0b0"></i><i style="width:5%;background:#e87ba4"></i><i style="width:10%;background:#4a3aa7"></i><i style="width:8%;background:#eda100"></i><i style="width:2%;background:repeating-linear-gradient(135deg,#eda100 0 2px,#fff 2px 4px)"></i><i style="width:5%;background:#9aa7b6"></i></div><div class="row"><span>Allocated <b>100.0%</b></span></div></div>
+      </div>
+      <div class="note">The second product row shows the hover state: the weight becomes a bordered input only under the pointer or focus. Typed-only editing, Enter and Esc are unchanged.</div>
+    </div></div>
+  </div>
+
+  <div class="tbl-wrap wide"><table>
+    <thead><tr><th>Element</th><th>Call</th><th>Why</th><th>Roles</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="5">Header <span>builder.js renderHead · workspace.css .rail-head</span></td></tr>
+      <tr><td class="el">Editing eyebrow, name select</td><td><span class="pill keep">Keep</span></td><td>The rail’s purpose, stated once.</td><td>All</td><td class="where">.rh-eyebrow #active-pick</td></tr>
+      <tr><td class="el">Live tag</td><td><span class="pill out">Remove</span></td><td>Default kind. Snapshot and Sleeve tags stay.</td><td>&nbsp;</td><td class="where">kindTag</td></tr>
+      <tr><td class="el">History basis text</td><td><span class="pill quiet">Quiet</span></td><td>One word, only when it is an exception: “Backtest” or “Edited”. Actual history says nothing.</td><td>Analyst</td><td class="where">E.historyBasis · .active-meta</td></tr>
+      <tr><td class="el">Benchmark · No benchmark</td><td><span class="pill keep">Keep</span></td><td>What differences mean; the missing case is a warning.</td><td>PM</td><td class="where">.active-meta</td></tr>
+      <tr><td class="el">⋮ beside the name <span class="pill add">New</span></td><td><span class="pill away">One away</span></td><td>Takes the root row’s menu (Rename, Assign benchmark, Snapshot, Show total in table) and the tools row (Select products, Expand all, Collapse all).</td><td>PM</td><td class="where">rowMenu kind 'root' → renderHead</td></tr>
+      <tr class="grp"><td colspan="5">Build tab <span>builder.js renderTree · renderFoot · workspace.css .tree-row · cards.css builder additions</span></td></tr>
+      <tr><td class="el">“Portfolio” eyebrow + Select / Expand / Collapse</td><td><span class="pill away">One away</span></td><td>Into the header ⋮. The panel then starts with the first category.</td><td>PM</td><td class="where">.rail-sec-head #tree-select #tree-expand #tree-collapse</td></tr>
+      <tr><td class="el">Root row</td><td><span class="pill out">Remove</span></td><td>The name is in the header, the total in the footer, the menu moves up.</td><td>&nbsp;</td><td class="where">.tree-row.is-root</td></tr>
+      <tr><td class="el">Category row</td><td><span class="pill keep">Keep</span> · restyled</td><td>A band: a faint silver-grey hairline above the category name, spanning the rail’s width, so each group starts at a visible line; a 3px bar in the category colour down the left of the whole group, products included; name at 600; target bold at 13.5px. The 8px colour square goes. Second line only when something needs attention (“2% at index level”, “over by 1%”) or, when collapsed, the product count.</td><td>All</td><td class="where">row() depth 0 · .tree li.depth-0 · --cat</td></tr>
+      <tr><td class="el">Product row</td><td><span class="pill keep">Keep</span> · restyled</td><td>Plain name at 400, 27px tall, indented under the bar; quiet weight; one fact to the left of the weight: the share of its category, which the spec confirms as essential. Type and identifier show when the rail is 420px or wider, and always in Inspect and in the Add tab’s results. See conflict 2.</td><td>PM, analyst</td><td class="where">row() depth 1 · initResize sets .is-wide</td></tr>
+      <tr><td class="el">Index remainder row</td><td><span class="pill keep">Keep</span></td><td>An exception. Italic, hatched, read-only, as now; the subtitle shortens to “remainder”, with the basket in the tooltip.</td><td>Analyst</td><td class="where">.tree-row.is-index</td></tr>
+      <tr><td class="el">Proxy dot</td><td><span class="pill keep">Keep</span></td><td>An exception.</td><td>Analyst</td><td class="where">.tree .cov</td></tr>
+      <tr><td class="el">Weight inputs</td><td><span class="pill quiet">Quiet</span></td><td>Bordered only on hover, focus or when pending.</td><td>PM edits, others read</td><td class="where">.tw-input</td></tr>
+      <tr><td class="el">Pending banner</td><td><span class="pill keep">Keep</span></td><td>An exception, and it already carries the Enter / Esc instruction.</td><td>PM</td><td class="where">#tree-pending</td></tr>
+      <tr><td class="el">Hint under the tree</td><td><span class="pill out">Remove</span></td><td>The pending banner says it when it matters; the input’s label says it to screen readers.</td><td>&nbsp;</td><td class="where">renderTree, the .field-hint</td></tr>
+      <tr><td class="el">Footer bar, Allocated</td><td><span class="pill keep">Keep</span></td><td>Drop “Fully allocated”; the exception text (“3% unallocated”, “Borrowing 2%”) stays.</td><td>PM</td><td class="where">renderFoot</td></tr>
+      <tr><td class="el">Check tab</td><td><span class="pill keep">Keep</span></td><td>Already exception-only, with the count on the tab.</td><td>All</td><td class="where">renderCheck</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p><b>How the band is built.</b> <code>li.depth-0</code> already carries <code>--cat</code>; the band is a <code>border-left:3px solid var(--cat)</code> on that <code>li</code> with left padding, so products inherit the bar without any markup change. The separator is a 1px <code>border-top</code> on the same <code>li</code> in a new token <code>--rail-sep</code> (a faint silver, about <code>#E1E5EB</code> on the white panel, defined in the Split block beside <code>--rail-line</code>), with 6px of space above the category name; it is a rule, not a box, so it adds a division without adding weight. The quiet input is <code>.tw-input{border-color:transparent;background:transparent}</code> with the border restored on <code>:hover</code>, <code>:focus</code> and <code>.is-pending</code>. The wide-rail rule is one class: <code>initResize</code> already clamps the width in <code>apply(w)</code>; it adds <code>rail.classList.toggle('is-wide', w &gt;= 420)</code> and the CSS shows <code>.tname .ident</code> only under <code>.rail.is-wide</code>. Keyboard navigation in <code>wire()</code> is untouched.</p>
+  </div>
+</section>
+
+<section id="conflicts">
+  <h2>Where roles disagree, and the resolution</h2>
+  <div class="cards">
+    <div class="card"><div class="q">1 · Method notes under cards</div><div class="d">Analysts read them; PMs and readers scroll past them. <b>Resolution:</b> notes sit behind an “About these figures” <code>&lt;details&gt;</code> at the card foot, closed by default. A per-workspace preference, <code>prefs.showNotes</code>, opens every card’s notes and stays on; it lives in the header ⋮ menu as “Show method notes” and goes through <code>S.setPref</code> like Basis, saved and not undoable.</div></div>
+    <div class="card"><div class="q">2 · Identifiers in the rail</div><div class="d">Analysts scan tickers; PMs scan names and weights, and at 360px the ticker line already truncates the fact that matters. <b>Resolution:</b> the share of category is always shown; type and identifier appear when the rail is dragged to 420px or wider, in the row’s Inspect dialog, and in the Add tab’s search results. Nobody loses the information; the default width spends its pixels on names.</div></div>
+    <div class="card"><div class="q">3 · The context in words</div><div class="d">The spec asks for a context line that states the comparison in words, which suits a reader. Everyone else reads the bar. <b>Resolution:</b> remove the line. A quiet one-row bar with sentence-case labels reads as the sentence (“Forward-looking · ISG · Common history · vs Global 60/40”). If the reader role is confirmed, the export dialog gets the sentence as the cover line instead, where a reader actually needs it. The spec’s card-area requirement is updated to match.</div></div>
+    <div class="card"><div class="q">4 · Per-column basis labels in the table</div><div class="d">Analysts need to know a column is a backtest or has been edited; PMs want clean heads. <b>Resolution:</b> exception-only. The label is drawn when the columns differ from each other or a column is Edited or has a coverage caveat. On the forward basis with four platform-model columns, nothing is drawn; on the historical basis, “Actual history” against “Backtest” is drawn because it differs.</div></div>
+    <div class="card"><div class="q">5 · Horizon and band</div><div class="d">Researchers want them to hand; nobody else touches them. <b>Resolution:</b> they appear in the bar when a Projections card is in the workspace, and disappear when it is removed. The Projections card’s own subtitle keeps stating them.</div></div>
+    <div class="card"><div class="q">6 · Snapshot in the header</div><div class="d">PMs take snapshots at review points. <b>Resolution:</b> it moves into the ⋮ menu, the strip member menu and the rail menu, all of which already have it. If this proves too hidden, the fallback is a keyboard shortcut listed in the shortcuts dialog.</div></div>
+  </div>
+</section>
+
+<section id="headline">
+  <h2>The one addition: a Headline card</h2>
+  <div class="prose">
+    <p>Removing noise helps the eye find things; it does not put the answer first. Today the first card is the Drivers &amp; differences table, nine rows tall, which is an analyst’s instrument. A PM or reader glancing at the page wants one line per allocation.</p>
+    <p><b>Headline</b> is a card type in the catalogue (<code>cardtypes.js</code>), 12 columns by 4 rows, one row per compared allocation: expected return, risk, active return and tracking error against the reference, and the allocated total. It reuses the <code>activeAnalysis</code> request that the Active risk &amp; return card already makes, so no new API method is needed; on the historical basis the same request returns realised figures. The sample workspace places it first, with the table second. It follows the context bar and has no settings of its own.</p>
+    <p>This is optional and is decision 6. Without it, the plan still removes the noise; with it, the page answers the question before it shows the working.</p>
+  </div>
+</section>
+
+<section id="phases">
+  <h2>Phases</h2>
+  <div class="phases">
+    <div class="phase"><span class="n">1</span><h3>Quiet the chrome</h3><p>Type roles, exception-only tag styles, boxes, quiet controls and inputs, legends as text, the emphasis budget, rail small type. Pure CSS in <code>components.css</code>, <code>workspace.css</code> and <code>cards.css</code>, plus the <code>kindTag</code> change. No behaviour changes, so the existing 89 checks should still pass.</p><span class="meta">Size: small. Touches no JS beyond one function.</span><span class="checks">Checks: <code>verify-workspace.mjs</code> still green; screenshots regenerated; no element on the workspace screen with <code>.tag-ok</code>; computed border of a resting <code>.tw-input</code> is transparent.</span></div>
+    <div class="phase"><span class="n">2</span><h3>Say it once</h3><p>Header: scenario button, Snapshot and history into the ⋮ menu, save time into the tooltip. Strip: no Editing tag, “n of 6” only at the limit. Context bar: conditional controls, labels in sentence case, context line removed, scope count on Scenarios. Cards: subtitles name the measure, chip only when pinned, pin and compare in the card menu. Table: exception-only column meta, head tags removed, expand/collapse on the head cell, search as an icon.</p><span class="meta">Size: medium. <code>shell.js</code>, <code>context.js</code>, <code>cards.js</code>, <code>ddcard.js</code>, each type’s <code>subtitle()</code>.</span><span class="checks">Checks: <code>#context-line</code> absent; <code>#cx-horizon</code> absent in the review workspace and present in the glidepath workspace (it has a Projections card); the model chip hidden until a card is pinned; the factor-model and compare steps rewritten to use the card menu.</span></div>
+    <div class="phase"><span class="n">3</span><h3>The rail</h3><p>Bands and lines in <code>renderTree</code>; root row removed and its menu moved to a ⋮ in <code>renderHead</code>; tools row removed; exception-only category subtitles; one-fact product rows with identifiers on a wide rail; hint removed; footer exception-only.</p><span class="meta">Size: medium. <code>builder.js</code> render functions, the tree CSS in <code>workspace.css</code> and <code>cards.css</code>. Keyboard handling in <code>wire()</code> and the typed-weight flow are unchanged.</span><span class="checks">Checks: first <code>.tree-row</code> in the Build tab is a category; no <code>.is-root</code> row; typed weight, Enter, Esc, arrows and the pending banner pass as today; <code>.is-wide</code> set after resizing past 420px and identifiers visible; phone screenshot refreshed.</span></div>
+    <div class="phase"><span class="n">4</span><h3>One away, and the Headline card</h3><p>Method notes behind <code>&lt;details&gt;</code> with the <code>showNotes</code> preference; the reconciliation line into the notes; the Headline card type and its place in the sample workspace; README, the spec sections for the rail, the context bar and the catalogue, and the spec screenshots.</p><span class="meta">Size: medium. <code>cardtypes.js</code>, <code>ddcard.js</code>, <code>activecard.js</code>, <code>state.js</code> (no change needed for a new pref key), <code>data/workspaces.js</code>, <code>spec/</code>.</span><span class="checks">Checks: notes closed by default and open with the preference; catalogue count 16; <code>spec/verify-document.mjs</code> green after <code>build-document.mjs</code>.</span></div>
+  </div>
+  <div class="prose"><p>Order matters only for the first phase, which should land alone so that the before-and-after is a styling comparison with nothing else moving. Phases 2 to 4 can go in any order. Each phase ends with <code>node workspace/verify-workspace.mjs</code>, then the spec rebuild, as CLAUDE.md requires.</p></div>
+</section>
+
+<section id="decisions">
+  <h2>Decisions for you</h2>
+  <div class="cards">
+    <div class="card"><div class="q">1 · The reader role</div><div class="d">I have assumed a fourth role who opens a workspace to read it. It only changes two calls: the export cover line (conflict 3) and the Headline card. <b>Confirm or strike.</b></div></div>
+    <div class="card"><div class="q">2 · Buttons in sentence case</div><div class="d">This departs from the Proposal Tool’s uppercase buttons, which the tokens were copied from. The two products would still share colour, type and components, but not the button case. <b>Default: sentence case here; the Proposal Tool is untouched.</b></div></div>
+    <div class="card"><div class="q">3 · Remove the context line</div><div class="d">The spec names it. Removing it means a spec change in the card-area requirement. <b>Default: remove it.</b></div></div>
+    <div class="card"><div class="q">4 · Method notes closed by default</div><div class="d">Analysts opt in per workspace with “Show method notes”. The alternative is open by default with a “Hide notes” switch, which keeps today’s page. <b>Default: closed.</b></div></div>
+    <div class="card"><div class="q">5 · No Live tag, Editing shown once</div><div class="d">Live allocations are unmarked; Snapshot and Sleeve keep their tags. “Editing” is the rail’s eyebrow and the accent ring on the strip pill, nowhere else. <b>Default: yes.</b></div></div>
+    <div class="card"><div class="q">6 · Add the Headline card and place it first</div><div class="d">One new card type; the sample workspace reorders so it sits above the table. <b>Default: add it.</b></div></div>
+    <div class="card"><div class="q">7 · Identifiers only on a wide rail</div><div class="d">Below 420px a product row shows name, share of category and weight. Type and identifier need the rail widened, or Inspect. <b>Default: yes.</b> The alternative is a rail setting “Show identifiers”, which adds a control to remove a line.</div></div>
+    <div class="card"><div class="q">8 · Horizon and band only with a Projections card</div><div class="d">They disappear from the bar when no card reads them. <b>Default: yes.</b></div></div>
+  </div>
+</section>
+
+<section id="files">
+  <h2>Where each change lands</h2>
+  <details>
+    <summary>File by file <span>· the functions and selectors each phase touches</span></summary>
+    <div class="in">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>File</th><th>What changes</th><th>Phase</th></tr></thead>
+        <tbody>
+          <tr><td class="where">css/components.css</td><td><code>.btn</code> case and size; <code>.label</code>; <code>.tag</code> tracking and the <code>tag-ok</code> retirement; <code>.sortbtn svg</code> hover rule; <code>.tbl tr.cat</code> numbers regular; <code>.viz-legend</code> lives in workspace.css</td><td>1</td></tr>
+          <tr><td class="where">css/workspace.css</td><td><code>.controls</code> flat; <code>.context-line</code> removed; <code>.viz-legend button</code> as text; tree rules: <code>.tree-row</code>, <code>.tw-input</code> quiet, <code>.tname small</code> face, depth-1 row height, <code>.rail.is-wide .ident</code>; <code>.rail-foot</code> unchanged</td><td>1, 3</td></tr>
+          <tr><td class="where">css/cards.css</td><td><code>.cards-grid</code> gap; <code>.card</code> shadow; <code>.card-grip</code> and <code>.card-tools</code> hover rules with the <code>hover:none</code> exception; <code>.tree li.depth-0</code> band instead of the square, with the <code>--rail-sep</code> hairline as its top border; <code>.tree-row.is-root</code> removed; <code>.card-notes</code> details styling</td><td>1, 3, 4</td></tr>
+          <tr><td class="where">css/tokens.css</td><td>One new token, <code>--rail-sep</code>, for the silver separator above each category: navy default in <code>:root</code>, about <code>#E1E5EB</code> in the Split block in workspace.css. If the band bar wants a softer tint, a second token <code>--rail-band</code>.</td><td>3</td></tr>
+          <tr><td class="where">js/ui/common.js</td><td><code>UI.kindTag</code> returns '' for live</td><td>1</td></tr>
+          <tr><td class="where">js/ui/shell.js</td><td><code>renderHeader</code>: drop <code>#scenario-btn</code>, <code>#snap-btn</code>, <code>#history-btn</code>; ⋮ gains Layout items and “Show method notes”; <code>renderSaveStatus</code> time to tooltip; <code>renderCompare</code>: no Editing tag, note only at six</td><td>2</td></tr>
+          <tr><td class="where">js/ui/context.js</td><td><code>render</code>: conditional Factor model, Period, Horizon/band; Scenarios label with scope; Layout button removed; <code>renderLine</code> removed, its PSD warning kept in <code>notices</code></td><td>2</td></tr>
+          <tr><td class="where">js/ui/cards.js</td><td><code>cardHtml</code>: chip hidden unless pinned; <code>cardMenu</code> gains Factor model items and Compare with; <code>settingsBody</code> unchanged; a shared <code>C.notes(html)</code> helper that wraps notes in <code>&lt;details&gt;</code> honouring <code>prefs.showNotes</code></td><td>2, 4</td></tr>
+          <tr><td class="where">js/ui/cardtypes.js</td><td>Every <code>subtitle()</code> names the measure only; <code>foot()</code> delegates to <code>C.notes</code>; <code>legend()</code> markup; the Headline card type</td><td>2, 4</td></tr>
+          <tr><td class="where">js/ui/ddcard.js</td><td><code>toolbar</code>: search icon, expand/collapse moved to the head cell; <code>tableHtml</code>: exception-only <code>gmeta</code>, no kind or Editing tags; <code>notes()</code> through <code>C.notes</code></td><td>2, 4</td></tr>
+          <tr><td class="where">js/ui/activecard.js</td><td><code>subtitle</code>; <code>.act-eq</code> lines into notes</td><td>2, 4</td></tr>
+          <tr><td class="where">js/ui/builder.js</td><td><code>renderHead</code>: ⋮ with the root and tools items, exception-only meta; <code>renderTree</code>: no root row, no tools row, band and line templates, exception-only subtitles, <code>.ident</code> span, no hint; <code>renderFoot</code>: exception text only; <code>initResize</code>: <code>is-wide</code></td><td>3</td></tr>
+          <tr><td class="where">js/ui/viz.js</td><td><code>stackedBars</code>: row total only when not 100</td><td>2</td></tr>
+          <tr><td class="where">js/state.js</td><td>Nothing: <code>S.setPref('showNotes', …)</code> works as is</td><td>4</td></tr>
+          <tr><td class="where">data/workspaces.js</td><td><code>prefs()</code> default <code>showNotes:false</code>; review workspace gains the Headline card at (0,0,12,4) and the others move down</td><td>4</td></tr>
+          <tr><td class="where">verify-workspace.mjs</td><td>Steps listed under each phase; card counts; catalogue 16</td><td>1–4</td></tr>
+          <tr><td class="where">README.md · spec/</td><td>Rail and card-area sections, the catalogue table, captions, screenshots</td><td>4</td></tr>
+        </tbody>
+      </table></div>
+      <p>Nothing here needs a library, a build step or a framework. The only new HTML element is <code>&lt;details&gt;</code>; the only new preference key is <code>showNotes</code>; the only new card type is Headline.</p>
+    </div>
+  </details>
+  <details>
+    <summary>What this plan does not change <span>· so the scope is clear</span></summary>
+    <div class="in">
+      <ul class="tight">
+        <li>The tabbed rail (option 4) and the Split colouring (option 9) stay as chosen.</li>
+        <li>Typed-only weights, Enter to apply, Esc to discard, the pending banner and arrow-key movement are untouched.</li>
+        <li>The card grid, drag and resize, the card repository, the sleeve repository, the scenario drawer and the dialogs are untouched.</li>
+        <li>The factor-model switch, pinning and Compare with keep their behaviour; only where they are reached from changes.</li>
+        <li>No engine, API or data-shape change, apart from one optional preference key.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+</div>
+</body>
+</html>

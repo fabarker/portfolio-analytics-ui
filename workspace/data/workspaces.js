@@ -49,8 +49,8 @@
     return pairs.map(function (p, i) { var h = { id: 'h' + (i + 1) + '_' + p[0], instrumentId: p[0], weight: p[1] }; if (p[2]) h.sleeveRef = p[2]; return h; });
   };
   var prefs = function (over) {
-    var p = { basis: 'forward', period: { preset: 'common', start: null, end: null }, horizon: 10, confidence: 0.8,
-      expanded: ['public_equity'], selectedRow: 'public_equity', emphasis: [], railWidth: 360, drawerWidth: 460, railCollapsed: false, factorModel: 'isg' };
+    var p = { period: { preset: 'common', start: null, end: null }, horizon: 10, confidence: 0.8,
+      expanded: ['public_equity'], selectedRow: 'public_equity', emphasis: [], railWidth: 360, drawerWidth: 460, railCollapsed: false, factorModel: 'isg', showNotes: false };
     for (var k in over) p[k] = over[k];
     return p;
   };
@@ -97,12 +97,13 @@
     ],
     activeScenarioId: null,
     cards: [
-      card('c1', 'drivers-differences', 0, 0, 12, 9, { metric: 'return', values: 'absolute', riskUnits: 'share', factors: ['equity', 'rates', 'credit'], scenarioView: 'delta' }),
-      card('c2', 'allocations', 0, 9, 6, 6, { view: 'bars' }),
-      card('c3', 'cumulative-return', 6, 9, 6, 6, { scope: 'portfolio' }),
-      card('c4', 'drawdowns', 0, 15, 6, 6, { count: 5 }),
-      card('c5', 'summary-stats', 6, 15, 6, 6, {}),
-      card('c6', 'active-risk', 0, 21, 12, 8, { against: 'reference', decompose: 'factor', view: 'summary' })
+      card('c0', 'headline', 0, 0, 12, 5, {}),
+      card('c1', 'drivers-differences', 0, 5, 12, 9, { basis: 'forward', metric: 'return', values: 'absolute', riskUnits: 'share', factors: ['equity', 'term', 'fx'], scenarioView: 'delta' }),
+      card('c2', 'allocations', 0, 14, 6, 6, { view: 'bars' }),
+      card('c3', 'cumulative-return', 6, 14, 6, 6, { scope: 'portfolio' }),
+      card('c4', 'drawdowns', 0, 20, 6, 6, { count: 5 }),
+      card('c5', 'summary-stats', 6, 20, 6, 6, {}),
+      card('c6', 'active-risk', 0, 26, 12, 8, { basis: 'forward', against: 'reference', decompose: 'factor', view: 'summary' })
     ],
     prefs: prefs({ emphasis: ['al_core', 'al_income'] }),
     activity: [
@@ -132,7 +133,7 @@
     ],
     comparison: { members: ['al_endow_a', 'al_endow_b'], activeId: 'al_endow_a', referenceMode: 'shared', sharedBenchmarkId: 'bm_endow', referencePortfolioId: null },
     scenarios: [], activeScenarioId: null,
-    cards: [card('c1', 'allocations', 0, 0, 6, 6, { view: 'bars' }), card('c2', 'summary-stats', 6, 0, 6, 6, {}), card('c3', 'drivers-differences', 0, 6, 12, 8, { metric: 'risk', values: 'absolute', riskUnits: 'share', factors: ['equity', 'rates', 'credit'], scenarioView: 'delta' })],
+    cards: [card('c1', 'allocations', 0, 0, 6, 6, { view: 'bars' }), card('c2', 'summary-stats', 6, 0, 6, 6, {}), card('c3', 'drivers-differences', 0, 6, 12, 8, { metric: 'risk', values: 'absolute', riskUnits: 'share', factors: ['equity', 'term', 'fx'], scenarioView: 'delta' })],
     prefs: prefs({ emphasis: ['al_endow_a', 'al_endow_b'] }),
     activity: [{ at: '2026-08-02T10:00:00Z', type: 'create', label: 'Workspace created' }]
   };
@@ -153,7 +154,7 @@
     comparison: { members: ['al_g1', 'al_g2', 'al_g3'], activeId: 'al_g2', referenceMode: 'individual', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
     scenarios: [], activeScenarioId: null,
     cards: [card('c1', 'cumulative-return', 0, 0, 8, 6, { scope: 'portfolio' }), card('c2', 'stress-periods', 8, 0, 4, 6, {}), card('c3', 'projections', 0, 6, 12, 6, {}, true), card('c4', 'calendar-years', 0, 12, 12, 5, {})],
-    prefs: prefs({ emphasis: ['al_g1', 'al_g2', 'al_g3'], basis: 'historical' }),
+    prefs: prefs({ emphasis: ['al_g1', 'al_g2', 'al_g3'] }),
     activity: [{ at: '2026-06-11T08:30:00Z', type: 'create', label: 'Workspace created' }]
   };
 

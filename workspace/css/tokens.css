@@ -102,6 +102,9 @@
   --rail-stag-line:#6b561c;
   --rail-stag-ink:#F3C46B;
   --rail-scroll:#3A5075;
+  --rail-sep:#2A3F63;             /* the rule above each category (silver on the white panel) */
+  --rail-guide:#3A5078;           /* elbow guides from a category to its products (grey on the white panel) */
+  --rail-qa-line:#3A5078;         /* quick-add + outline on hover */
 
   /* charts */
   --viz-axis:#C3CDD8;

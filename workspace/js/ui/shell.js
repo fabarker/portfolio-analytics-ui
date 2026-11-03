@@ -1,6 +1,7 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · shell
-   hash routing (workspaces, a workspace, the sleeve repository), the context
+   hash routing (workspaces, a workspace, the sleeve repository, the
+   benchmark library), the context
    header, the comparison strip, keyboard shortcuts and the demo switches
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
@@ -15,9 +16,10 @@
     var h = location.hash || '#/', m;
     if ((m = h.match(/^#\/w\/([^/]+)/))) openWorkspace(decodeURIComponent(m[1]));
     else if ((m = h.match(/^#\/sleeves(?:\/([^/]+))?/))) showRepo(m[1] ? decodeURIComponent(m[1]) : null);
+    else if ((m = h.match(/^#\/benchmarks(?:\/([^/]+))?/))) showBench(m[1] ? decodeURIComponent(m[1]) : null);
     else showHome();
   }
-  function showView(name) { els.home.hidden = name !== 'home'; els.ws.hidden = name !== 'ws'; els.repo.hidden = name !== 'repo'; }
+  function showView(name) { els.home.hidden = name !== 'home'; els.ws.hidden = name !== 'ws'; els.repo.hidden = name !== 'repo'; els.bench.hidden = name !== 'bench'; }
 
   /* ── home ────────────────────────────────────────────────────────── */
   var homeFilter = '', cardData = null;
@@ -26,7 +28,7 @@
     showView('home');
     document.title = 'Portfolio Analytics · Workspaces';
     els.home.innerHTML = '<header class="topbar"><a class="wordmark" href="#/"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></a><span class="spacer"></span>' +
-      '<a class="btn btn-ghost btn-sm" href="#/sleeves">' + I.layers + '<span>Sleeve repository</span></a><button type="button" class="btn btn-ghost btn-sm" id="home-demo" aria-haspopup="menu" aria-expanded="false">' + I.sliders + '<span>Demo</span></button><span class="user"><span class="avatar" aria-hidden="true">FB</span><span>F. Barker</span></span></header>' +
+      '<a class="btn btn-ghost btn-sm" href="#/sleeves">' + I.layers + '<span>Sleeve repository</span></a><a class="btn btn-ghost btn-sm" href="#/benchmarks">' + I.chart + '<span>Benchmark library</span></a><button type="button" class="btn btn-ghost btn-sm" id="home-demo" aria-haspopup="menu" aria-expanded="false">' + I.sliders + '<span>Demo</span></button><span class="user"><span class="avatar" aria-hidden="true">FB</span><span>F. Barker</span></span></header>' +
       '<div class="home-body"><div class="home-hero"><div><h1>Workspaces</h1><p>Build, test and compare multi-asset allocations. Each workspace holds its drafts, snapshots, scenarios, comparison and its cards.</p></div><button type="button" class="btn btn-primary" id="home-new">' + I.plus + '<span>New workspace</span></button></div>' +
       '<div class="home-tools"><div class="search-wrap">' + I.search + '<input type="search" id="home-search" placeholder="Find a workspace…" aria-label="Find a workspace" value="' + esc(homeFilter) + '"><kbd>/</kbd></div></div>' +
       '<div class="ws-cards" id="home-cards" aria-live="polite"><div class="ws-card skeleton" style="min-height:150px"></div><div class="ws-card skeleton" style="min-height:150px"></div><div class="ws-card skeleton" style="min-height:150px"></div></div></div>' +
@@ -45,19 +47,26 @@
     root.innerHTML = list.map(function (w) {
       return '<button type="button" class="ws-card" data-id="' + esc(w.id) + '"><h3>' + esc(w.name) + '</h3><p class="meta" style="margin:0">' + esc(w.description || '') + '</p>' +
         '<div class="members">' + w.members.map(function (m) { return '<span><span class="dot" style="background:var(--' + esc(m.color) + ')"></span>' + esc(m.name) + (m.kind === 'snapshot' ? ' <span class="tag tag-info" style="font-size:9px">Snap</span>' : m.kind === 'sleeve' ? ' <span class="tag tag-sleeve" style="font-size:9px">Sleeve</span>' : '') + '</span>'; }).join('') + (w.members.length ? '' : '<span class="faint">No allocations yet</span>') + '</div>' +
-        '<div class="foot"><span>' + esc(w.owner) + ' · ' + w.cards + ' card' + (w.cards === 1 ? '' : 's') + ' · ' + w.scenarios + ' scenario' + (w.scenarios === 1 ? '' : 's') + (w.activeScenario ? ' · <b>' + esc(w.activeScenario) + '</b> active' : '') + '</span><span>Updated ' + esc(U.fmt.relative(w.updatedAt)) + '</span></div></button>';
+        '<div class="foot"><span><b class="ccy-code" data-tip="Reporting currency">' + esc(w.currency || 'USD') + '</b> · ' + esc(w.owner) + ' · ' + w.cards + ' card' + (w.cards === 1 ? '' : 's') + ' · ' + w.scenarios + ' scenario' + (w.scenarios === 1 ? '' : 's') + (w.activeScenario ? ' · <b>' + esc(w.activeScenario) + '</b> active' : '') + '</span><span>Updated ' + esc(U.fmt.relative(w.updatedAt)) + '</span></div></button>';
     }).join('') + '<button type="button" class="ws-card is-new" id="home-new-card">' + I.plus + '<span>New workspace</span></button>';
     if (!list.length && q) root.innerHTML = '<div class="empty" style="grid-column:1/-1">' + I.search + '<h3>No workspace matches “' + esc(homeFilter) + '”</h3><p>Try another name, or create a new workspace.</p></div>';
     U.on(root, 'click', '.ws-card[data-id]', function (e, b) { shell.go('#/w/' + encodeURIComponent(b.dataset.id)); });
     var nc = U.$('#home-new-card'); if (nc) nc.onclick = newWorkspace;
   }
-  function newWorkspace() { UI.prompt({ title: 'New workspace', label: 'Workspace name', value: '', confirmLabel: 'Create' }).then(function (name) { if (!name) return; PA.api.createWorkspace({ name: name }).then(function (ws) { shell.go('#/w/' + encodeURIComponent(ws.id)); }); }); }
+  function newWorkspace() { UI.dialogs.newWorkspace(); }
 
   /* ── sleeve repository ───────────────────────────────────────────── */
   function showRepo(id) {
     if (S.ws) { S.saveNow(); S.unload(); }
     showView('repo');
     UI.sleeves.showRepository(els.repo, id);
+  }
+
+  /* ── benchmark library ───────────────────────────────────────────── */
+  function showBench(id) {
+    if (S.ws) { S.saveNow(); S.unload(); }
+    showView('bench');
+    UI.benchmarks.showLibrary(els.bench, id);
   }
 
   /* ── workspace ───────────────────────────────────────────────────── */
@@ -74,23 +83,19 @@
   function renderHeader() {
     var w = S.ws; if (!w) return;
     document.title = w.name + ' · Portfolio Analytics';
-    var sc = S.activeScenario();
     els.head.innerHTML =
       '<button type="button" class="btn btn-icon btn-ghost menu-btn keep" id="rail-open" aria-label="Open the portfolio builder" data-tip="Portfolio builder">' + I.menu + '</button>' +
       '<div class="crumbs"><a href="#/">Workspaces</a><span class="sep">/</span></div><div class="ws-title"><input type="text" id="ws-name" value="' + esc(w.name) + '" aria-label="Workspace name" maxlength="80" spellcheck="false"></div><span class="spacer"></span>' +
-      '<div class="head-status"><button type="button" class="btn btn-sm' + (sc ? ' btn-primary' : '') + '" id="scenario-btn" aria-pressed="' + (!!S.session.drawerOpen) + '" data-tip="' + (sc ? 'Working under scenario “' + esc(sc.name) + '” with ' + S.overrideCount(sc) + ' overrides' : 'Base case assumptions. Open the drawer to edit a scenario.') + '">' + I.flask + '<span>' + (sc ? esc(sc.name) + ' · ' + S.overrideCount(sc) : 'Base case') + '</span></button><span class="status" id="save-status"></span></div>' +
+      '<div class="head-status"><span class="status" id="save-status"></span></div>' +
       '<div class="actions"><button type="button" class="btn btn-icon btn-ghost" id="undo-btn" aria-label="Undo" data-tip="Undo (⌘Z)">' + I.undo + '</button><button type="button" class="btn btn-icon btn-ghost" id="redo-btn" aria-label="Redo" data-tip="Redo (⇧⌘Z)">' + I.redo + '</button>' +
-      '<button type="button" class="btn btn-sm" id="add-alloc" aria-label="Add allocation" data-tip="Add allocation: blank, template, clone or import">' + I.plus + '<span class="btn-text">Add allocation</span></button><button type="button" class="btn btn-sm" id="snap-btn" aria-label="Snapshot the active allocation" data-tip="Capture the active allocation as a fixed snapshot">' + I.camera + '<span class="btn-text">Snapshot</span></button>' +
-      '<button type="button" class="btn btn-icon btn-ghost" id="history-btn" aria-label="Versions and activity" data-tip="Versions &amp; activity">' + I.history + '</button><button type="button" class="btn btn-icon btn-ghost" id="export-btn" aria-label="Export" data-tip="Export the visible analysis">' + I.export + '</button><button type="button" class="btn btn-icon btn-ghost keep" id="more-btn" aria-label="More" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div>';
+      '<button type="button" class="btn btn-sm" id="add-alloc" aria-label="Add allocation" data-tip="Add allocation: blank, template, clone or import">' + I.plus + '<span class="btn-text">Add allocation</span></button>' +
+      '<button type="button" class="btn btn-icon btn-ghost" id="export-btn" aria-label="Export" data-tip="Export the visible analysis">' + I.export + '</button><button type="button" class="btn btn-icon btn-ghost keep" id="more-btn" aria-label="More" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div>';
     U.$('#rail-open').onclick = function () { S.setSession('railOpen', !S.session.railOpen); };
     var nameIn = U.$('#ws-name');
     nameIn.onchange = function () { var v = nameIn.value.trim(); if (!v) { nameIn.value = w.name; return; } if (v !== w.name) { S.update('Workspace renamed to “' + v + '”', function (ws) { ws.name = v; }, { force: true, refresh: false, type: 'rename' }); document.title = v + ' · Portfolio Analytics'; } };
     nameIn.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); nameIn.blur(); } if (e.key === 'Escape') { nameIn.value = w.name; nameIn.blur(); } };
-    U.$('#scenario-btn').onclick = function () { S.setSession('drawerOpen', !S.session.drawerOpen); };
     U.$('#undo-btn').onclick = S.undo; U.$('#redo-btn').onclick = S.redo;
     U.$('#add-alloc').onclick = function () { UI.dialogs.newAllocation(); };
-    U.$('#snap-btn').onclick = function () { var a = S.active(); if (a) UI.dialogs.snapshot(a); };
-    U.$('#history-btn').onclick = function () { UI.dialogs.history(); };
     U.$('#export-btn').onclick = function () { UI.dialogs.exportDialog(); };
     U.$('#more-btn').onclick = function (e) {
       UI.menu(e.currentTarget, [
@@ -98,9 +103,16 @@
         { label: 'Snapshot the active allocation', icon: I.camera, disabled: !S.active(), onClick: function () { UI.dialogs.snapshot(S.active()); } },
         { label: 'Add card', icon: I.table, onClick: function () { S.setSession('addCardOpen', true); } },
         { label: 'Versions & activity', icon: I.history, onClick: function () { UI.dialogs.history(); } },
+        { label: 'Reporting currency… (' + S.ws.currency + ')', icon: I.reset, onClick: function () { UI.dialogs.changeCurrency(); } },
         { label: 'Export', icon: I.export, onClick: function () { UI.dialogs.exportDialog(); } },
+        { sep: true }, { head: 'Layout' },
+        { label: 'Pack cards into a tidy layout', icon: I.reset, onClick: function () { PA.cards.resetLayout(); } },
+        { label: 'Show every card’s data table', icon: I.table, onClick: function () { S.ws.cards.forEach(function (cd) { if (PA.cards.types[cd.type].dataTable) S.updateCard(cd.id, { showData: true }); }); } },
+        { label: 'Hide data tables', icon: I.eyeOff, onClick: function () { S.ws.cards.forEach(function (cd) { if (cd.showData) S.updateCard(cd.id, { showData: false }); }); } },
+        { label: 'Show method notes on every card', icon: S.ws.prefs.showNotes ? I.check : '<span class="menu-blank" aria-hidden="true"></span>', onClick: function () { S.setPref('showNotes', !S.ws.prefs.showNotes); U.announce(S.ws.prefs.showNotes ? 'Method notes shown on every card' : 'Method notes closed'); } },
         { sep: true },
         { label: 'Sleeve repository', icon: I.layers, onClick: function () { shell.go('#/sleeves'); } },
+        { label: 'Benchmark library', icon: I.chart, onClick: function () { shell.go('#/benchmarks'); } },
         { label: 'Keyboard shortcuts', icon: I.keyboard, kbd: '?', onClick: function () { UI.dialogs.shortcuts(); } },
         { label: 'Demo controls', icon: I.sliders, onClick: function () { demoMenu(U.$('#more-btn')); } },
         { sep: true },
@@ -121,7 +133,7 @@
     var s = S.session.save; el.className = 'status';
     if (s.state === 'saving' || s.state === 'pending') { el.classList.add('is-saving'); el.innerHTML = '<span class="status-text">Saving…</span>'; el.removeAttribute('data-tip'); }
     else if (s.state === 'failed') { el.classList.add('is-failed'); el.innerHTML = '<span>Not saved</span> <button type="button" class="btn-link" id="save-retry" style="text-transform:none;letter-spacing:0;font-size:12px">Retry</button>'; el.setAttribute('data-tip', 'The last change is kept in this page but has not been stored. ' + esc(s.error && s.error.message || '')); U.$('#save-retry').onclick = function () { S.saveNow(); }; }
-    else { el.classList.add('is-saved'); el.innerHTML = '<span class="status-text">Saved ' + esc(s.at ? U.fmt.time(s.at) : '') + '</span>'; el.setAttribute('data-tip', 'Autosaved to this workspace ' + esc(s.at ? U.fmt.dateTime(s.at) : '')); }
+    else { el.classList.add('is-saved'); el.innerHTML = '<span class="status-text">Saved</span>'; el.setAttribute('data-tip', 'Autosaved ' + esc(s.at ? U.fmt.dateTime(s.at) : '')); }
   }
 
   /* ── comparison strip ────────────────────────────────────────────── */
@@ -129,8 +141,8 @@
     var w = S.ws; if (!w) return;
     var members = S.members(), active = w.comparison.activeId;
     els.compare.innerHTML = '<span class="eyebrow">Comparing</span>' + members.map(function (a) {
-      return '<div class="member' + (a.id === active ? ' is-active' : '') + '" data-id="' + esc(a.id) + '" draggable="true" tabindex="0" role="button" aria-label="' + esc(a.name) + (a.id === active ? ', editing' : ', press to edit') + '"><span class="dot" style="background:' + UI.colorOf(a) + '"></span><b>' + esc(a.name) + '</b>' + UI.kindTag(a) + (a.id === active ? '<span class="tag tag-edit" data-tip="This allocation is open in the builder">Editing</span>' : '') + '<button type="button" class="mbtn" aria-label="Options for ' + esc(a.name) + '" aria-haspopup="menu" aria-expanded="false" data-menu="' + esc(a.id) + '">' + I.more + '</button></div>';
-    }).join('') + '<button type="button" class="btn btn-sm add-member" id="add-member"' + (members.length >= 6 ? ' disabled data-tip="A comparison holds up to six allocations"' : '') + '>' + I.plus + '<span>Add</span></button><span class="compare-note">' + members.length + ' of 6</span>' + (members.length ? '' : '<span class="faint small">Nothing in the comparison yet.</span>');
+      return '<div class="member' + (a.id === active ? ' is-active' : '') + '" data-id="' + esc(a.id) + '" draggable="true" tabindex="0" role="button" aria-label="' + esc(a.name) + (a.id === active ? ', editing' : ', press to edit') + '"><span class="dot" style="background:' + UI.colorOf(a) + '"></span><b>' + esc(a.name) + '</b>' + UI.kindTag(a) + '<button type="button" class="mbtn" aria-label="Options for ' + esc(a.name) + '" aria-haspopup="menu" aria-expanded="false" data-menu="' + esc(a.id) + '">' + I.more + '</button></div>';
+    }).join('') + '<button type="button" class="btn btn-sm add-member" id="add-member"' + (members.length >= 6 ? ' disabled data-tip="A comparison holds up to six allocations"' : '') + '>' + I.plus + '<span>Add</span></button>' + (members.length >= 6 ? '<span class="compare-note">6 of 6 · remove one to add another</span>' : '') + (members.length ? '' : '<span class="faint small">Nothing in the comparison yet.</span>');
     var am = U.$('#add-member'); if (am) am.onclick = function () { addMemberMenu(am); };
   }
   function wireCompare() {
@@ -178,7 +190,7 @@
     spare.forEach(function (a) { items.push({ label: a.name + (a.kind === 'snapshot' ? ' (snapshot)' : a.kind === 'sleeve' ? ' (sleeve v' + a.sleeve.version + ')' : ''), onClick: function () { shell.addMember(a.id); } }); });
     items.push({ sep: true }, { head: 'Sleeves from the repository' }, { label: 'Compare a sleeve…', icon: I.layers, onClick: function () { UI.sleeves.pickToCompare(); } });
     items.push({ sep: true }, { head: 'Benchmarks, as fixed columns' });
-    PA.data.benchmarks.forEach(function (b) { items.push({ label: b.name, onClick: function () { UI.dialogs.benchmarkAsMember(b); } }); });
+    PA.data.benchmarks.forEach(function (b) { items.push({ label: b.name + (b.source === 'custom' ? ' · custom' : ''), onClick: function () { UI.dialogs.benchmarkAsMember(b); } }); });
     items.push({ sep: true }, { label: 'New allocation…', icon: I.plus, onClick: function () { UI.dialogs.newAllocation(); } });
     UI.menu(btn, items);
   }
@@ -208,7 +220,7 @@
 
   /* ── wiring ──────────────────────────────────────────────────────── */
   shell.init = function () {
-    els.home = U.$('#view-home'); els.ws = U.$('#view-ws'); els.repo = U.$('#view-repo'); els.head = U.$('#ws-head'); els.compare = U.$('#ws-compare');
+    els.home = U.$('#view-home'); els.ws = U.$('#view-ws'); els.repo = U.$('#view-repo'); els.bench = U.$('#view-bench'); els.head = U.$('#ws-head'); els.compare = U.$('#ws-compare');
     window.addEventListener('hashchange', route);
     document.addEventListener('keydown', onKey);
     wireCompare();
@@ -217,7 +229,6 @@
       if (type === 'load') { renderHeader(); renderCompare(); applyLayout(); }
       if (type === 'update' || type === 'undo' || type === 'redo') { renderHeader(); renderCompare(); }
       if (type === 'save') renderSaveStatus();
-      if (type === 'session' && extra.key === 'drawerOpen') { var b = U.$('#scenario-btn'); if (b) b.setAttribute('aria-pressed', String(!!S.session.drawerOpen)); }
       if (type === 'session' && extra.key === 'railOpen') applyLayout();
       if (type === 'pref' && extra.key === 'railCollapsed') applyLayout();
     });

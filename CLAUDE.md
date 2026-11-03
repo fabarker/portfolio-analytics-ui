@@ -46,12 +46,23 @@ the user asks for them.
   subset of a portfolio in a shared repository (`#/sleeves`); the analytics
   area is a free-form grid of cards from a card repository. The spec in
   `spec/` (version 2, 2026-11-02) describes this iteration, embeds the
-  mockup in an iframe and inlines `workspace/screenshots/` at build time,
+  mockup in an iframe and inlines `workspace/screenshots/` at build time
+  (fourteen of them, listed in `build-document.mjs`),
   so run the workspace checks before `build-document.mjs`.
 - `spec/` — the built spec plus its sources; `cd spec && node build-document.mjs`
   rebuilds it, `verify-document.mjs` checks it.
 - `design/` — self-contained design-option pages: `rail-alternatives.html`
   (ten rail layouts; option 4, the tabbed rail, was chosen) and
-  `rail-colours.html` (ten rail colourings; 9, Split, was chosen).
+  `rail-colours.html` (ten rail colourings; 9, Split, was chosen),
+  `factor-models-active-risk.html` (built) and `workspace-clarity.html`
+  (the clarity plan: say it once, tag the exception, quiet until needed;
+  built 2026-11-02 with its eight defaults),
+  and `rail-benchmarks-cards.html` (built 2026-11-03 with sample 1, elbow
+  guides, instead of the recommended 2, and the other nine defaults: quick
+  add, preset/custom benchmarks and the benchmark library `#/benchmarks`,
+  no Basis toggle (per-card bases, dual-basis Headline, 34-entry catalogue),
+  required reporting currency). Added the same day at the user's request:
+  ISG's eleven factors and Axioma's seventeen, and waterfall views for every
+  contribution measure.
 - `reference/venn/` — reference screenshots.
 - Remote: https://github.com/fabarker/portfolio-analytics-ui.git (branch main).

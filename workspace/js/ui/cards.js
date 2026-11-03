@@ -8,7 +8,14 @@
 
    Card type contract
    ──────────────────
-   {id, title, description, group, size:{w,h}, min:{w,h}, basis:'historical'|'forward'|'both'|'none',
+   {id, title, description, group, size:{w,h}, min:{w,h},
+    basis:'forward'|'historical'   the card always reads that basis
+         |'either'                 one type, two catalogue entries: the basis is fixed
+                                   when the card is added (settings.basis) and can be
+                                   switched from the card menu
+         |'dual'                   shows both side by side (Headline)
+         |'none'                   structure only (weights),
+    entries?:[{title, description, group, settings}]   catalogue entries (default: one, from the type),
     supportsRow:boolean, factorModel?: true | (settings, card) → boolean   (uses a factor model),
     settings:[{key, label, type:'select'|'multi'|'toggle'|'factors', options:[[v,label]] | (card) → [[v,label]],
                default, when?: (settings, card) → boolean}],
@@ -16,13 +23,16 @@
     render(body, data, ctx, settings, card),
     subtitle(ctx, settings, card) → string,
     dataTable?(data, ctx, settings) → html}
-   ctx: {ws, members, emphasized, prefs, scenario, row, rowLabel, revision}
+   ctx: {ws, members, emphasized, prefs, scenario, row, rowLabel, revision,
+         basis:'forward'|'historical'|null   (this card's basis; see C.basisOf)}
+   The subtitle is prefixed with the basis (→ Forward-looking · ◷ Historical,
+   with its period), so a card's figures always say what they are.
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
   var PA = window.PA, U = PA.util, esc = U.esc, S = PA.store, UI = PA.ui, I = U.icon;
   var C = PA.cards = { types: {}, order: [], state: {} };
-  var grid, COLS = 12, ROW = 48, GAP = 12, cache = {}, cacheRev = -1, sheetEl = null;
+  var grid, COLS = 12, ROW = 48, GAP = 16, cache = {}, cacheRev = -1, sheetEl = null;
 
   C.register = function (type) { C.types[type.id] = type; C.order.push(type.id); };
 
@@ -33,10 +43,33 @@
     if (!cache[key]) { cache[key] = PA.api[name](req); cache[key].catch(function () { if (cache[key]) delete cache[key]; }); }
     return cache[key];
   };
-  C.ctx = function () {
+  C.ctx = function (card) {
     var w = S.ws, p = w.prefs, ids = w.comparison.members, em = p.emphasis.filter(function (id) { return ids.indexOf(id) >= 0; });
-    return { ws: w, members: S.members(), emphasized: em.length ? em : ids.slice(), prefs: p, scenario: S.activeScenario(), row: p.selectedRow, rowLabel: C.rowLabel(p.selectedRow), revision: S.session.revision };
+    return { ws: w, members: S.members(), emphasized: em.length ? em : ids.slice(), prefs: p, scenario: S.activeScenario(), row: p.selectedRow, rowLabel: C.rowLabel(p.selectedRow), revision: S.session.revision, basis: card ? C.basisOf(card) : null };
   };
+  /* ── basis: a card's own, fixed when it is added ─────────────────── */
+  /** 'forward' | 'historical' for a card that reads one basis; null for structure and for Headline (both). */
+  C.basisOf = function (card) {
+    var t = C.types[card.type]; if (!t) return null;
+    if (t.basisOf) return t.basisOf(card);
+    if (t.basis === 'forward' || t.basis === 'historical') return t.basis;
+    if (t.basis === 'either') { var b = card.settings && card.settings.basis; return b === 'historical' ? 'historical' : 'forward'; }
+    return null;
+  };
+  /** Does the card read the historical period? */
+  C.readsPeriod = function (card) { var t = C.types[card.type]; return !!t && (t.basis === 'dual' || C.basisOf(card) === 'historical'); };
+  /** The basis prefix of a subtitle: the glyph keeps it from relying on colour. */
+  C.basisLabel = function (card) {
+    var b = C.basisOf(card); if (!b) return '';
+    return b === 'forward' ? '<span class="basis-tag is-fwd">→ Forward-looking</span>' : '<span class="basis-tag is-hist">◷ Historical · ' + esc(UI.context.periodLabel()) + '</span>';
+  };
+  /** The catalogue: every entry the Add card sheet offers. A type gives one entry unless it lists several. */
+  C.catalogue = function () {
+    var out = [];
+    C.order.forEach(function (id) { var t = C.types[id]; (t.entries || [{}]).forEach(function (e, i) { out.push({ key: id + (i ? ':' + i : ''), type: id, title: e.title || t.title, description: e.description || t.description, group: e.group || t.group, settings: e.settings || {}, isNew: !!(e.isNew != null ? e.isNew : t.isNew) }); }); });
+    return out;
+  };
+  C.GROUPS = ['Summary', 'Forward-looking', 'Historical', 'Structure'];
   C.rowLabel = function (key) {
     if (key === '__total') return 'Portfolio total';
     var parts = key.split('/'), cat = PA.data.categoryById[parts[0]];
@@ -51,6 +84,19 @@
   C.isPinned = function (card) { var v = card.settings && card.settings.factorModel; return v === 'isg' || v === 'axioma'; };
   C.modelIdOf = function (card) { return C.isPinned(card) ? card.settings.factorModel : C.workspaceModel(); };
   C.modelOf = function (card) { return PA.data.factorModelById[C.modelIdOf(card)]; };
+  /** What a subtitle says about the model: nothing while the card follows the workspace, the model when pinned. */
+  C.modelDeparture = function (card) { return C.isPinned(card) ? ' · ' + C.modelOf(card).name + ' (pinned)' : ''; };
+  /**
+   * Method notes: the explanation behind a card's figures, one interaction
+   * away. Closed by default; the workspace preference showNotes opens them on
+   * every card, and a card remembers being opened or closed until the next
+   * load. items: html strings (falsy ones are skipped).
+   */
+  C.notes = function (card, items) {
+    var list = (items || []).filter(Boolean); if (!list.length) return '';
+    var st = C.state[card.id] || {}, open = st.notesOpen != null ? st.notesOpen : !!(S.ws && S.ws.prefs.showNotes);
+    return '<details class="card-notes"' + (open ? ' open' : '') + '><summary>About these figures</summary><div class="card-notes-body">' + list.map(function (h) { return /^</.test(h) ? h : '<span>' + h + '</span>'; }).join('') + '</div></details>';
+  };
   C.modelLabel = function (card) { var m = C.modelOf(card); return m.name + ' factor model · as of ' + U.fmt.date(m.asOf) + (C.isPinned(card) ? ' · pinned' : ''); };
   /**
    * The factors a card shows under a model. A card keeps one pick per model
@@ -64,8 +110,9 @@
     if (mine && mine.length) { var ok = mine.filter(function (id) { return m.factorById[id]; }); if (ok.length) return { ids: ok, mapped: null }; }
     var src = Array.isArray(value) ? value : (value && value[otherId]);
     if (src && src.length) {
-      var pairs = []; src.forEach(function (id) { var f = om.factorById[id]; if (f && f.mapsTo && m.factorById[f.mapsTo]) pairs.push([f, m.factorById[f.mapsTo]]); });
-      if (pairs.length) return { ids: pairs.map(function (p) { return p[1].id; }), mapped: 'Mapped from ' + om.name + ': ' + pairs.map(function (p) { return p[0].name + ' → ' + p[1].name + (p[1].signFlip ? ' (opposite sign)' : ''); }).join(', ') };
+      /* ISG's factors exist in Axioma under the same ids; Axioma's own six have no ISG counterpart */
+      var keep = [], drop = []; src.forEach(function (id) { var f = om.factorById[id], t = f && (m.factorById[id] || (f.mapsTo && m.factorById[f.mapsTo])); if (t) { if (keep.indexOf(t.id) < 0) keep.push(t.id); } else if (f) drop.push(f.name); });
+      if (keep.length) return { ids: keep, mapped: drop.length ? 'Carried over from ' + om.name + '; not in ' + m.name + ': ' + drop.join(', ') : null };
     }
     return { ids: m.defaultFactors.slice(), mapped: null };
   };
@@ -84,7 +131,7 @@
   function load(card) {
     var t = C.types[card.type]; if (!t) return;
     var st = C.state[card.id] = C.state[card.id] || { status: 'idle', data: null, error: null, revision: 0 };
-    var ctx = C.ctx(), rev = ++st.revision, settings = C.settingsOf(card);
+    var ctx = C.ctx(card), rev = ++st.revision, settings = C.settingsOf(card);
     st.status = 'loading'; paintStatus(card);
     var el0 = grid.querySelector('[data-card="' + CSS.escape(card.id) + '"]'); if (el0) paintChip(card, el0);
     var p; try { p = t.data(ctx, settings, card); } catch (e) { p = Promise.reject({ message: e.message }); }
@@ -104,33 +151,35 @@
     /* a fresh body each paint, so delegated handlers a renderer attached never accumulate */
     var old = el.querySelector('.card-body'), body = old.cloneNode(false); old.parentNode.replaceChild(body, old);
     paintStatus(card); paintChip(card, el);
-    el.querySelector('.card-sub').textContent = t.subtitle ? t.subtitle(st.ctx || C.ctx(), settings, card) : '';
+    var sub = t.subtitle ? t.subtitle(st.ctx || C.ctx(card), settings, card) : '', bl = C.basisLabel(card);
+    el.querySelector('.card-sub').innerHTML = bl + (bl && sub ? '<span class="sep" aria-hidden="true"> · </span>' : '') + esc(sub);
     if (st.status === 'failed' && !st.data) { body.innerHTML = '<div class="chart-empty">This card could not be calculated. ' + esc(st.error && st.error.message || '') + '</div>'; return; }
     if (!st.data) { body.innerHTML = '<div class="chart-empty"><span class="spinner" style="display:inline-block;vertical-align:middle;margin-right:8px"></span>Calculating…</div>'; return; }
-    try { t.render(body, st.data, st.ctx || C.ctx(), settings, card); } catch (e) { console.error(e); body.innerHTML = '<div class="chart-empty">Could not draw this card: ' + esc(e.message) + '</div>'; }
+    try { t.render(body, st.data, st.ctx || C.ctx(card), settings, card); } catch (e) { console.error(e); body.innerHTML = '<div class="chart-empty">Could not draw this card: ' + esc(e.message) + '</div>'; }
+    body.addEventListener('toggle', function (e) { if (e.target.classList && e.target.classList.contains('card-notes')) st.notesOpen = e.target.open; }, true);
     var dt = el.querySelector('.card-data');
-    if (card.showData && t.dataTable) { dt.hidden = false; dt.innerHTML = t.dataTable(st.data, st.ctx || C.ctx(), settings, card); } else { dt.hidden = true; dt.innerHTML = ''; }
+    if (card.showData && t.dataTable) { dt.hidden = false; dt.innerHTML = t.dataTable(st.data, st.ctx || C.ctx(card), settings, card); } else { dt.hidden = true; dt.innerHTML = ''; }
   }
   function paintChip(card, el) {
     var b = el.querySelector('[data-model-chip]'); if (!b) return;
-    var on = C.usesModel(card); b.hidden = !on; if (!on) return;
+    var on = C.usesModel(card) && C.isPinned(card); b.hidden = !on; if (!on) return;
     var m = C.modelOf(card), pin = C.isPinned(card);
     b.classList.toggle('is-pinned', pin); b.innerHTML = (pin ? I.pin : '') + '<span>' + esc(m.name) + '</span>';
     b.setAttribute('aria-label', 'Factor model ' + m.name + (pin ? ', pinned to this card' : ', following the workspace') + '. Change it');
     b.setAttribute('data-tip', pin ? 'Pinned to ' + m.name + ': the workspace switch does not change this card' : 'Following the workspace factor model');
   }
-  function modelMenu(btn, card) {
+  function modelItems(card) {
     var D = PA.data, t = C.types[card.type], cur = C.modelIdOf(card), pin = C.isPinned(card), wsId = C.workspaceModel(), other = cur === 'isg' ? 'axioma' : 'isg';
     var mark = function (on) { return on ? I.check : '<span class="menu-blank" aria-hidden="true"></span>'; };
     var set = function (v) { var c = S.card(card.id), p = U.clone(c.settings || {}); p.factorModel = v; S.updateCard(c.id, { settings: p }); U.announce((c.name || t.title) + (v === 'follow' ? ' follows the workspace factor model' : ' pinned to ' + D.factorModelById[v].name)); };
-    UI.menu(btn, [{ head: 'Factor model for this card' },
+    return [{ head: 'Factor model for this card' },
       { label: 'Follow the workspace (' + D.factorModelById[wsId].name + ')', icon: mark(!pin), onClick: function () { set('follow'); } },
       { label: 'Pin to ISG', icon: mark(pin && cur === 'isg'), onClick: function () { set('isg'); } },
       { label: 'Pin to Axioma', icon: mark(pin && cur === 'axioma'), onClick: function () { set('axioma'); } },
-      { sep: true },
       { label: 'Compare with ' + D.factorModelById[other].name + ' (adds a pinned copy)', icon: I.plus, onClick: function () { compareModel(card, other); } },
-      { label: 'About ' + D.factorModelById[cur].name + ' and its coverage', icon: I.info, onClick: function () { C.aboutModel(cur); } }], { align: 'end' });
+      { label: 'About ' + D.factorModelById[cur].name + ' and its coverage', icon: I.info, onClick: function () { C.aboutModel(cur); } }];
   }
+  function modelMenu(btn, card) { UI.menu(btn, modelItems(card), { align: 'end' }); }
   /** A copy of the card pinned to the other model, placed beside it (or below when there is no room). */
   function compareModel(card, other) {
     var D = PA.data, t = C.types[card.type], copy = U.clone(card);
@@ -201,11 +250,17 @@
       { label: 'Rename', onClick: function () { UI.prompt({ title: 'Rename card', label: 'Card name', value: card.name || t.title }).then(function (n) { if (n) S.updateCard(card.id, { name: n }); }); } },
       { label: card.showData ? 'Hide data table' : 'Show data table', icon: I.table, disabled: !t.dataTable, onClick: function () { S.updateCard(card.id, { showData: !card.showData }); } },
       { label: 'Duplicate', icon: I.copy, onClick: function () { var copy = U.clone(card); copy.id = U.uid('c'); copy.y = bottom(); S.addCard(copy); } },
-      { label: 'Save to card repository', icon: I.export, onClick: function () { saveToRepository(card); } },
+      { label: 'Save to card repository', icon: I.export, onClick: function () { saveToRepository(card); } }
+    ].concat(t.basis === 'either' ? [{ sep: true }, { label: C.basisOf(card) === 'forward' ? 'Show historical instead' : 'Show forward-looking instead', icon: I.reset, onClick: function () { C.setBasis(card, C.basisOf(card) === 'forward' ? 'historical' : 'forward'); } }] : []).concat(C.usesModel(card) ? [{ sep: true }].concat(modelItems(card)) : []).concat([
       { sep: true },
       { label: 'Remove from workspace', icon: I.trash, onClick: function () { S.removeCard(card.id); UI.toast('Card removed.', { action: { label: 'Undo', fn: S.undo } }); } }
-    ], { align: 'end' });
+    ]), { align: 'end' });
   }
+  /** Switch an either-basis card between forward-looking and historical. */
+  C.setBasis = function (card, basis) {
+    var c = S.card(card.id), p = U.clone(c.settings || {}), t = C.types[c.type]; p.basis = basis;
+    S.updateCard(c.id, { settings: p }); U.announce((c.name || t.title) + ' now shows ' + (basis === 'forward' ? 'forward-looking' : 'historical') + ' figures');
+  };
   function saveToRepository(card) {
     var t = C.types[card.type];
     UI.prompt({ title: 'Save card to the repository', sub: 'Saved cards keep their settings and are available in every workspace.', label: 'Name', value: card.name || t.title, confirmLabel: 'Save' }).then(function (name) {
@@ -271,19 +326,22 @@
   };
 
   /* ── add-card sheet (the card repository) ────────────────────────── */
-  var savedCards = null;
+  var savedCards = null, sheetGroup = '';
   function renderSheet() {
     if (!sheetEl) return;
-    var groups = {}; C.order.forEach(function (id) { var t = C.types[id]; (groups[t.group] = groups[t.group] || []).push(t); });
+    var cat = C.catalogue(), groups = C.GROUPS.filter(function (g) { return cat.some(function (e) { return e.group === g; }); });
+    var chip = function (g, label, n) { return '<button type="button" class="rail-chip sheet-chip" data-sheet-group="' + esc(g) + '" aria-pressed="' + (sheetGroup === g) + '">' + esc(label) + ' <span class="faint">' + n + '</span></button>'; };
     sheetEl.innerHTML = '<div class="sheet-head"><h2>Card repository</h2><span class="spacer"></span><button type="button" class="btn btn-icon btn-ghost" data-close aria-label="Close">' + I.close + '</button></div>' +
-      '<div class="sheet-body"><div class="search-wrap" style="margin-bottom:12px">' + I.search + '<input type="search" id="sheet-search" placeholder="Find a card…" aria-label="Find a card"></div>' +
-      '<div class="eyebrow" style="margin:4px 0 8px">Saved cards · shared</div><div class="sheet-list" id="sheet-saved">' + (savedCards === null ? '<div class="faint small">Loading…</div>' : savedCards.length ? savedCards.map(function (s) { var t = C.types[s.type]; return '<div class="sheet-item" data-text="' + esc((s.name + ' ' + (t ? t.title : '')).toLowerCase()) + '"><div><b>' + esc(s.name) + '</b><small>' + esc(t ? t.title : s.type) + ' · ' + esc(s.createdBy) + '</small></div><div class="row"><button type="button" class="btn btn-xs btn-primary" data-add-saved="' + esc(s.id) + '">Add</button><button type="button" class="btn btn-icon btn-xs btn-ghost" data-del-saved="' + esc(s.id) + '" aria-label="Delete saved card">' + I.trash + '</button></div></div>'; }).join('') : '<div class="faint small">No saved cards yet. Use a card’s menu to save it with its settings.</div>') + '</div>' +
-      Object.keys(groups).map(function (g) { return '<div class="eyebrow" style="margin:16px 0 8px">' + esc(g) + '</div><div class="sheet-list">' + groups[g].map(function (t) { return '<div class="sheet-item" data-text="' + esc((t.title + ' ' + t.description).toLowerCase()) + '"><div><b>' + esc(t.title) + '</b><small>' + esc(t.description) + '</small></div><button type="button" class="btn btn-xs" data-add-type="' + esc(t.id) + '">Add</button></div>'; }).join('') + '</div>'; }).join('') + '</div>';
+      '<div class="sheet-body"><div class="search-wrap" style="margin-bottom:10px">' + I.search + '<input type="search" id="sheet-search" placeholder="Find a card…" aria-label="Find a card"></div>' +
+      '<div class="rail-chips sheet-chips" role="group" aria-label="Show cards by basis">' + chip('', 'All', cat.length) + groups.map(function (g) { return chip(g, g, cat.filter(function (e) { return e.group === g; }).length); }).join('') + '</div>' +
+      '<div class="sheet-sec" data-sec="saved"' + (sheetGroup ? ' hidden' : '') + '><div class="eyebrow" style="margin:12px 0 8px">Saved cards · shared</div><div class="sheet-list" id="sheet-saved">' + (savedCards === null ? '<div class="faint small">Loading…</div>' : savedCards.length ? savedCards.map(function (s) { var t = C.types[s.type]; return '<div class="sheet-item" data-text="' + esc((s.name + ' ' + (t ? t.title : '')).toLowerCase()) + '"><div><b>' + esc(s.name) + '</b><small>' + esc(t ? t.title : s.type) + ' · ' + esc(s.createdBy) + '</small></div><div class="row"><button type="button" class="btn btn-xs btn-primary" data-add-saved="' + esc(s.id) + '">Add</button><button type="button" class="btn btn-icon btn-xs btn-ghost" data-del-saved="' + esc(s.id) + '" aria-label="Delete saved card">' + I.trash + '</button></div></div>'; }).join('') : '<div class="faint small">No saved cards yet. Use a card’s menu to save it with its settings.</div>') + '</div></div>' +
+      groups.map(function (g) { return '<div class="sheet-sec" data-sec="' + esc(g) + '"' + (sheetGroup && sheetGroup !== g ? ' hidden' : '') + '><div class="eyebrow" style="margin:16px 0 8px">' + esc(g) + '</div><div class="sheet-list">' + cat.filter(function (e) { return e.group === g; }).map(function (e) { return '<div class="sheet-item" data-text="' + esc((e.title + ' ' + e.description + ' ' + g).toLowerCase()) + '"><div><b>' + esc(e.title) + '</b><small>' + esc(e.description) + '</small></div><button type="button" class="btn btn-xs" data-add-type="' + esc(e.key) + '" aria-label="Add ' + esc(e.title) + '">Add</button></div>'; }).join('') + '</div></div>'; }).join('') + '</div>';
     sheetEl.querySelector('[data-close]').onclick = function () { S.setSession('addCardOpen', false); };
-    sheetEl.querySelector('#sheet-search').oninput = function (e) { var q = e.target.value.trim().toLowerCase(); U.$$('.sheet-item', sheetEl).forEach(function (it) { it.hidden = !!q && it.dataset.text.indexOf(q) < 0; }); };
+    sheetEl.querySelector('#sheet-search').oninput = function (e) { var q = e.target.value.trim().toLowerCase(); U.$$('.sheet-item', sheetEl).forEach(function (it) { it.hidden = !!q && it.dataset.text.indexOf(q) < 0; }); U.$$('.sheet-sec', sheetEl).forEach(function (sec) { sec.classList.toggle('is-empty', !U.$$('.sheet-item', sec).some(function (it) { return !it.hidden; })); }); };
   }
   function wireSheet() {
-    U.on(sheetEl, 'click', '[data-add-type]', function (e, b) { var t = C.types[b.dataset.addType]; var card = { id: U.uid('c'), type: t.id, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: {}, followRow: !!t.defaultFollowRow }; S.addCard(card); UI.toast('“' + t.title + '” added at the bottom of the workspace.'); scrollToCard(card.id); });
+    U.on(sheetEl, 'click', '[data-sheet-group]', function (e, b) { sheetGroup = b.dataset.sheetGroup; U.$$('[data-sheet-group]', sheetEl).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); U.$$('.sheet-sec', sheetEl).forEach(function (sec) { sec.hidden = sheetGroup ? sec.dataset.sec !== sheetGroup : false; }); });
+    U.on(sheetEl, 'click', '[data-add-type]', function (e, b) { var en = C.catalogue().filter(function (x) { return x.key === b.dataset.addType; })[0], t = C.types[en.type]; var card = { id: U.uid('c'), type: t.id, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: U.clone(en.settings), followRow: !!t.defaultFollowRow }; S.addCard(card); UI.toast('“' + en.title + '” added at the bottom of the workspace.'); scrollToCard(card.id); });
     U.on(sheetEl, 'click', '[data-add-saved]', function (e, b) { var s = savedCards.filter(function (x) { return x.id === b.dataset.addSaved; })[0], t = C.types[s.type]; if (!t) return; var card = { id: U.uid('c'), type: s.type, name: s.name, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: U.clone(s.settings || {}), followRow: !!s.followRow }; S.addCard(card); UI.toast('“' + s.name + '” added.'); scrollToCard(card.id); });
     U.on(sheetEl, 'click', '[data-del-saved]', function (e, b) { var s = savedCards.filter(function (x) { return x.id === b.dataset.delSaved; })[0]; UI.confirm({ title: 'Delete “' + s.name + '” from the repository?', sub: 'Cards already placed in workspaces are kept.', confirmLabel: 'Delete', danger: true }).then(function (ok) { if (ok) PA.api.deleteSavedCard(s.id).then(function () { savedCards = savedCards.filter(function (x) { return x.id !== s.id; }); renderSheet(); }); }); });
   }
@@ -334,6 +392,7 @@
         var same = ids.length === domIds.length && ids.every(function (id, i) { return id === domIds[i]; });
         if (!same) C.render(); else if (!extra.refresh) { S.ws.cards.forEach(function (c) { var el = grid.querySelector('[data-card="' + CSS.escape(c.id) + '"]'); el.querySelector('.card-title h3').innerHTML = esc(c.name || C.types[c.type].title) + (c.followRow && C.types[c.type].supportsRow ? ' <span class="tag tag-info">Row</span>' : ''); load(c); }); }
       }
+      if (type === 'pref' && extra.key === 'showNotes') S.ws.cards.forEach(function (c) { if (C.state[c.id]) C.state[c.id].notesOpen = null; paint(c); });
       if (type === 'pref' && extra.key === 'factorModel') S.ws.cards.forEach(function (c) { if (C.usesModel(c) && !C.isPinned(c)) load(c); });
       if (type === 'pref' && (extra.key === 'selectedRow' || extra.key === 'emphasis' || extra.key === 'expanded')) S.ws.cards.forEach(function (c) { var t = C.types[c.type]; if (extra.key === 'selectedRow' && c.followRow && t.supportsRow) load(c); else if (t.livePrefs) paint(c); });
       if (type === 'session' && extra.key === 'addCardOpen') toggleSheet();

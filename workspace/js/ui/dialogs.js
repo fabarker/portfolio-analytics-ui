@@ -13,7 +13,11 @@
   function nextColor() { var used = S.ws.allocations.map(function (a) { return a.color; }); for (var i = 1; i <= 6; i++) if (used.indexOf('cat-' + i) < 0) return 'cat-' + i; return 'cat-' + ((S.ws.allocations.length % 6) + 1); }
   function mkHoldings(pairs) { return pairs.map(function (p) { return { id: U.uid('h'), instrumentId: p[0], weight: p[1] }; }); }
   function targetsFor(holdings) { var t = {}; holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) t[c] = U.round((t[c] || 0) + h.weight, 4); }); return t; }
-  function benchmarkOptions(sel) { return '<option value=""' + (!sel ? ' selected' : '') + '>No benchmark</option>' + D.benchmarks.map(function (b) { return '<option value="' + b.id + '"' + (sel === b.id ? ' selected' : '') + '>' + esc(b.name) + '</option>'; }).join(''); }
+  function benchmarkOptions(sel) {
+    var opt = function (b) { var v = b.source === 'custom' ? b.customId + '@' + b.version : b.id; return '<option value="' + esc(v) + '"' + (sel === v || sel === b.id ? ' selected' : '') + '>' + esc(b.name) + '</option>'; };
+    var cus = D.benchmarks.filter(function (b) { return b.source === 'custom'; });
+    return '<option value=""' + (!sel ? ' selected' : '') + '>No benchmark</option><optgroup label="Presets">' + D.benchmarks.filter(function (b) { return b.source !== 'custom'; }).map(opt).join('') + '</optgroup>' + (cus.length ? '<optgroup label="Custom">' + cus.map(opt).join('') + '</optgroup>' : '');
+  }
 
   function createAllocation(spec) {
     var id = U.uid('al'), ws = S.ws;
@@ -120,7 +124,7 @@
     UI.openDialog({ title: ins.name, sub: esc(ins.type) + ' · ' + esc(ins.identifier) + (ins.manager ? ' · ' + esc(ins.manager) : ''), wide: true,
       body: '<dl class="dlg-grid" style="margin:0;font-size:13px">' + row('Category · asset class', esc(cat.name) + '<br><span class="faint small">' + esc(ac.name) + '</span>') + row('Currency · valuation', esc(ins.currency) + ' · ' + esc(ins.valuation)) + row('Return history', ins.coverage === 'full' ? 'Complete from ' + esc(F.month(ins.inception)) : '<span class="tag tag-warn">' + (ins.coverage === 'none' ? 'None' : 'Proxy') + '</span> ' + esc(ins.proxyNote || '')) + row('Fee', ins.fee != null ? ins.fee + ' bp' : '—') +
         row('Model expected return', F.num(R.ret[ins.id].value, 1) + '% <span class="faint small">asset class ' + F.num(R.acReturn[ins.assetClass].value, 1) + '%' + (ins.fee ? ' less fee' : '') + '</span>') + row('Model volatility', F.num(R.vol[ins.id].value, 1) + '%') + (ins.lookThrough != null ? row('Look-through', F.num(ins.lookThrough * 100, 0) + '% of exposures identified; remainder treated at fund level') : '') +
-        row('Factor loadings (asset class)', D.factors.map(function (f) { return esc(f.name) + ' ' + F.num(as.betas[f.id], 2); }).join(' · ')) + row('Held in', held.length ? held.map(function (a) { var h = a.holdings.filter(function (x) { return x.instrumentId === ins.id; })[0]; return esc(a.name) + ' ' + F.num(h.weight) + '%' + (h.sleeveRef ? ' <span class="faint small">(from ' + esc(h.sleeveRef.name) + ' v' + h.sleeveRef.version + ')</span>' : ''); }).join(', ') : 'Not held in this workspace') + '</dl>',
+        (function () { var m = D.factorModelById[(S.ws && S.ws.prefs.factorModel) || 'isg'], l = E.loadingsOf(m, ins.id), cov = m.coverage(ins); return row('Factor loadings · ' + esc(m.name), m.factors.filter(function (f) { return Math.abs(l[f.id]) >= 0.005; }).map(function (f) { return esc(f.name) + ' ' + F.num(l[f.id], 2); }).join(' · ') + (cov ? '<br><span class="faint small">' + esc(cov.note) + '</span>' : '')); })() + row('Held in', held.length ? held.map(function (a) { var h = a.holdings.filter(function (x) { return x.instrumentId === ins.id; })[0]; return esc(a.name) + ' ' + F.num(h.weight) + '%' + (h.sleeveRef ? ' <span class="faint small">(from ' + esc(h.sleeveRef.name) + ' v' + h.sleeveRef.version + ')</span>' : ''); }).join(', ') : 'Not held in this workspace') + '</dl>',
       actions: [{ label: 'Close', primary: true }] });
   };
 
@@ -149,9 +153,40 @@
     S.update('Benchmark “' + bm.name + '” added as a fixed column', function (ws) { ws.allocations.push({ id: id, name: bm.name, kind: 'snapshot', color: nextColor(), benchmarkId: null, leverage: false, history: { basis: 'backtest', inception: now.toISOString().slice(0, 7) }, edited: false, sourceId: bm.id, capturedAt: now.toISOString(), note: 'Benchmark composition as published', categories: targetsFor(bm.holdings), holdings: bm.holdings.map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight }; }) }); if (ws.comparison.members.length < 6) { ws.comparison.members.push(id); ws.prefs.emphasis.push(id); } }, { type: 'member' });
   };
   Dg.renameAllocation = function (a) { UI.prompt({ title: 'Rename allocation', label: 'Name', value: a.name }).then(function (n) { if (n && n !== a.name) S.update('“' + a.name + '” renamed to “' + n + '”', function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].name = n; }, { type: 'rename' }); }); };
-  Dg.assignBenchmark = function (a) {
-    UI.openDialog({ title: 'Benchmark for ' + a.name, sub: 'Used when the reference mode is “each allocation’s benchmark”. Differences stay unavailable while none is assigned.', initialFocus: '#ab-sel', body: '<div class="field"><label for="ab-sel">Benchmark</label><select id="ab-sel">' + benchmarkOptions(a.benchmarkId) + '</select></div>',
-      actions: [{ label: 'Cancel', ghost: true }, { label: 'Assign', primary: true, onClick: function (c) { var v = U.$('#ab-sel', c.el).value || null; if (v !== a.benchmarkId) S.update(a.name + ' benchmark set to ' + (v ? D.benchmarkById[v].name : 'none'), function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].benchmarkId = v; }, { type: 'edit' }); } }] });
+  Dg.assignBenchmark = function (a) { UI.benchmarks.assign(a); };
+
+  /* ── workspaces: the reporting currency ──────────────────────────── */
+  function currencyOptions(sel) {
+    var o = function (c) { return '<option value="' + c.code + '"' + (sel === c.code ? ' selected' : '') + '>' + c.code + ' · ' + esc(c.name) + '</option>'; };
+    return '<optgroup label="Common">' + D.currencies.filter(function (c) { return c.common; }).map(o).join('') + '</optgroup><optgroup label="All currencies">' + D.currencies.filter(function (c) { return !c.common; }).map(o).join('') + '</optgroup>';
+  }
+  /** New workspace: a name and a reporting currency, both required; nothing is preselected. */
+  Dg.newWorkspace = function () {
+    var ctx = UI.openDialog({ title: 'New workspace', sub: 'A workspace holds its allocations, scenarios, comparison and cards.', initialFocus: '#nw-name',
+      body: '<div class="dlg-grid"><div class="field wide"><label for="nw-name">Name <span aria-hidden="true">*</span></label><input type="text" id="nw-name" maxlength="80" placeholder="e.g. Pension Scheme Review 2027" aria-required="true"></div>' +
+        '<div class="field wide"><label for="nw-ccy">Reporting currency <span aria-hidden="true">*</span></label><select id="nw-ccy" aria-required="true" aria-describedby="nw-ccy-hint"><option value="" selected disabled>Choose a currency</option>' + currencyOptions('') + '</select><span class="field-hint" id="nw-ccy-hint">Every figure in this workspace is reported in it: returns, risk, projections, stress results and benchmarks. Cash and the risk-free rate use its 3-month rate. You can change it later.</span></div>' +
+        '<div class="field wide"><label for="nw-desc">Description</label><input type="text" id="nw-desc" maxlength="160" placeholder="Optional"></div><span class="field-err wide" id="nw-err" role="alert"></span></div>',
+      actions: [{ label: 'Cancel', ghost: true }, { label: 'Create workspace', primary: true, disabled: true, close: false, onClick: function (c) {
+        var name = U.$('#nw-name', c.el).value.trim(), ccy = U.$('#nw-ccy', c.el).value, err = U.$('#nw-err', c.el);
+        if (!name || !ccy) { err.textContent = !name ? 'Enter a name for the workspace.' : 'Choose a reporting currency.'; return false; }
+        var btn = U.$('[data-action="1"]', c.el); btn.disabled = true;
+        PA.api.createWorkspace({ name: name, currency: ccy, description: U.$('#nw-desc', c.el).value.trim() }).then(function (ws) { c.close(true); UI.shell.go('#/w/' + encodeURIComponent(ws.id)); }, function (e) { btn.disabled = false; err.textContent = e.message || 'Could not create the workspace.'; });
+        return false;
+      } }] });
+    var sync = function () { U.$('[data-action="1"]', ctx.el).disabled = !(U.$('#nw-name', ctx.el).value.trim() && U.$('#nw-ccy', ctx.el).value); U.$('#nw-err', ctx.el).textContent = ''; };
+    U.$('#nw-name', ctx.el).addEventListener('input', sync); U.$('#nw-ccy', ctx.el).addEventListener('change', sync);
+    U.$('#nw-name', ctx.el).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); U.$('[data-action="1"]', ctx.el).click(); } });
+  };
+  /** Change the reporting currency: every card recalculates; undoable. */
+  Dg.changeCurrency = function () {
+    var cur = S.ws.currency;
+    UI.openDialog({ title: 'Reporting currency', sub: 'Every figure in ' + esc(S.ws.name) + ' is reported in this currency.', initialFocus: '#cc-ccy',
+      body: '<div class="field"><label for="cc-ccy">Currency</label><select id="cc-ccy">' + currencyOptions(cur) + '</select></div><p class="small muted" style="margin:12px 0 0">Changing it recalculates every card. Cash, the risk-free rate and fixed-rate benchmark rows use the new currency’s 3-month rate; foreign-currency products are converted at month-end rates and are not hedged. Snapshots keep their weights; their figures follow the new currency. You can undo the change.</p>',
+      actions: [{ label: 'Cancel', ghost: true }, { label: 'Change currency', primary: true, onClick: function (c) {
+        var v = U.$('#cc-ccy', c.el).value; if (v === cur) return;
+        S.update('Reporting currency changed from ' + cur + ' to ' + v, function (ws) { ws.currency = v; }, { type: 'edit' });
+        UI.toast('Reporting in ' + v + '. Every card is recalculating.', { action: { label: 'Undo', fn: S.undo } });
+      } }] });
   };
 
   /* ── versions & activity ─────────────────────────────────────────── */
@@ -167,18 +202,18 @@
   /* ── export ──────────────────────────────────────────────────────── */
   Dg.exportDialog = function () {
     var dd = S.ws.cards.filter(function (c) { return c.type === 'drivers-differences' && PA.cards.state[c.id] && PA.cards.state[c.id].data; })[0], res = dd ? PA.cards.state[dd.id].data : null, p = S.ws.prefs;
-    UI.openDialog({ title: 'Export', sub: 'Exports carry their context: allocations and versions, scenario, reference, period and units.',
+    UI.openDialog({ title: 'Export', sub: 'Exports carry their context: allocations and versions, scenario, reference, period and units.<br><b>' + esc(UI.context.sentence()) + '</b>',
       body: '<div class="doors"><button type="button" class="door" data-exp="csv" aria-pressed="true"' + (res ? '' : ' disabled') + '><b>Table as CSV</b><span>The Drivers &amp; Differences card as shown, with labelled columns</span></button><button type="button" class="door" data-exp="json" aria-pressed="false"><b>Workspace as JSON</b><span>Allocations, comparison, scenarios, cards and preferences</span></button></div><p class="small muted" style="margin:0">' + (res ? 'Table: ' + esc(UI.table.metricLabel((dd.settings || {}).metric || 'return')) + (res.period ? ', ' + esc(res.period.label) : '') + (S.activeScenario() ? ', scenario “' + esc(S.activeScenario().name) + '”' : ', base case') : 'Add a Drivers & Differences card to export a table.') + '</p>',
       onOpen: function (dlg) { U.on(dlg, 'click', '[data-exp]', function (e, b) { U.$$('[data-exp]', dlg).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); }); },
       actions: [{ label: 'Cancel', ghost: true }, { label: 'Download', primary: true, onClick: function (c) {
         var kind = U.$('[data-exp][aria-pressed=true]', c.el).dataset.exp, stamp = new Date().toISOString().slice(0, 10), base = S.ws.name.replace(/[^\w]+/g, '-').toLowerCase();
         if (kind === 'json') { U.download(base + '-' + stamp + '.json', JSON.stringify(S.ws, null, 2), 'application/json'); return; }
         if (!res) return false;
-        var set = dd.settings || {}, metric = set.metric || 'return', factors = set.factors && set.factors.length ? set.factors : ['equity', 'rates', 'credit'];
-        var lines = [], meta = ['Workspace', S.ws.name, 'Exported', new Date().toISOString(), 'Basis', p.basis, 'Metric', UI.table.metricLabel(metric), 'Unit', res.unit, 'Values', set.values || 'absolute', 'Scenario', S.activeScenario() ? S.activeScenario().name : 'Base case', 'Period', res.period ? res.period.label : D.assumptions.model];
+        var set = dd.settings || {}, metric = set.metric || 'return', factors = set.factors && set.factors.length ? set.factors : ['equity', 'term', 'fx'];
+        var lines = [], meta = ['Workspace', S.ws.name, 'Context', UI.context.sentence(), 'Exported', new Date().toISOString(), 'Reporting currency', S.ws.currency, 'Basis', (dd.settings || {}).metric === 'weight' ? 'none' : ((dd.settings || {}).basis || 'forward'), 'Metric', UI.table.metricLabel(metric), 'Unit', res.unit, 'Values', set.values || 'absolute', 'Scenario', S.activeScenario() ? S.activeScenario().name : 'Base case', 'Period', res.period ? res.period.label : D.assumptions.model];
         for (var i = 0; i < meta.length; i += 2) lines.push(U.csvCell(meta[i]) + ',' + U.csvCell(meta[i + 1])); lines.push('');
         var cols = []; res.columns.forEach(function (col) { col.sets.forEach(function (st) { (metric === 'factor' ? factors : [null]).forEach(function (fid) { cols.push({ col: col, set: st, fid: fid }); }); }); });
-        lines.push(['Row', 'Kind'].concat(cols.map(function (x) { return x.col.name + ' [' + x.col.kind + (x.col.basisLabel ? ' · ' + x.col.basisLabel : '') + (x.col.referenceLabel ? ' vs ' + x.col.referenceLabel : '') + '] ' + x.set + (x.fid ? ' ' + D.factorById[x.fid].name : ''); })).map(U.csvCell).join(','));
+        lines.push(['Row', 'Kind'].concat(cols.map(function (x) { return x.col.name + ' [' + x.col.kind + (x.col.basisLabel ? ' · ' + x.col.basisLabel : '') + (x.col.referenceLabel ? ' vs ' + x.col.referenceLabel : '') + '] ' + x.set + (x.fid ? ' ' + (PA.cards.modelOf(dd).factorById[x.fid] || { name: x.fid }).name : ''); })).map(U.csvCell).join(','));
         res.rows.forEach(function (r) { lines.push([r.label, r.kind].concat(cols.map(function (x) { var cell = res.cells[x.col.allocationId][r.key][x.set]; if (!cell) return ''; var v = x.fid ? (cell.factors ? cell.factors[x.fid] : null) : cell.value; return v == null ? 'unavailable: ' + ((x.fid && cell.reasons && cell.reasons[x.fid]) || cell.reason || '') : U.round(v, 4); })).map(U.csvCell).join(',')); });
         U.download(base + '-' + metric + '-' + stamp + '.csv', lines.join('\n'), 'text/csv');
       } }] });

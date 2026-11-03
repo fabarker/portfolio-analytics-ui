@@ -14,7 +14,8 @@
    ─────────────────────────────────────────────────────
      GET    /workspaces                      → WorkspaceSummary[]
      GET    /workspaces/:id                  → Workspace
-     POST   /workspaces                      ← {name, description} → Workspace
+     POST   /workspaces                      ← {name, currency, description} → Workspace
+                                              (currency is required: the reporting currency)
      PUT    /workspaces/:id                  ← Workspace → {savedAt, version}
      DELETE /workspaces/:id                  → {}
      GET    /universe                        → {categories, assetClasses, factors, factorModels, benchmarks, templates, instruments}
@@ -23,6 +24,9 @@
      GET    /sleeves                         → Sleeve[]           (shared repository, see data/sleeves.js)
      PUT    /sleeves/:id                     ← Sleeve → Sleeve    (create, rename, or add a version)
      PATCH  /sleeves/:id                     ← {archived} → Sleeve
+     GET    /benchmarks                      → {presets:Benchmark[], custom:CustomBenchmark[]}  (see data/benchmarks.js)
+     PUT    /benchmarks/:id                  ← CustomBenchmark → CustomBenchmark (create, rename, or add a version)
+     PATCH  /benchmarks/:id                  ← {archived} → CustomBenchmark
      GET    /cards                           → SavedCard[]        (shared card repository)
      PUT    /cards/:id                       ← SavedCard → SavedCard
      DELETE /cards/:id                       → {}
@@ -35,6 +39,11 @@
      POST   /analytics/summaries             ← {allocations} → {[allocationId]:{ret, vol, sharpe}}
      POST   /analytics/active                ← ActiveRequest  → ActiveResponse
      POST   /analytics/factor-risk           ← FactorRiskRequest → FactorRiskResponse
+     POST   /analytics/forward-suite         ← SuiteRequest → ForwardSuiteResponse
+     POST   /analytics/history-suite         ← SuiteRequest → HistorySuiteResponse
+     POST   /analytics/structure             ← SuiteRequest → StructureResponse
+   Every analytics request carries the workspace's reporting currency in the
+   X-Reporting-Currency header (useCurrency); figures come back in it.
 
    Shapes
    ─────
@@ -79,13 +88,25 @@
      Risk is in % a year, contributions are Euler (they sum to the tracking error); returns are % a year.
    FactorRiskRequest {allocations, rowKey, factorModel}
    FactorRiskResponse{factorModel, modelAsOf, factors:[{id, name}], series:[{allocationId, total, byFactor:{[id]:pp}, specific, exposure, coverage}]}
+   SuiteRequest   {allocations, reference (as TableRequest), period?, scenario?, horizon?, target?}
+   ForwardSuiteResponse {riskFree, stress:[{id, name, combined}], reference:{label, ret, vol, …}|null,
+                   series:[{allocationId, reason?, scenarioApplied, ret, vol, sharpe, var95, es95, var99, es99,
+                            pLoss, pCash, pTarget, target, horizon, divRatio, enb, categoryShares:[{id, share}],
+                            stress:[{id, value}], reference:{label, ret, vol, sharpe}}]}
+     returns, risk and losses in % a year; probabilities in %; value at risk and shortfall as losses
+   HistorySuiteResponse {months, period, series:[{allocationId, reason?, reference:{label}, returns:(number|null)[],
+                   stats:{months, mean, sd, skew, kurtosis, bins:[{from, to, count}], worst:[{m, r}], positive,
+                          upCapture, downCapture, upMonths, downMonths, beta, correlation, hitRate}}]}
+   StructureResponse {currency, categories:[{id, name, short, color}], currencies:string[],
+                   series:[{allocationId, reference:{label}|null, weights:{[categoryId]:%}, referenceWeights, active,
+                            currency:{[code]:%}}]}
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
   var PA = window.PA, U = PA.util, D = PA.data, E = PA.engine;
 
   var config = { adapter: 'mock', baseUrl: '/api/v1', latency: 380, slow: false, failSave: false, failAnalytics: false };
-  var STORE_KEY = 'pa.workspace.mock.v3';
+  var STORE_KEY = 'pa.workspace.mock.v4';
 
   /* ── shared helpers (used by the mock adapter) ────────────────────── */
   function metricOf(rowRes, metric, riskUnits, fid) {
@@ -189,10 +210,11 @@
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; return store; } } } catch (e) { /* storage unavailable */ }
-      store = { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), version: 1 };
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); D.registerBenchmarks(store.benchmarks); return store; } } } catch (e) { /* storage unavailable */ }
+      store = fresh(); D.registerBenchmarks(store.benchmarks);
       return store;
     }
+    function fresh() { return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), version: 1 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }
@@ -209,7 +231,8 @@
       createWorkspace: function (input) {
         return wait(latency()).then(function () {
           var now = new Date().toISOString();
-          var ws = { id: U.uid('ws'), name: input.name || 'Untitled workspace', description: input.description || '', currency: 'USD', owner: 'F. Barker', createdAt: now, updatedAt: now,
+          if (!input.currency || !D.currencyByCode[input.currency]) throw { code: 'invalid', message: 'Choose a reporting currency' };
+          var ws = { id: U.uid('ws'), name: input.name || 'Untitled workspace', description: input.description || '', currency: input.currency, owner: 'F. Barker', createdAt: now, updatedAt: now,
             allocations: [], comparison: { members: [], activeId: null, referenceMode: 'shared', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
             scenarios: [], activeScenarioId: null, cards: U.clone(D.workspaces[0].cards), prefs: U.clone(D.workspaces[0].prefs), activity: [{ at: now, type: 'create', label: 'Workspace created' }] };
           ws.prefs.emphasis = []; ws.prefs.selectedRow = 'public_equity';
@@ -226,7 +249,21 @@
         });
       },
       deleteWorkspace: function (id) { return wait(latency()).then(function () { store = load(); store.workspaces = store.workspaces.filter(function (w) { return w.id !== id; }); persist(); return {}; }); },
-      resetSampleData: function () { store = { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), version: 1 }; persist(); return Promise.resolve({}); },
+      resetSampleData: function () { store = fresh(); D.registerBenchmarks(store.benchmarks); persist(); return Promise.resolve({}); },
+      useCurrency: function (code) { D.setReportingCurrency(code); return Promise.resolve({ currency: D.reporting }); },
+      /* benchmark library */
+      listBenchmarks: function () { return wait(latency() * 0.4).then(function () { return { presets: U.clone(D.benchmarkPresets), custom: U.clone(load().benchmarks) }; }); },
+      saveBenchmark: function (b) {
+        return wait(latency() * 0.6).then(function () {
+          var v = D.latestVersion(b), total = U.sum(v.rows, function (r) { return r.weight; });
+          if (Math.abs(total - 100) > 0.051) throw { code: 'invalid', message: 'Weights must total 100%' };
+          if (v.rows.some(function (r) { return r.kind === 'benchmark' && (r.id === b.id || r.id.indexOf(b.id + '@') === 0); })) throw { code: 'invalid', message: 'A benchmark cannot contain itself' };
+          var list = load().benchmarks, i = -1; list.forEach(function (x, k) { if (x.id === b.id) i = k; });
+          var copy = U.clone(b); if (i < 0) list.unshift(copy); else list[i] = copy;
+          D.registerBenchmarks(list); persist(); return U.clone(copy);
+        });
+      },
+      archiveBenchmark: function (id, archived) { return wait(latency() * 0.5).then(function () { var b = load().benchmarks.filter(function (x) { return x.id === id; })[0]; if (!b) throw { code: 'not_found', message: 'Benchmark not found' }; b.archived = archived !== false; D.registerBenchmarks(load().benchmarks); persist(); return U.clone(b); }); },
       getUniverse: function () { return Promise.resolve({ categories: D.categories, assetClasses: D.assetClasses, factors: D.factors, factorModels: D.factorModels, benchmarks: D.benchmarks, templates: D.templates, instruments: D.instruments }); },
       getAssumptions: function () { return Promise.resolve(U.clone(D.assumptions)); },
       searchInvestments: function (q, opts) {
@@ -415,6 +452,51 @@
             return { allocationId: a.id, total: r.total, byFactor: r.byFactor, specific: r.specific, exposure: r.exposure, coverage: E.modelNote(model, subject.holdings) };
           }) };
         });
+      },
+
+      forwardSuite: function (req) {
+        return wait(latency() * 0.8).then(function () {
+          if (config.failAnalytics) fail();
+          var Rbase = E.resolve(null), Rsc = req.scenario ? E.resolve(req.scenario) : null, opts = { horizon: req.horizon, target: req.target };
+          if (!Rbase.corrValid) throw { code: 'invalid_covariance', message: 'The correlation matrix is not positive semi-definite' };
+          var series = req.allocations.map(function (a) {
+            var subject = subjectOf(a, '__total'); if (!subject) return { allocationId: a.id, reason: 'No holdings' };
+            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0 && Rsc && Rsc.corrValid), R = inScope ? Rsc : Rbase;
+            var out = E.forwardSuite(subject.holdings, R, opts); if (!out) return { allocationId: a.id, reason: 'No holdings' };
+            out.allocationId = a.id; out.scenarioApplied = inScope;
+            var bm = benchmarkFor(a, { reference: req.reference, against: { mode: 'reference' } });
+            if (bm.holdings) { var rs = E.forwardSuite(bm.holdings, Rbase, opts); out.reference = { label: bm.label, ret: rs.ret, vol: rs.vol, sharpe: rs.sharpe }; } else out.reference = { label: null, reason: bm.reason };
+            return out;
+          });
+          return { riskFree: D.assumptions.riskFree, currency: D.reporting, stress: E.stressTests.map(function (t) { return { id: t.id, name: t.name, combined: !!t.combined, shocks: t.shocks }; }), series: series };
+        });
+      },
+
+      historySuite: function (req) {
+        return wait(latency() * 0.9).then(function () {
+          if (config.failAnalytics) fail();
+          var period = resolvePeriod(req.allocations, req.period), months = D.history.months.slice(E.monthIndex(period.start), E.monthIndex(period.end) + 1);
+          var series = req.allocations.map(function (a) {
+            var r = E.rowReturns(a, '__total', period.start, period.end); if (!r) return { allocationId: a.id, reason: 'No history in the period' };
+            var bm = benchmarkFor(a, { reference: req.reference, against: { mode: 'reference' } }), rb = bm.holdings ? E.backtest(bm.holdings, period.start, period.end).returns : null;
+            return { allocationId: a.id, reference: { label: bm.label, reason: bm.reason || null }, returns: r.returns, stats: E.historySuite(r.returns, rb, months) };
+          });
+          return { months: months, period: period, series: series };
+        });
+      },
+
+      structure: function (req) {
+        return wait(latency() * 0.5).then(function () {
+          var codes = {};
+          var series = req.allocations.map(function (a) {
+            var hs = E.effective(a), weights = E.categoryWeights(hs), bm = benchmarkFor(a, { reference: req.reference, against: { mode: 'reference' } }), rw = bm.holdings ? E.categoryWeights(bm.holdings) : null, active = null;
+            if (rw) { active = {}; D.categories.forEach(function (c) { active[c.id] = weights[c.id] - rw[c.id]; }); }
+            var mix = E.currencyMix(hs); Object.keys(mix).forEach(function (c) { if (Math.abs(mix[c]) > 1e-9) codes[c] = 1; });
+            return { allocationId: a.id, reference: bm.holdings ? { label: bm.label } : null, referenceReason: bm.reason || null, weights: weights, referenceWeights: rw, active: active, currency: mix };
+          });
+          var order = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'EM'], rep = D.reporting, list = Object.keys(codes).sort(function (x, y) { var i = order.indexOf(x), j = order.indexOf(y); return (x === rep ? -1 : y === rep ? 1 : 0) || (i < 0 ? 99 : i) - (j < 0 ? 99 : j); });
+          return { currency: rep, categories: D.categories.map(function (c) { return { id: c.id, name: c.name, short: c.short, color: c.color }; }), currencies: list, series: series };
+        });
       }
     };
   })();
@@ -422,7 +504,7 @@
   /* ── http adapter (handoff target) ───────────────────────────────── */
   var http = (function () {
     function call(method, path, body) {
-      return fetch(config.baseUrl + path, { method: method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, credentials: 'same-origin', body: body == null ? undefined : JSON.stringify(body) })
+      return fetch(config.baseUrl + path, { method: method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Reporting-Currency': config.currency || 'USD' }, credentials: 'same-origin', body: body == null ? undefined : JSON.stringify(body) })
         .then(function (r) { if (r.status === 204) return {}; return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw { code: j.code || 'http_' + r.status, message: j.message || r.statusText, status: r.status }; return j; }); }, function (e) { throw { code: 'network', message: e.message }; });
     }
     return {
@@ -438,6 +520,10 @@
       listSleeves: function () { return call('GET', '/sleeves'); },
       saveSleeve: function (s) { return call('PUT', '/sleeves/' + encodeURIComponent(s.id), s); },
       archiveSleeve: function (id, archived) { return call('PATCH', '/sleeves/' + encodeURIComponent(id), { archived: archived !== false }); },
+      useCurrency: function (code) { config.currency = code; return Promise.resolve({ currency: code }); },
+      listBenchmarks: function () { return call('GET', '/benchmarks'); },
+      saveBenchmark: function (b) { return call('PUT', '/benchmarks/' + encodeURIComponent(b.id), b); },
+      archiveBenchmark: function (id, archived) { return call('PATCH', '/benchmarks/' + encodeURIComponent(id), { archived: archived !== false }); },
       listSavedCards: function () { return call('GET', '/cards'); },
       saveCard: function (c) { return call('PUT', '/cards/' + encodeURIComponent(c.id), c); },
       deleteSavedCard: function (id) { return call('DELETE', '/cards/' + encodeURIComponent(id)); },
@@ -449,7 +535,10 @@
       scenarioComparison: function (req) { return call('POST', '/analytics/scenarios', req); },
       summaries: function (allocations) { return call('POST', '/analytics/summaries', { allocations: allocations }); },
       activeAnalysis: function (req) { return call('POST', '/analytics/active', req); },
-      factorRisk: function (req) { return call('POST', '/analytics/factor-risk', req); }
+      factorRisk: function (req) { return call('POST', '/analytics/factor-risk', req); },
+      forwardSuite: function (req) { return call('POST', '/analytics/forward-suite', req); },
+      historySuite: function (req) { return call('POST', '/analytics/history-suite', req); },
+      structure: function (req) { return call('POST', '/analytics/structure', req); }
     };
   })();
 

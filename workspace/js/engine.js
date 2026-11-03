@@ -46,7 +46,7 @@
     D.instruments.forEach(function (ins) {
       var o = ov && ov.holding[ins.id];
       var acr = acReturn[ins.assetClass], acv = acVol[ins.assetClass];
-      var alphaAdj = ins.type === 'Index' ? 0 : -(ins.fee || 0) / 100;
+      var alphaAdj = (ins.type === 'Index' ? 0 : -(ins.fee || 0) / 100) + (ins.spread || 0);
       ret[ins.id] = o && o.return != null ? { value: o.return, base: acr.base + alphaAdj, source: 'holding' } : { value: acr.value + alphaAdj, base: acr.base + alphaAdj, source: acr.source };
       vol[ins.id] = o && o.vol != null ? { value: o.vol, base: acv.base, source: 'holding' } : { value: acv.value, base: acv.base, source: acv.source };
     });
@@ -532,5 +532,99 @@
   E.summary = function (allocation, R) {
     var f = E.forward(allocation, R, [{ key: '__total', kind: 'total' }]); if (f.error) return null;
     var t = f.rows.__total; return { ret: t.ret, vol: f.portfolio.vol, sharpe: f.portfolio.vol > 0 ? (t.ret - D.assumptions.riskFree) / f.portfolio.vol : null };
+  };
+
+  /* ── the forward-looking suite ───────────────────────────────────── */
+  /** Standard normal distribution function (Abramowitz & Stegun 7.1.26). */
+  E.normCdf = function (z) {
+    var x = Math.abs(z) / Math.SQRT2, t = 1 / (1 + 0.3275911 * x);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return z >= 0 ? (1 + y) / 2 : (1 - y) / 2;
+  };
+  /**
+   * Hypothetical stress tests: instant shocks to factor returns (%), applied
+   * to the portfolio's exposures under the Axioma factor model, which holds
+   * every shocked factor (ISG has no credit or inflation factor). The
+   * currency shock is the reporting currency rising against every other.
+   */
+  E.stressModel = 'axioma';
+  E.stressTests = [
+    { id: 'equity', name: 'Equity markets −20%', shocks: { equity: -20 } },
+    { id: 'rates', name: 'Interest rates +100 bp', shocks: { term: -6.5 } },
+    { id: 'credit', name: 'Credit spreads +100 bp', shocks: { credit: -4.5 } },
+    { id: 'fx', name: 'Reporting currency +10%', shocks: { fx: -10 } },
+    { id: 'inflation', name: 'Inflation +1 pp', shocks: { local_inflation: 2.5, term: -2 } },
+    { id: 'cmd', name: 'Commodities −25%', shocks: { commodities: -25 } },
+    { id: 'recession', name: 'Global recession', combined: true, shocks: { equity: -25, term: 5, credit: -6, funding: -3, liquidity: -3, commodities: -20 } },
+    { id: 'stagflation', name: 'Stagflation', combined: true, shocks: { equity: -15, term: -8, local_inflation: 5, commodities: 15 } }
+  ];
+  /**
+   * Forward-looking measures for a holding list under resolved assumptions:
+   * expected return and volatility, one-year value at risk and expected
+   * shortfall (normal, as losses in %), outcome probabilities, the
+   * diversification ratio, the effective number of bets (on category risk
+   * shares) and the stress tests. opts: {horizon, target}
+   */
+  E.forwardSuite = function (holdings, R, opts) {
+    opts = opts || {};
+    var hs = holdings.filter(function (h) { return Math.abs(h.weight) > 1e-9; });
+    if (!hs.length) return null;
+    var w = hs.map(function (h) { return h.weight / 100; }), S = covariance(hs, R), Sw = U.mat.mulVec(S, w), vol = Math.sqrt(Math.max(U.mat.dot(w, Sw), 0));
+    var ret = U.sum(hs, function (h) { return h.weight / 100 * R.ret[h.instrumentId].value; }), rf = D.assumptions.riskFree, Phi = E.normCdf;
+    var dens = function (z) { return Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI); }, z95 = 1.6449, z99 = 2.3263;
+    var H = opts.horizon || 10, target = opts.target != null ? opts.target : rf + 3;
+    var stand = U.sum(hs, function (h, i) { return Math.abs(w[i]) * Math.sqrt(S[i][i]); });
+    var byCat = {}; hs.forEach(function (h, i) { var c = E.categoryOf(h.instrumentId); byCat[c] = (byCat[c] || 0) + (vol > 0 ? w[i] * Sw[i] / vol : 0); });
+    var shares = Object.keys(byCat).map(function (c) { return { id: c, share: vol > 0 ? byCat[c] / vol * 100 : 0 }; });
+    var hhi = U.sum(shares, function (x) { return Math.pow(x.share / 100, 2); });
+    var ex = E.modelRisk(E.weightsOf(hs), E.stressModel).exposure;
+    return { ret: ret, vol: vol, sharpe: vol > 0 ? (ret - rf) / vol : null,
+      var95: vol * z95 - ret, es95: vol * dens(z95) / 0.05 - ret, var99: vol * z99 - ret, es99: vol * dens(z99) / 0.01 - ret,
+      pLoss: vol > 0 ? Phi(-ret / vol) * 100 : (ret < 0 ? 100 : 0), pCash: vol > 0 ? Phi((rf - ret) / vol) * 100 : (ret < rf ? 100 : 0),
+      pTarget: vol > 0 ? (1 - Phi((target - ret) * Math.sqrt(H) / vol)) * 100 : (ret >= target ? 100 : 0), target: target, horizon: H,
+      divRatio: vol > 0 ? stand / vol : null, enb: hhi > 0 ? 1 / hhi : null, categoryShares: shares,
+      stress: E.stressTests.map(function (t) { var v = 0; Object.keys(t.shocks).forEach(function (f) { v += (ex[f] || 0) * t.shocks[f]; }); return { id: t.id, value: v }; }) };
+  };
+
+  /* ── the historical suite ────────────────────────────────────────── */
+  /**
+   * Distribution and capture measures from monthly returns (fractions).
+   * rp: the allocation; rb: the reference, aligned month by month (or null).
+   */
+  E.historySuite = function (rp, rb, months) {
+    var idx = []; rp.forEach(function (v, i) { if (v != null && (!rb || rb[i] != null)) idx.push(i); });
+    if (idx.length < 12) return null;
+    var x = idx.map(function (i) { return rp[i] * 100; }), n = x.length, m = U.sum(x) / n;
+    var sd = Math.sqrt(U.sum(x, function (v) { return (v - m) * (v - m); }) / (n - 1));
+    var skew = sd > 0 ? U.sum(x, function (v) { return Math.pow((v - m) / sd, 3); }) / n : 0, kurt = sd > 0 ? U.sum(x, function (v) { return Math.pow((v - m) / sd, 4); }) / n - 3 : 0;
+    var lo = Math.floor(Math.min.apply(null, x)), hi = Math.ceil(Math.max.apply(null, x)); if (hi === lo) hi = lo + 1;
+    var bins = []; for (var b = lo; b < hi; b++) bins.push({ from: b, to: b + 1, count: 0 });
+    x.forEach(function (v) { var k = Math.min(bins.length - 1, Math.floor(v) - lo); bins[k].count++; });
+    var worst = idx.map(function (i) { return { m: months[i], r: rp[i] * 100 }; }).sort(function (p, q) { return p.r - q.r; }).slice(0, 3);
+    var out = { months: n, mean: m, sd: sd, skew: skew, kurtosis: kurt, bins: bins, worst: worst, positive: x.filter(function (v) { return v > 0; }).length / n * 100 };
+    if (rb) {
+      var y = idx.map(function (i) { return rb[i] * 100; }), my = U.sum(y) / n, cov = 0, vy = 0, vx = 0;
+      for (var k = 0; k < n; k++) { cov += (x[k] - m) * (y[k] - my); vy += (y[k] - my) * (y[k] - my); vx += (x[k] - m) * (x[k] - m); }
+      var geo = function (arr) { if (!arr.length) return null; var g = 1; arr.forEach(function (v) { g *= 1 + v / 100; }); return (Math.pow(g, 1 / arr.length) - 1) * 100; };
+      var up = [], upB = [], dn = [], dnB = [], beat = 0;
+      for (var j = 0; j < n; j++) { if (y[j] >= 0) { up.push(x[j]); upB.push(y[j]); } else { dn.push(x[j]); dnB.push(y[j]); } if (x[j] > y[j]) beat++; }
+      var ratio = function (p, q) { var a = geo(p), c = geo(q); return a == null || c == null || Math.abs(c) < 1e-9 ? null : a / c * 100; };
+      out.upCapture = ratio(up, upB); out.downCapture = ratio(dn, dnB); out.upMonths = up.length; out.downMonths = dn.length;
+      out.beta = vy > 0 ? cov / vy : null; out.correlation = vx > 0 && vy > 0 ? cov / Math.sqrt(vx * vy) : null; out.hitRate = beat / n * 100;
+    }
+    return out;
+  };
+
+  /* ── structure ───────────────────────────────────────────────────── */
+  /** Weight by category (% of the total) of a holding list. */
+  E.categoryWeights = function (holdings) { var out = {}; D.categories.forEach(function (c) { out[c.id] = 0; }); holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) out[c] += h.weight; }); return out; };
+  /** Look-through currency mix (% of the total, unhedged); cash is in the reporting currency. */
+  E.currencyMix = function (holdings) {
+    var out = {}, rep = D.reporting;
+    holdings.forEach(function (h) {
+      var ins = D.instrumentById[h.instrumentId], mix = ins.assetClass === 'cash' ? (function () { var o = {}; o[rep] = 100; return o; })() : D.currencyLookThrough[ins.assetClass] || { USD: 100 };
+      Object.keys(mix).forEach(function (c) { out[c] = (out[c] || 0) + h.weight * mix[c] / 100; });
+    });
+    return out;
   };
 })();

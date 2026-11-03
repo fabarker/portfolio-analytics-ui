@@ -53,8 +53,8 @@
   ];
 
   D.savedCards = [
-    { id: 'card_risk_vol', name: 'Risk by category · volatility units', type: 'risk-by-category', settings: { riskUnits: 'vol' }, followRow: false, createdBy: 'F. Barker', createdAt: '2026-09-02T10:00:00Z' },
-    { id: 'card_factors_all', name: 'Factor exposures · all six factors', type: 'factor-exposures', settings: { factors: ['equity', 'rates', 'credit', 'cmd', 'fx', 'inflation'] }, followRow: false, createdBy: 'A. Okafor', createdAt: '2026-08-21T14:30:00Z' },
+    { id: 'card_risk_vol', name: 'Risk by category · volatility units', type: 'risk-by-category', settings: { basis: 'forward', riskUnits: 'vol' }, followRow: false, createdBy: 'F. Barker', createdAt: '2026-09-02T10:00:00Z' },
+    { id: 'card_factors_all', name: 'Factor exposures · every ISG factor', type: 'factor-exposures', settings: { basis: 'forward', factors: { isg: ['equity', 'term', 'liquidity', 'funding', 'fx', 'em', 'dollar', 'size', 'value', 'commodities', 'momentum'] } }, followRow: false, createdBy: 'A. Okafor', createdAt: '2026-08-21T14:30:00Z' },
     { id: 'card_rolling_vol', name: 'Rolling 36-month volatility', type: 'rolling', settings: { measure: 'vol', window: 36 }, followRow: false, createdBy: 'F. Barker', createdAt: '2026-10-05T09:10:00Z' }
   ];
 })();

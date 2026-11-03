@@ -44,6 +44,11 @@
     S.session.drawerOpen = false; S.session.railOpen = false; S.session.rowFilter = ''; S.session.sort = null; S.session.selectedPair = null;
     S.session.selectMode = false; S.session.selection = []; S.session.addCardOpen = false; S.session.railTab = 'build';
     if (!ws.prefs.selectedRow) ws.prefs.selectedRow = 'public_equity';
+    /* Workspaces saved with a shared Basis switch: each card that followed it
+       keeps its last value as its own basis, so nothing on screen changes. */
+    if (ws.prefs.basis) { ws.cards.forEach(function (c) { var t = PA.cards && PA.cards.types[c.type]; if (t && t.basis === 'either' && !(c.settings && c.settings.basis)) { c.settings = c.settings || {}; c.settings.basis = ws.prefs.basis; } }); delete ws.prefs.basis; }
+    if (!ws.currency) ws.currency = 'USD';
+    PA.api.useCurrency(ws.currency);
     S.session.revision++;
     emit('load');
   };
@@ -65,8 +70,8 @@
   S.card = function (id) { return S.ws ? S.ws.cards.filter(function (c) { return c.id === id; })[0] || null : null; };
 
   /* ── undoable updates ────────────────────────────────────────────── */
-  function undoSnapshot() { var w = S.ws; return JSON.stringify({ allocations: w.allocations, comparison: w.comparison, scenarios: w.scenarios, activeScenarioId: w.activeScenarioId, cards: w.cards }); }
-  function applySnapshot(json) { var s = JSON.parse(json); S.ws.allocations = s.allocations; S.ws.comparison = s.comparison; S.ws.scenarios = s.scenarios; S.ws.activeScenarioId = s.activeScenarioId; S.ws.cards = s.cards; }
+  function undoSnapshot() { var w = S.ws; return JSON.stringify({ allocations: w.allocations, comparison: w.comparison, scenarios: w.scenarios, activeScenarioId: w.activeScenarioId, cards: w.cards, currency: w.currency }); }
+  function applySnapshot(json) { var s = JSON.parse(json); S.ws.allocations = s.allocations; S.ws.comparison = s.comparison; S.ws.scenarios = s.scenarios; S.ws.activeScenarioId = s.activeScenarioId; S.ws.cards = s.cards; if (s.currency) S.ws.currency = s.currency; }
   /**
    * Apply a mutation to the workspace. fn receives the live ws object.
    * opts: {type, detail, activity:false (skip the log), history:false (no undo
@@ -104,7 +109,7 @@
   S.canRedo = function () { return S.session.history.future.length > 0; };
 
   /** Display preferences: saved, not undoable. Some change what every card shows. */
-  var REFRESH_PREFS = ['basis', 'period', 'horizon', 'confidence'];
+  var REFRESH_PREFS = ['period', 'horizon', 'confidence'];
   S.setPref = function (key, value) {
     if (!S.ws) return;
     S.ws.prefs[key] = value;

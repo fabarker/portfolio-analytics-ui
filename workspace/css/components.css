@@ -81,7 +81,7 @@ textarea{height:auto;padding:8px 10px;line-height:1.4;font-family:var(--f-num)}
 input:hover,select:hover,textarea:hover{border-color:var(--line-mid)}
 input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash)}
 input[aria-invalid=true],select[aria-invalid=true]{border-color:var(--neg);box-shadow:0 0 0 3px var(--neg-bg)}
-input:disabled,select:disabled{background:var(--surface-2);color:var(--ink-3);cursor:not-allowed}
+input:disabled,select:disabled{background-color:var(--surface-2);color:var(--ink-3);cursor:not-allowed}
 select{background-image:var(--caret);background-repeat:no-repeat;background-position:right 10px center;background-size:11px 7px;padding-right:28px}
 input[type=number]{text-align:right;font-variant-numeric:tabular-nums}
 input[type=number]::-webkit-inner-spin-button{opacity:.5}
@@ -239,7 +239,7 @@ button[data-tip],a[data-tip]{cursor:pointer}
 .empty h3{font-size:16px;color:var(--ink)}
 .empty p{max-width:46ch;margin:0}
 .empty .actions{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center}
-.empty svg{width:44px;height:44px;color:var(--line-mid)}
+.empty > svg{width:44px;height:44px;color:var(--line-mid)}
 
 /* ── panels ──────────────────────────────────────────────────────────── */
 .panel{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);box-shadow:var(--shadow)}

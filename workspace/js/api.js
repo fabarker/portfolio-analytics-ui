@@ -238,7 +238,10 @@
       store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks);
       return store;
     }
-    function fresh() { return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2 }; }
+    function fresh() {
+      var need = [['workspaces', 'data/workspaces.js'], ['sleeveRepository', 'data/sleeves.js'], ['savedCards', 'data/sleeves.js'], ['benchmarkLibrary', 'data/benchmarks.js']], gone = need.filter(function (n) { return !D[n[0]]; }).map(function (n) { return n[1]; });
+      if (gone.length) throw { code: 'missing_data', message: 'The sample data did not load (' + gone.filter(function (f, i) { return gone.indexOf(f) === i; }).join(', ') + '). Check that the whole workspace folder was copied and that its files are available offline, then reload.' };
+      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }

@@ -283,11 +283,16 @@
     byY.forEach(function (c) { if (c.id !== fixedId) { while (c.y > 0) { c.y--; if (done.some(function (p) { return overlaps(c, p); })) { c.y++; break; } } } done.push(c); });
     var out = {}; done.forEach(function (c) { out[c.id] = { x: c.x, y: c.y, w: c.w, h: c.h }; }); return out;
   }
+  /* A card type's minimum width is given in columns of a standard-width canvas (about 80px each).
+     On a wider canvas each column is wider, so the minimum is converted to the number of columns
+     that gives the same physical width; heights are fixed-height rows and need no conversion. */
+  var REF_COL = 80;
+  function minFor(card, col) { var t = C.types[card.type], m = (t && t.min) || { w: 3, h: 3 }, px = m.w * REF_COL + (m.w - 1) * GAP; col = col || cellSize().col; return { w: U.clamp(Math.ceil((px + GAP) / (col + GAP)), 1, m.w), h: m.h }; }
   function cellSize() { var r = grid.getBoundingClientRect(); return { col: (r.width - GAP * (COLS - 1)) / COLS, row: ROW, left: r.left, top: r.top }; }
   function startDrag(e, el, card, mode) {
     if (window.innerWidth <= 900) return;
     e.preventDefault();
-    var cs = cellSize(), startX = e.clientX, startY = e.clientY, o = { x: card.x, y: card.y, w: card.w, h: card.h }, t = C.types[card.type], min = (t && t.min) || { w: 3, h: 3 };
+    var cs = cellSize(), startX = e.clientX, startY = e.clientY, o = { x: card.x, y: card.y, w: card.w, h: card.h }, min = minFor(card, cs.col);
     var live = { x: o.x, y: o.y, w: o.w, h: o.h };
     el.classList.add(mode === 'move' ? 'is-dragging' : 'is-resizing'); el.setPointerCapture(e.pointerId);
     var ghost = U.html('<div class="card-ghost"></div>'); grid.appendChild(ghost);
@@ -374,7 +379,7 @@
     grid.addEventListener('keydown', function (e) {
       var el = e.target.closest && e.target.closest('.card'); if (!el || e.target !== el) return;
       var card = S.card(el.dataset.card); if (!card) return;
-      var t = C.types[card.type], min = (t && t.min) || { w: 3, h: 3 }, p = { x: card.x, y: card.y, w: card.w, h: card.h }, k = e.key;
+      var min = minFor(card), p = { x: card.x, y: card.y, w: card.w, h: card.h }, k = e.key;
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].indexOf(k) < 0) return;
       e.preventDefault();
       if (e.shiftKey) { if (k === 'ArrowRight') p.w = Math.min(COLS - p.x, p.w + 1); if (k === 'ArrowLeft') p.w = Math.max(min.w, p.w - 1); if (k === 'ArrowDown') p.h++; if (k === 'ArrowUp') p.h = Math.max(min.h, p.h - 1); }

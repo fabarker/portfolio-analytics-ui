@@ -117,21 +117,64 @@ dl.defs dt { font-weight: 600; } dl.defs dd { margin: 0; min-width: 0; }
   <!-- 2 -->
   <h2 id="s2"><span class="n">2</span>Purpose and principles</h2>
   <p>The workspace supports the construction, analysis and comparison of multi-asset portfolio allocations in a single environment. It presents forward-looking and historical return, risk, contributions and factor exposures, and recalculates every figure when a weight, assumption or reference changes. Building a new allocation, modifying an existing one and comparing alternatives have equal priority and share the same screen.</p>
-  <h3>Capabilities</h3>
+  <p>The system's purpose is to make the consequences of an allocation decision visible before the decision is taken. Every change to an allocation is evaluated immediately against the same measures, the same assumptions and the same reference as every alternative under consideration, so that the difference between two allocations can be attributed to the allocations themselves and not to differences in how they were measured.</p>
+
+  <h3>Structure</h3>
+  <p>The system is organised in four layers. Each layer has a single responsibility, and each depends only on the layers beneath it.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Layer</th><th>Contents</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><th>Shared repositories</th><td>Sleeves, custom benchmarks, uploaded products, saved cards; the product library and index baskets</td><td>Hold the components that are defined once and reused across workspaces, each with its own version history</td></tr>
+      <tr><th>Workspace</th><td>Allocations, the comparison set, the reporting currency, scenarios and the card arrangement</td><td>Hold one piece of analytical work in full, so that it can be closed, reopened, restored and shared as a unit</td></tr>
+      <tr><th>Analytical context</th><td>Reporting currency, factor model, period, reference and active scenario</td><td>Define the terms on which every figure is calculated, once, for all cards</td></tr>
+      <tr><th>Analysis</th><td>Cards drawn from a catalogue of 35 types, each with its own basis and settings</td><td>Present the results for every allocation in the comparison set, in a consistent form</td></tr>
+    </tbody>
+  </table></div>
+  <p>The workspace is the unit of work. It contains one or more allocations, of which any subset, up to six, forms the comparison set; one allocation at a time is the subject of construction. The comparison set may also contain snapshots, which are fixed and read-only, alongside live allocations, which change as they are edited. Every analysis card reads the same comparison set and the same context, and presents each member in the same order and colour, so that an allocation is identified consistently throughout the workspace.</p>
+  <p>Analytical results are produced by an analytics service behind a defined interface. The user interface submits allocations, context and scenario, and displays what the service returns; it performs no financial calculation of its own. Each card requests its own results, so a failure or delay in one card does not affect the others.</p>
+
+  <h3>The allocation model</h3>
+  <p>An allocation is a tree of three levels: the portfolio, seven fixed categories and the products within each category. Each category carries a target weight. Products implement the target in part or in full, and any part of a target not assigned to products is held at index level and modelled by the category's index basket. An allocation can therefore be expressed and analysed at the level of categories alone, at the level of individual products, or at any combination of the two, and its analytics remain complete at every stage of construction.</p>
+  <p>Weights may be negative or sum to more than 100% where leverage is permitted for the allocation. A sleeve, a saved and versioned subset of products within a category, can be applied to any allocation as a unit and remains linked to its source version. Allocations can be created empty, from a template, as a copy of another allocation, or from imported weights.</p>
+
+  <h3>The analytical model</h3>
+  <p>Every figure is calculated on one of two bases, and the basis is stated with the figure.</p>
+  <dl class="defs">
+    <dt>Forward-looking</dt><dd>Expected returns from the platform's capital market assumptions, adjusted by the active scenario where it applies; risk, correlations and exposures from the selected factor model. The basis answers the question of what an allocation is expected to deliver.</dd>
+    <dt>Historical</dt><dd>Returns realised over the selected period: the allocation's actual track record where complete position history exists, and otherwise a backtest of its current weights, with any product that lacks history before its inception represented by a stated proxy. The basis answers the question of how the allocation has behaved, or would have behaved.</dd>
+  </dl>
+  <p>The two bases are kept distinct throughout. A card is fixed to one basis, or presents both side by side; the two are never combined into a single figure. Measures fall into six families, each available on both bases where it is meaningful:</p>
   <ul>
-    <li><strong>Construction:</strong> category targets, products, index-level modelling, short and leveraged positions, and mean-variance optimisation.</li>
-    <li><strong>Comparison:</strong> up to six allocations, snapshots, sleeves and benchmarks aligned on common rows and a common context.</li>
-    <li><strong>Analysis:</strong> a catalogue of 35 analysis cards covering return, risk, contributions, factor exposures, active risk, history, projections and stress tests.</li>
-    <li><strong>Assumption testing:</strong> scenarios that override returns, volatilities, correlations and factor premia for selected allocations.</li>
-    <li><strong>Reuse:</strong> sleeves, saved cards, custom benchmarks and uploaded products shared across workspaces.</li>
+    <li><strong>Return:</strong> total, excess over cash, and its passive and active parts relative to the reference.</li>
+    <li><strong>Risk:</strong> volatility and its passive and active parts, tracking error, value at risk, expected shortfall, drawdown and diversification measures.</li>
+    <li><strong>Efficiency:</strong> Sharpe and information ratios, and capture ratios against the reference.</li>
+    <li><strong>Contribution:</strong> the share of return and risk attributable to each category, product, asset class or factor, presented so that the parts sum to the whole.</li>
+    <li><strong>Exposure:</strong> sensitivity to each factor of the selected factor model, and the specific risk not explained by it.</li>
+    <li><strong>Outcome:</strong> projected value ranges, probabilities of meeting a target, and the effect of historical and hypothetical stress events.</li>
   </ul>
+  <p>Two factor models are available, and the selected model governs every forward-looking risk figure and every factor-based measure in the workspace. Active measures are calculated against the reference set in the context, which may be a benchmark, another allocation in the comparison set, or each allocation's own assigned benchmark.</p>
+
+  <h3>Core functions</h3>
+  <dl class="defs">
+    <dt>Construction</dt><dd>Definition and modification of an allocation's category targets and products, with immediate validation of totals, leverage and coverage. Items requiring attention, such as unimplemented targets, short histories or a missing benchmark, are collected and reported with the action that resolves each.</dd>
+    <dt>Optimisation</dt><dd>Mean-variance optimisation of the allocation under construction: minimum volatility for a target return, maximum return for a target volatility, or the trade-off between return and tracking error. The result is a proposal, presented with its efficient frontier and the changes it implies, and is applied only on explicit instruction.</dd>
+    <dt>Comparison</dt><dd>Side-by-side presentation of up to six allocations on common rows and a common context, with differences expressed either in absolute terms or relative to a chosen focus allocation.</dd>
+    <dt>Analysis</dt><dd>A free-form arrangement of cards selected from the catalogue. Every workspace begins with a summary of headline measures and a comparison of allocation weights; further analysis is added as required and can be saved as a reusable card.</dd>
+    <dt>Assumption testing</dt><dd>Scenarios that override expected returns, volatilities, correlations and factor premia for selected allocations. A scenario changes forward-looking figures only, is identified wherever it applies, and leaves the platform assumptions unchanged.</dd>
+    <dt>Reuse</dt><dd>Sleeves, custom benchmarks, products created from uploaded return series, and saved cards are held in shared repositories, versioned, and available to every workspace.</dd>
+    <dt>Persistence</dt><dd>Continuous saving of every change, with undo, a version history of the workspace, and restoration of earlier states without loss of fixed snapshots.</dd>
+  </dl>
+
   <h3>Design principles</h3>
   <ul>
-    <li><strong>One continuous workspace.</strong> Editing and analysis occur on the same screen. A weight change is reflected in every card without navigation or an explicit calculation step.</li>
-    <li><strong>One stated context.</strong> Reporting currency, factor model, period, reference and scenario are set once, in the context bar, and apply to every card that uses them. Two cards cannot silently answer different questions.</li>
-    <li><strong>Detail on request.</strong> Product rows, factor detail, method notes and data tables are available through expansion, settings and card menus, and are hidden by default.</li>
-    <li><strong>Evidence, not advice.</strong> The system reports figures and differences. It does not rank allocations, recommend trades or apply changes without an explicit user action.</li>
-    <li><strong>Visible data limitations.</strong> Backtests, proxies, incomplete coverage and unavailable values are labelled where they occur. An unavailable value is never displayed as zero.</li>
+    <li><strong>One continuous workspace.</strong> Editing and analysis occur together. A weight change is reflected in every card without a separate calculation step, and the figures displayed always correspond to the current inputs or are marked as updating.</li>
+    <li><strong>One stated context.</strong> Reporting currency, factor model, period, reference and scenario are set once and apply to every card that uses them. Two cards cannot silently answer different questions, and any card that departs from the shared context states the departure.</li>
+    <li><strong>Like for like.</strong> Every allocation in a comparison is measured on the same basis, over the same period, against the same reference and in the same currency. Where data does not permit this, the adjustment made is stated.</li>
+    <li><strong>Parts that reconcile.</strong> Contributions, attributions and decompositions sum to the total they explain, and are presented in a form that shows the sum.</li>
+    <li><strong>Detail on request.</strong> The summary is presented first. Product rows, factor detail, method notes and data tables are available on demand and are not displayed by default.</li>
+    <li><strong>Evidence, not advice.</strong> The system reports figures and differences. It does not rank allocations, recommend trades or apply changes without an explicit user action; optimisation results are proposals.</li>
+    <li><strong>Visible data limitations.</strong> Backtests, proxies, incomplete coverage and unavailable values are labelled where they occur. An unavailable value is never displayed as zero, and the reason it is unavailable is stated.</li>
+    <li><strong>Independent of the calculation source.</strong> The interface depends only on the analytics service's defined interface, so that the methods and data behind it can change without changes to the user interface.</li>
   </ul>
 
   <!-- 3 -->

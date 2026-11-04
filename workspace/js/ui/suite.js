@@ -78,7 +78,7 @@
 
   /* ── Risk by factor ──────────────────────────────────────────────── */
   C.register({ id: 'factor-risk', title: 'Risk by factor', description: 'Expected risk split into each factor and specific risk, under the factor model.', group: 'Forward-looking', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'forward', factorModel: true,
-    settings: [{ key: 'units', label: 'Units', type: 'select', options: [['vol', 'Contribution to volatility (pp)'], ['share', 'Share of total risk (%)']], default: 'vol' }, { key: 'view', label: 'View', type: 'select', options: [['table', 'Table · every allocation'], ['waterfall', 'Waterfall · one allocation']], default: 'table' }],
+    settings: [{ key: 'units', label: 'Units', type: 'select', options: [['vol', 'Contribution to volatility (pp)'], ['share', 'Share of total risk (%)']], default: 'vol' }, { key: 'view', label: 'View', type: 'select', options: [['table', 'Table · every allocation'], ['waterfall', 'Waterfall · one allocation']], default: 'waterfall' }],
     subtitle: function (ctx, s, card) { return (s.units === 'share' ? '% share of total risk' : 'pp of portfolio volatility') + ' · by factor and specific' + C.modelDeparture(card); },
     data: function (ctx, s, card) { return C.fetch('factorRisk', { allocations: U.clone(ctx.members), rowKey: '__total', factorModel: C.modelIdOf(card) }); },
     render: function (body, data, ctx, s, card) {
@@ -94,6 +94,30 @@
       body.innerHTML = V.table([{ label: 'Source · ' + esc(m.name) }].concat(ctx.members.map(function (a) { return { label: dot(a) + esc(a.name), num: true }; })), live.map(function (f) { return { cells: [esc(f.name)].concat(ctx.members.map(function (a) { return cell(val(one(data, a), f.id), a); })) }; }).concat([{ cls: 'total', cells: ['Volatility'].concat(ctx.members.map(function (a) { var x = one(data, a); return x && x.total != null ? F.num(x.total, 2) + '%' : na(); })) }]), { maxHeight: '100%', caption: 'Risk by factor', cls: 'prob-tbl' }) +
         H.foot(H.modelFoot(data.series.map(function (x) { return x.coverage; }))) + C.notes(card, ['Euler contributions: each factor’s and the specific part sum to the allocation’s volatility under the ' + esc(m.name) + ' factor model (' + esc(m.long) + ', as of ' + F.date(m.asOf) + ').', 'A negative contribution means the factor offsets risk from the others.']);
     } });
+
+  /* ── Factors over time (heat map) ────────────────────────────────── */
+  var FH_MEASURES = { exposure: { label: 'Exposure (β)', dp: 2 }, risk: { label: 'Risk contribution (pp of volatility)', dp: 2 }, ret: { label: 'Return contribution (pp)', dp: 2 } };
+  C.register({ id: 'factor-history', title: 'Factors over time', description: 'Factor exposure, risk contribution or return contribution year by year, as a heat map, for one allocation at a time.', group: 'Historical', size: { w: 12, h: 6 }, min: { w: 6, h: 4 }, basis: 'historical', factorModel: true,
+    settings: [{ key: 'measure', label: 'Measure', type: 'select', options: [['exposure', 'Exposure (β)'], ['risk', 'Risk contribution'], ['ret', 'Return contribution']], default: 'risk' }],
+    subtitle: function (ctx, s, card) { return FH_MEASURES[s.measure].label + ' · each calendar year · whole portfolio' + C.modelDeparture(card); },
+    data: function (ctx, s, card) { return C.fetch('factorHistory', { allocations: U.clone(ctx.members), period: U.clone(ctx.prefs.period), factorModel: C.modelIdOf(card) }); },
+    render: function (body, data, ctx, s, card) {
+      var m = D.factorModelById[data.factorModel], wa = H.wfAlloc(card, ctx), x = wa ? one(data, wa) : null, h = x && x.history, meas = s.measure, dp = FH_MEASURES[meas].dp;
+      if (!h || !h.years.length) { body.innerHTML = H.wfTabs(card, ctx, wa) + '<div class="chart-empty">' + esc((x && x.reason) || 'Fewer than six months of history in the period.') + '</div>'; H.wireWf(body, card); return; }
+      var src = meas === 'exposure' ? h.exposure : meas === 'risk' ? h.risk : h.ret, thr = meas === 'exposure' ? 0.02 : 0.01;
+      var live = h.factors.filter(function (f) { return src[f.id].some(function (v) { return Math.abs(v) >= thr; }); });
+      var rows = live.map(function (f) { return { label: f.name, values: src[f.id] }; }), extra = [];
+      if (meas === 'risk') extra = [{ label: 'Specific', values: h.totals.specificRisk }, { label: 'Realised volatility', values: h.totals.risk, total: true }];
+      if (meas === 'ret') extra = [{ label: 'Specific', values: h.totals.specificRet }, { label: 'Cash (risk-free)', values: h.totals.cash }, { label: 'Calendar-year return', values: h.totals.ret, total: true }];
+      var max = 0; rows.concat(extra.filter(function (r) { return !r.total; })).forEach(function (r) { r.values.forEach(function (v) { if (v != null) max = Math.max(max, Math.abs(v)); }); });
+      var cell = function (r, i) { var v = r.values[i], y = h.years[i]; if (v == null) return '<span class="faint">—</span>'; var t = esc(wa.name + ' · ' + r.label + ' · ' + y.year + (y.partial ? ' (part year)' : '') + ': ' + F.num(v, dp) + (meas === 'exposure' ? '' : meas === 'risk' && r.total ? '%' : ' pp')); return r.total ? '<span class="heat is-year" data-tip="' + t + '">' + F.num(v, r.total ? 1 : dp) + '</span>' : '<span class="heat" style="background:' + V.shade(v, max) + '" data-tip="' + t + '">' + F.num(v, dp) + '</span>'; };
+      var note = meas === 'exposure' ? 'Exposures are estimated for each calendar year from that year’s monthly returns.' : meas === 'risk' ? 'Each year’s factor and specific contributions add up to that year’s realised volatility, split using the ' + esc(m.name) + ' factor covariances.' : 'Factor contributions are the year’s exposure times the factor premia implied by that year’s asset-class returns; cash and specific make up the rest of the calendar-year return.';
+      body.innerHTML = H.wfTabs(card, ctx, wa) + V.table([{ label: (meas === 'exposure' ? 'Factor' : 'Source') + ' · ' + esc(m.name) }].concat(h.years.map(function (y) { return { label: y.year + (y.partial ? '<sup aria-label="part year">*</sup>' : ''), num: true }; })),
+        rows.concat(extra).map(function (r) { return { cls: r.total ? 'total' : '', cells: [esc(r.label)].concat(h.years.map(function (y, i) { return cell(r, i); })) }; }), { maxHeight: '100%', caption: 'Factors over time', cls: 'heat-tbl fh-tbl' }) +
+        C.notes(card, [note, h.years.some(function (y) { return y.partial; }) ? '* Part year: the period starts or ends within it.' : null, 'Blue is positive, orange negative; deeper shades are larger.']);
+      H.wireWf(body, card);
+    },
+    dataTable: function (data, ctx, s, card) { var wa = H.wfAlloc(card, ctx), x = wa ? one(data, wa) : null, h = x && x.history; if (!h) return ''; var src = s.measure === 'exposure' ? h.exposure : s.measure === 'risk' ? h.risk : h.ret; return V.table([{ label: 'Factor' }].concat(h.years.map(function (y) { return { label: String(y.year), num: true }; })), h.factors.map(function (f) { return { cells: [esc(f.name)].concat(src[f.id].map(function (v) { return F.num(v, 2); })) }; }), { maxHeight: '220px' }); } });
 
   /* ── Return contribution by category ─────────────────────────────── */
   C.register({ id: 'return-contribution', title: 'Return contribution by category', description: 'What each category adds to the portfolio’s return; the contributions add up to the total.', group: 'Forward-looking', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'either',
@@ -165,7 +189,7 @@
 
   /* ── Return attribution ──────────────────────────────────────────── */
   C.register({ id: 'attribution', title: 'Return attribution', description: 'Allocation and selection effects by category against the reference, over the period.', group: 'Historical', size: { w: 6, h: 7 }, min: { w: 4, h: 5 }, basis: 'historical',
-    settings: [{ key: 'view', label: 'View', type: 'select', options: [['chart', 'Total effect by category'], ['table', 'Allocation and selection, by category'], ['waterfall', 'Waterfall · one allocation']], default: 'chart' }],
+    settings: [{ key: 'view', label: 'View', type: 'select', options: [['chart', 'Total effect by category'], ['table', 'Allocation and selection, by category'], ['waterfall', 'Waterfall · one allocation']], default: 'waterfall' }],
     subtitle: function (ctx, s) { return 'pp a year · by category · vs ' + ref(); },
     data: function (ctx) { return activeHist(ctx); },
     render: function (body, data, ctx, s, card) {

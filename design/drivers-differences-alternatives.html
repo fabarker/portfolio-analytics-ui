@@ -1,0 +1,425 @@
+<title>Drivers &amp; Differences Alternatives</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Ten ways to lay out the Drivers & Differences card so that product and factor contributions, exposures and differences stay readable with many allocations and many factors.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a reading column for the argument, with each option's working mock-up
+   in a wide framed "card" that keeps the app's own light surface. */
+:root{
+  --pg:#f3f5f8; --surface:#ffffff; --ink:#14213a; --ink-2:#4a5872; --ink-3:#66748b; --line:#dde3ea;
+  --navy:#12233f; --accent:#2a6ad0; --accent-bg:#e8f0fc; --ok:#1a7f37; --warn:#8a5a00; --warn-bg:#fdf3dc;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  /* the mock-ups are the app's light surface in both themes */
+  --m-bg:#ffffff; --m-ink:#14213a; --m-ink2:#4a5872; --m-ink3:#7a879b; --m-line:#e3e8ef; --m-head:#f6f8fb; --m-sel:#12233f;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --accent:#8fb4ff; --accent-bg:#1b2a45; --ok:#6fd08c; --warn:#f3c46b; --warn-bg:#2e2612; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --accent:#8fb4ff; --accent-bg:#1b2a45; --ok:#6fd08c; --warn:#f3c46b; --warn-bg:#2e2612; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--pg);color:var(--ink);font:15.5px/1.6 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;padding-block:36px 80px}
+.prose{max-width:760px}
+h1{font:600 32px/1.15 var(--f-cond);letter-spacing:-.005em;margin:6px 0 10px;text-wrap:balance}
+h2{font:600 24px/1.2 var(--f-cond);margin:0;text-wrap:balance}
+h3{font:600 16px/1.3 var(--f-body);margin:22px 0 6px}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+p{margin:0 0 12px}
+.lede{font-size:17px;color:var(--ink-2)}
+.must{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:18px 0 8px}
+.must div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:14px}
+.must b{display:block;font:600 12px/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:2px}
+.opt{margin-top:56px;padding-top:22px;border-top:2px solid var(--navy)}
+:root:not([data-theme="light"]) .opt{border-top-color:var(--line)}
+.opt-head{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+.opt-num{font:600 13px/1 var(--f-mono);color:var(--ink-3)}
+.opt .idea{color:var(--ink-2);margin:6px 0 14px;max-width:780px}
+.pc{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px;font-size:14.5px}
+.pc>div{min-width:0}
+.pc h4{margin:0 0 4px;font:600 12px/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.pc ul{margin:0;padding-left:18px}.pc li{margin:3px 0}
+@media (max-width:640px){.pc{grid-template-columns:1fr}}
+.rec{background:var(--accent-bg);border-radius:8px;padding:18px 20px;margin-top:22px}
+.rec h3{margin-top:0}
+.cmp{overflow-x:auto;margin-top:14px}
+.cmp table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px;background:var(--surface)}
+.cmp th,.cmp td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.cmp th{font:500 12px/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.cmp td.c{text-align:center}
+.dots{letter-spacing:2px;color:var(--accent)}
+
+/* ── the mock card ───────────────────────────────────────────────── */
+.scroller{overflow-x:auto;border-radius:8px;box-shadow:0 1px 0 rgba(16,24,40,.04),0 8px 24px -14px rgba(16,24,40,.35)}
+.mock{min-width:760px;background:var(--m-bg);color:var(--m-ink);border:1px solid #d5dce6;border-radius:8px;font:13px/1.4 var(--f-body);font-variant-numeric:tabular-nums}
+.mock-h{padding:12px 16px 8px;border-bottom:1px solid var(--m-line)}
+.mock-h b{font-size:14.5px;font-weight:600}
+.mock-h .sub{color:var(--m-ink2);font-size:12px}
+.mock-b{padding:10px 16px 14px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid #cdd5e0;border-radius:5px;overflow:hidden}
+.seg button{font:500 12px/1 var(--f-body);color:var(--m-ink2);background:#fff;border:0;border-left:1px solid #cdd5e0;padding:6px 9px;cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--m-sel);color:#fff}
+.seg button:focus-visible{outline:2px solid #2a78d6;outline-offset:-2px}
+.ctl .lbl{font:500 11px/1 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3)}
+.grp{display:inline-flex;align-items:center;gap:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+table.t{border-collapse:collapse;width:100%}
+.t th,.t td{padding:5px 8px;border-bottom:1px solid var(--m-line);white-space:nowrap}
+.t thead th{font:500 11px/1.25 var(--f-mono);text-transform:uppercase;letter-spacing:.04em;color:var(--m-ink3);background:var(--m-head);text-align:right;vertical-align:bottom}
+.t thead th:first-child{text-align:left}
+.t tbody th{text-align:left;font-weight:500;color:var(--m-ink)}
+.t td{text-align:right}
+.t tr.tot th,.t tr.tot td{font-weight:600;border-top:1.5px solid #9aa6b8}
+.t tr.sec th{font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3);background:#fbfcfd;padding-top:8px}
+.t .ref{color:var(--m-ink3)}
+.neg{color:#c2410c}
+.cb{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.cb i{display:inline-block;height:6px;border-radius:2px}
+.cb .track{width:46px;height:6px;position:relative;background:#eef1f5;border-radius:2px}
+.cb .track i{position:absolute;top:0}
+.cb .track .mid{position:absolute;left:50%;top:-2px;width:1px;height:10px;background:#9aa6b8}
+.more{font:500 12px var(--f-body);color:#2a6ad0;background:none;border:0;padding:6px 0 0;cursor:pointer}
+.note{font-size:11.5px;color:var(--m-ink3);margin-top:8px}
+.panes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panes>div{min-width:0}
+.pane-t{font:600 12px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink2);margin:2px 0 6px}
+.heat td{padding:2px 2px}
+.heat .hc{display:block;min-width:38px;padding:4px 5px;border-radius:2px;font-size:11.5px;text-align:right}
+.heat thead tr.g th{text-align:center;border-bottom:0;color:var(--m-ink2)}
+.heat thead th.gs,.heat td.gs{border-left:2px solid #fff}
+.multi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mp{border:1px solid var(--m-line);border-radius:6px;padding:8px 10px}
+.mp h5{margin:0 0 4px;font-size:12.5px;font-weight:600}
+.mp .tv{font-size:11.5px;color:var(--m-ink2);margin-bottom:4px}
+.rank{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.rank ol{list-style:none;margin:0;padding:0}
+.rank li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:4px 0;border-bottom:1px solid var(--m-line);font-size:12px}
+.rank li i{grid-column:1 / -1;display:block;height:4px;border-radius:2px}
+.diffs{margin-top:14px}
+.diffs h6{margin:0 0 6px;font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3)}
+.diffs ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+.diffs li{font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--m-line);display:flex;justify-content:space-between;gap:10px}
+svg text{font-family:var(--f-body)}
+.sticky th:first-child,.sticky td:first-child{position:sticky;left:0;background:#fff;z-index:1}
+.sticky thead th:first-child{background:var(--m-head)}
+.stk{display:flex;height:12px;width:150px;border-radius:2px;overflow:hidden;gap:1px;background:#fff}
+.stk i{display:block;height:100%}
+</style>
+
+<div class="wrap">
+<div class="prose">
+  <div class="eyebrow">Design options · Drivers &amp; Differences card · 3 November 2026</div>
+  <h1>Ten ways to show drivers and differences</h1>
+  <p class="lede">Drivers &amp; Differences is the anchor card. It currently lays every allocation out as columns and every measure as a table. With four allocations and the eleven ISG factors that is 44 exposure cells before any contribution is shown, and it gets cumbersome quickly. These options keep the same data and change how it is arranged.</p>
+  <p>Every option shows the same five measures, for every compared allocation and against the reference (here Global 60/40):</p>
+  <div class="must">
+    <div><b>By product</b>Return contribution</div>
+    <div><b>By product</b>Risk contribution</div>
+    <div><b>By factor</b>Exposure (β)</div>
+    <div><b>By factor</b>Return contribution</div>
+    <div><b>By factor</b>Risk contribution</div>
+    <div><b>Every measure</b>Values, or differences against the reference</div>
+  </div>
+  <p>The mock-ups are live: the buttons work and every number comes from one small fictional model, so the totals reconcile across options. Product and factor return contributions both add up to the expected return, and product and factor risk contributions (with specific risk) both add up to the volatility.</p>
+</div>
+
+<section class="opt" id="o1"><div class="opt-head"><span class="opt-num">01</span><h2>One lens at a time</h2></div>
+<p class="idea">Closest to today's card. One measure is shown at a time, chosen from two short button groups (product measures and factor measures), with a bar in each cell. Rows are sorted by size, and only the largest eight are shown until the user asks for all of them.</p>
+<div class="scroller"><div class="mock" data-opt="1"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Familiar: the existing table, with less on screen at once.</li><li>Sorting and the "show all" cut keep eleven factors manageable.</li></ul></div><div><h4>Costs</h4><ul><li>Only one measure is visible, so comparing return with risk needs a click.</li><li>Columns still grow with every allocation added.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o2"><div class="opt-head"><span class="opt-num">02</span><h2>Products and factors side by side</h2></div>
+<p class="idea">The card asks one question at a time (return, risk or exposure) and answers it twice: by product on the left and by factor on the right. Both halves add up to the same total, so the user sees the same return or risk explained two ways.</p>
+<div class="scroller"><div class="mock" data-opt="2"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Directly connects "which funds" with "which risks".</li><li>Reconciliation is visible: both totals match.</li></ul></div><div><h4>Costs</h4><ul><li>Needs a wide card; two tables with four allocations each are dense.</li><li>Exposure has no product equivalent, so the left side shows weights.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o3"><div class="opt-head"><span class="opt-num">03</span><h2>Heat map of everything</h2></div>
+<p class="idea">All five measures at once, as a colour grid. The products block has return and risk columns; the factors block has exposure, return and risk. Each measure has one column per allocation. Colour carries the pattern; hovering a cell gives the exact value.</p>
+<div class="scroller"><div class="mock" data-opt="3"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>The whole picture in one view; outliers stand out.</li><li>Differences mode shows where each allocation departs from the reference.</li></ul></div><div><h4>Costs</h4><ul><li>Precise reading needs hover; numbers are small.</li><li>Twenty columns at four allocations; six allocations would need scrolling.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o4"><div class="opt-head"><span class="opt-num">04</span><h2>Focus allocation with differences</h2></div>
+<p class="idea">The user picks one allocation to focus on. Its values form the first column; every other allocation, and the reference, is shown only as its difference from the focus, with a bar that diverges either side of zero.</p>
+<div class="scroller"><div class="mock" data-opt="4"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Answers "how is this one different" directly.</li><li>Fits the way a manager iterates on one allocation against alternatives.</li></ul></div><div><h4>Costs</h4><ul><li>The other allocations' own values are one click away, not visible.</li><li>Changing the focus changes every number, which can surprise.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o5"><div class="opt-head"><span class="opt-num">05</span><h2>Allocations as rows</h2></div>
+<p class="idea">The table is turned over: one row per allocation (and the reference), one column per product or factor. A composition bar at the start of each row shows how the total is built. Wide sets of factors scroll sideways with the allocation names fixed.</p>
+<div class="scroller"><div class="mock" data-opt="5"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Adding an allocation adds a short row, not a wide column.</li><li>The composition bar gives a quick visual of each mix.</li></ul></div><div><h4>Costs</h4><ul><li>Eleven factors or ten products means sideways scrolling.</li><li>Long product names become column headers and must be shortened.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o6"><div class="opt-head"><span class="opt-num">06</span><h2>Small multiples</h2></div>
+<p class="idea">One small panel per allocation, each a bar chart of the chosen measure. Every panel uses the same order and scale, with the reference marked as a grey tick, so the eye compares shapes across panels.</p>
+<div class="scroller"><div class="mock" data-opt="6"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Shapes are easier to compare than columns of numbers.</li><li>Reference ticks show over- and under-exposure at a glance.</li></ul></div><div><h4>Costs</h4><ul><li>Exact values need hover.</li><li>Five or six panels shrink each one.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o7"><div class="opt-head"><span class="opt-num">07</span><h2>Top drivers and biggest differences</h2></div>
+<p class="idea">A summary rather than a grid: the five largest drivers of each allocation for the chosen measure, then a list of the largest differences from the reference across all allocations. Everything else is folded into "Other".</p>
+<div class="scroller"><div class="mock" data-opt="7"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Fastest to read; tells the story without scanning a grid.</li><li>Scales to many factors because it only shows the top ones.</li></ul></div><div><h4>Costs</h4><ul><li>Hides the small items, which an analyst may want.</li><li>Lists differ in order between allocations, so like-for-like reading is harder.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o8"><div class="opt-head"><span class="opt-num">08</span><h2>Product by factor matrix</h2></div>
+<p class="idea">For one allocation at a time: products down the side, factors across the top, and each cell shows how much that product adds to that factor. The row totals are the product contributions; the column totals are the factor exposures or contributions. All five measures come from one grid.</p>
+<div class="scroller"><div class="mock" data-opt="8"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Shows <em>why</em> a factor exposure exists: which products create it.</li><li>The only option where product and factor views are literally one table.</li></ul></div><div><h4>Costs</h4><ul><li>One allocation at a time; comparison needs switching or a difference mode.</li><li>Large: ten products by twelve columns.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o9"><div class="opt-head"><span class="opt-num">09</span><h2>Return against risk</h2></div>
+<p class="idea">A scatter of risk contribution against return contribution: each product (or factor) is a point per allocation, and the points for the same item are joined so movement between allocations is visible. For factors, an exposure strip sits underneath.</p>
+<div class="scroller"><div class="mock" data-opt="9"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Shows return and risk together: what earns its risk and what does not.</li><li>Lines between allocations show how each change moves an item.</li></ul></div><div><h4>Costs</h4><ul><li>Crowded with ten products and four allocations; labels overlap.</li><li>Less familiar than a table for many readers.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o10"><div class="opt-head"><span class="opt-num">10</span><h2>Dot plot rows</h2></div>
+<p class="idea">One row per product or factor, with each allocation as a coloured dot on a shared axis and the reference as a hollow diamond. Six allocations fit in the same row height as one, so the card never widens.</p>
+<div class="scroller"><div class="mock" data-opt="10"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Scales to many allocations without adding columns.</li><li>Spread between dots shows how much the allocations disagree.</li></ul></div><div><h4>Costs</h4><ul><li>Values need hover; close dots overlap.</li><li>Depends on colour to tell allocations apart (legend and hover help).</li></ul></div></div>
+</section>
+
+<section class="opt" id="cmp"><div class="opt-head"><span class="opt-num">—</span><h2>Side by side</h2></div>
+<div class="cmp"><table>
+<thead><tr><th>Option</th><th>All five measures at once</th><th>Many factors</th><th>Many allocations</th><th>Exact values</th><th>Explains differences</th></tr></thead>
+<tbody>
+<tr><td>01 One lens at a time</td><td class="c">—</td><td class="c dots">●●●</td><td class="c dots">●</td><td class="c dots">●●●</td><td class="c dots">●●</td></tr>
+<tr><td>02 Products and factors side by side</td><td class="c">two of five</td><td class="c dots">●●</td><td class="c dots">●</td><td class="c dots">●●●</td><td class="c dots">●●</td></tr>
+<tr><td>03 Heat map of everything</td><td class="c">yes</td><td class="c dots">●●</td><td class="c dots">●</td><td class="c dots">●</td><td class="c dots">●●●</td></tr>
+<tr><td>04 Focus allocation with differences</td><td class="c">—</td><td class="c dots">●●</td><td class="c dots">●●●</td><td class="c dots">●●</td><td class="c dots">●●●</td></tr>
+<tr><td>05 Allocations as rows</td><td class="c">—</td><td class="c dots">●</td><td class="c dots">●●●</td><td class="c dots">●●</td><td class="c dots">●●</td></tr>
+<tr><td>06 Small multiples</td><td class="c">—</td><td class="c dots">●●</td><td class="c dots">●●</td><td class="c dots">●</td><td class="c dots">●●</td></tr>
+<tr><td>07 Top drivers and biggest differences</td><td class="c">—</td><td class="c dots">●●●</td><td class="c dots">●●</td><td class="c dots">●●</td><td class="c dots">●●●</td></tr>
+<tr><td>08 Product by factor matrix</td><td class="c">yes, one allocation</td><td class="c dots">●</td><td class="c dots">●</td><td class="c dots">●●●</td><td class="c dots">●●</td></tr>
+<tr><td>09 Return against risk</td><td class="c">three of five</td><td class="c dots">●</td><td class="c dots">●</td><td class="c dots">●</td><td class="c dots">●●</td></tr>
+<tr><td>10 Dot plot rows</td><td class="c">—</td><td class="c dots">●●●</td><td class="c dots">●●●</td><td class="c dots">●</td><td class="c dots">●●</td></tr>
+</tbody></table></div>
+<div class="rec prose">
+  <h3>Recommendation</h3>
+  <p>Combine <b>01</b> as the default with <b>04</b> and <b>10</b> as alternative views inside the same card. The default stays a precise, sortable table with one measure at a time. "Differences" switches it to the focus-and-difference layout, which is the question managers ask most. "Dots" switches to the compact view when there are five or six allocations.</p>
+  <p style="margin:0"><b>08</b>, the product by factor matrix, is worth adding as its own card from the catalogue: it answers a different question (where a factor exposure comes from) and is too large to share space with the others.</p>
+</div>
+</section>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ── fictional model ─────────────────────────────────────────────── */
+var RF = 3.6;
+var AL = [{id:'core',name:'Strategic Core',c:'#2a78d6'},{id:'inc',name:'Income Tilt',c:'#eb6834'},{id:'gro',name:'Growth Tilt',c:'#1baf7a'},{id:'snap',name:'Strategic Core · Mar 2026',c:'#eda100'}];
+var REF = {id:'ref',name:'Global 60/40',c:'#66748b'};
+var FA = [['equity','Equity',16,4.0],['term','Term',6,0.8],['liquidity','Liquidity',5,1.8],['funding','Funding',3,0.6],['fx','FX',7,0.2],['em','EM',8,1.2],['dollar','Dollar',6,-0.1],['size','Size',4,0.4],['value','Value',4,0.5],['commodities','Commodities',15,0.6],['momentum','Momentum',5,0.6]].map(function(a){return {id:a[0],name:a[1],vol:a[2],prem:a[3]};});
+var PR = [
+  {id:'us',name:'Meridian US Large Cap ETF',short:'Meridian US LC',er:6.8,s:3,b:{equity:1.0,size:-0.1,value:-0.05,momentum:0.05}},
+  {id:'intl',name:'Northbridge International Equity',short:'Northbridge Intl',er:7.2,s:4,b:{equity:0.95,fx:0.5,dollar:-0.3,value:0.15}},
+  {id:'em',name:'Castellan Emerging Markets Fund',short:'Castellan EM',er:8.6,s:6,b:{equity:1.05,em:0.8,fx:0.6,dollar:-0.4,commodities:0.15,size:0.1}},
+  {id:'tsy',name:'Sovereign Treasury Index Fund',short:'Sovereign Tsy',er:4.1,s:1,b:{term:1.0,funding:0.05}},
+  {id:'ig',name:'Ashworth Investment Grade Credit',short:'Ashworth IG',er:4.9,s:1.5,b:{term:0.75,funding:0.2,equity:0.1,liquidity:0.1}},
+  {id:'hy',name:'Ashworth High Yield',short:'Ashworth HY',er:6.3,s:3,b:{equity:0.35,term:0.3,funding:0.3,liquidity:0.25}},
+  {id:'ms',name:'Kestrel Multi-Strategy',short:'Kestrel MS',er:5.8,s:5,b:{equity:0.25,momentum:0.3,term:0.1,funding:0.1}},
+  {id:'pe',name:'Oakhurst Buyout Partners IV',short:'Oakhurst PE',er:9.8,s:10,b:{equity:1.1,liquidity:0.6,size:0.35,value:0.2}},
+  {id:'re',name:'Harborview Core Real Estate',short:'Harborview RE',er:6.9,s:6,b:{equity:0.45,term:0.3,liquidity:0.45,value:0.1,commodities:0.05}},
+  {id:'mm',name:'Treasury Money Market',short:'Money market',er:3.6,s:0.3,b:{funding:0.02}}
+];
+var W = { core:[20,13,7,14,8,4,8,10,7,9], inc:[14,9,4,20,18,10,6,6,8,5], gro:[26,16,12,6,4,3,8,15,6,4], snap:[22,12,6,15,9,4,7,8,7,10], ref:[36,18,6,25,15,0,0,0,0,0] };
+var CORR = {}; CORR['equity|term'] = -0.25; CORR['equity|em'] = 0.3; CORR['fx|dollar'] = -0.5; CORR['equity|commodities'] = 0.2;
+function corr(a,b){ if(a===b) return 1; return CORR[a+'|'+b] || CORR[b+'|'+a] || 0; }
+var COV = FA.map(function(f){ return FA.map(function(g){ return corr(f.id,g.id)*f.vol*g.vol; }); });
+
+function analyse(w){
+  var x = FA.map(function(f){ var s=0; PR.forEach(function(p,i){ s += w[i]/100*(p.b[f.id]||0); }); return s; });
+  var Fx = COV.map(function(row){ return row.reduce(function(t,v,j){ return t+v*x[j]; },0); });
+  var fv = x.reduce(function(t,v,i){ return t+v*Fx[i]; },0), sv = PR.reduce(function(t,p,i){ return t+Math.pow(w[i]/100*p.s,2); },0), vol = Math.sqrt(fv+sv);
+  var o = { vol:vol, ret:0, pret:{}, prisk:{}, fexp:{}, fret:{}, frisk:{}, cross:{exp:{},ret:{},risk:{}} };
+  PR.forEach(function(p,i){ var wi=w[i]/100, bf=0; FA.forEach(function(f,k){ bf += (p.b[f.id]||0)*Fx[k]; });
+    o.pret[p.id] = wi*p.er; o.ret += wi*p.er; o.prisk[p.id] = wi*(bf + wi*p.s*p.s)/vol;
+    var e={},r={},k2={}, bp=0; FA.forEach(function(f,k){ var b=p.b[f.id]||0; e[f.id]=wi*b; r[f.id]=wi*b*f.prem; k2[f.id]=wi*b*Fx[k]/vol; bp+=b*f.prem; });
+    e.__spec=null; r.__spec=wi*(p.er-RF-bp); k2.__spec=wi*wi*p.s*p.s/vol; r.__cash=wi*RF;
+    o.cross.exp[p.id]=e; o.cross.ret[p.id]=r; o.cross.risk[p.id]=k2; });
+  var fr=0; FA.forEach(function(f,k){ o.fexp[f.id]=x[k]; o.fret[f.id]=x[k]*f.prem; fr+=x[k]*f.prem; o.frisk[f.id]=x[k]*Fx[k]/vol; });
+  o.fret.__cash = RF*w.reduce(function(t,v){return t+v;},0)/100; o.fret.__spec = o.ret - o.fret.__cash - fr; o.frisk.__spec = sv/vol;
+  return o;
+}
+var A = {}; AL.concat([REF]).forEach(function(a){ A[a.id] = analyse(W[a.id]); });
+
+var MEAS = {
+  pret:{side:'p',label:'Return contribution',short:'Return',unit:'pp',dp:2,total:'Expected return'},
+  prisk:{side:'p',label:'Risk contribution',short:'Risk',unit:'pp',dp:2,total:'Volatility'},
+  fexp:{side:'f',label:'Exposure',short:'Exposure',unit:'β',dp:2,total:null},
+  fret:{side:'f',label:'Return contribution',short:'Return',unit:'pp',dp:2,total:'Expected return'},
+  frisk:{side:'f',label:'Risk contribution',short:'Risk',unit:'pp',dp:2,total:'Volatility'}
+};
+function items(m){
+  var M = MEAS[m], list;
+  if (M.side==='p') list = PR.map(function(p){ return {id:p.id,label:p.name,short:p.short}; });
+  else { list = FA.map(function(f){ return {id:f.id,label:f.name,short:f.name}; }); if (m==='fret') list.push({id:'__cash',label:'Cash (risk-free)',short:'Cash'}); if (m!=='fexp') list.push({id:'__spec',label:'Specific',short:'Specific'}); }
+  return list;
+}
+function val(aid,m,id){ return A[aid][m][id]; }
+function tot(aid,m){ return m==='pret'||m==='fret' ? A[aid].ret : m==='prisk'||m==='frisk' ? A[aid].vol : null; }
+function v2(aid,m,id,diff){ var v=val(aid,m,id); return diff ? v-val('ref',m,id) : v; }
+function fmt(v,dp){ if(v==null||!isFinite(v)) return '—'; var s=Math.abs(v).toFixed(dp==null?2:dp); if (+s===0) return (0).toFixed(dp==null?2:dp); return (v<0?'−':'')+s; }
+function sfmt(v,dp){ if(v==null) return '—'; var s=fmt(v,dp); return v>0 && +Math.abs(v).toFixed(dp==null?2:dp)!==0 ? '+'+s : s; }
+function cls(v){ return v<-0.0049 ? ' class="neg"' : ''; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function maxAbs(arr){ return arr.reduce(function(m,v){ return v==null?m:Math.max(m,Math.abs(v)); },0) || 1; }
+function cellBar(v,max,color){ var w=Math.min(1,Math.abs(v)/max)*23; return '<span class="track"><span class="mid"></span><i style="'+(v>=0?'left:50%':'right:50%')+';width:'+w.toFixed(1)+'px;background:'+color+'"></i></span>'; }
+function shade(v,max){ if(v==null) return 'transparent'; var a=Math.min(1,Math.abs(v)/max); return v>=0 ? 'rgba(42,120,214,'+(0.06+a*0.5).toFixed(2)+')' : 'rgba(235,104,52,'+(0.06+a*0.5).toFixed(2)+')'; }
+function adot(a){ return '<span class="dot" style="background:'+a.c+'"></span>'; }
+function seg(name,opts,cur){ return '<span class="seg" role="group">'+opts.map(function(o){ return '<button type="button" data-k="'+name+'" data-v="'+o[0]+'" aria-pressed="'+(o[0]===cur)+'">'+o[1]+'</button>'; }).join('')+'</span>'; }
+function measCtl(cur, only){
+  var p = [['pret','Return'],['prisk','Risk']], f = [['fexp','Exposure'],['fret','Return'],['frisk','Risk']];
+  if (only==='f') return '<span class="grp"><span class="lbl">By factor</span>'+seg('m',f,cur)+'</span>';
+  return '<span class="grp"><span class="lbl">By product</span>'+seg('m',p,cur)+'</span><span class="grp"><span class="lbl">By factor</span>'+seg('m',f,cur)+'</span>';
+}
+function diffCtl(cur){ return '<span class="grp"><span class="lbl">Show</span>'+seg('d',[['0','Values'],['1','Difference vs '+REF.name]],cur?'1':'0')+'</span>'; }
+function head(title,sub){ return '<div class="mock-h"><b>'+title+'</b><div class="sub">'+sub+'</div></div>'; }
+var SUB = 'Forward-looking · ISG factor model · whole portfolio · against '+REF.name;
+function unitOf(m,diff){ var M=MEAS[m]; return (diff?'Difference in ':'')+M.label.toLowerCase()+(M.unit==='β'?' (β)':' (pp)'); }
+
+/* ── option renderers ────────────────────────────────────────────── */
+var R = {};
+R[1] = { s:{m:'fexp',d:false,all:false}, draw:function(s){
+  var m=s.m, M=MEAS[m], list=items(m), vals=function(it){ return AL.map(function(a){ return v2(a.id,m,it.id,s.d); }); };
+  list.sort(function(a,b){ return maxAbs(vals(b))-maxAbs(vals(a)); });
+  var shown = s.all ? list : list.slice(0,8), mx=maxAbs([].concat.apply([],list.map(vals)));
+  var h = '<table class="t"><thead><tr><th>'+(M.side==='p'?'Product':'Factor')+'</th>'+AL.map(function(a){ return '<th>'+adot(a)+esc(a.name)+'</th>'; }).join('')+(s.d?'':'<th class="ref">'+esc(REF.name)+'</th>')+'</tr></thead><tbody>';
+  shown.forEach(function(it){ h += '<tr><th>'+esc(it.label)+'</th>'+AL.map(function(a){ var v=v2(a.id,m,it.id,s.d); return '<td><span class="cb"><span'+cls(v)+'>'+(s.d?sfmt(v,M.dp):fmt(v,M.dp))+'</span>'+cellBar(v,mx,a.c)+'</span></td>'; }).join('')+(s.d?'':'<td class="ref">'+fmt(val('ref',m,it.id),M.dp)+'</td>')+'</tr>'; });
+  if (M.total) h += '<tr class="tot"><th>'+M.total+'</th>'+AL.map(function(a){ var v=tot(a.id,m)-(s.d?tot('ref',m):0); return '<td>'+(s.d?sfmt(v):fmt(v))+'</td>'; }).join('')+(s.d?'':'<td class="ref">'+fmt(tot('ref',m))+'</td>')+'</tr>';
+  h += '</tbody></table>';
+  if (list.length>8) h += '<button type="button" class="more" data-k="all" data-v="'+(s.all?'0':'1')+'">'+(s.all?'Show the largest 8':'Show all '+list.length+' '+(M.side==='p'?'products':'rows'))+'</button>';
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl">'+measCtl(m)+diffCtl(s.d)+'</div><div class="note" style="margin:0 0 6px">'+unitOf(m,s.d)+' · sorted by size</div>'+h+'</div>';
+}};
+R[2] = { s:{q:'ret',d:false}, draw:function(s){
+  var pm = s.q==='ret'?'pret':s.q==='risk'?'prisk':null, fm = s.q==='ret'?'fret':s.q==='risk'?'frisk':'fexp';
+  function tbl(m,list,title,isW){
+    var M = m?MEAS[m]:{dp:1,total:'Total'}; var h='<div><div class="pane-t">'+title+'</div><table class="t"><thead><tr><th></th>'+AL.map(function(a){ return '<th title="'+esc(a.name)+'">'+adot(a)+esc(a.name.replace('Strategic Core · ','Core ').replace('Strategic ',''))+'</th>'; }).join('')+'</tr></thead><tbody>';
+    list.forEach(function(it,i){ h+='<tr><th>'+esc(it.short)+'</th>'+AL.map(function(a){ var v = isW ? W[a.id][i]-(s.d?W.ref[i]:0) : v2(a.id,m,it.id,s.d); return '<td'+cls(v)+'>'+(s.d?sfmt(v,isW?0:M.dp):fmt(v,isW?0:M.dp))+'</td>'; }).join('')+'</tr>'; });
+    if (!isW && M.total) h+='<tr class="tot"><th>'+M.total+'</th>'+AL.map(function(a){ var v=tot(a.id,m)-(s.d?tot('ref',m):0); return '<td>'+(s.d?sfmt(v):fmt(v))+'</td>'; }).join('')+'</tr>';
+    if (isW) h+='<tr class="tot"><th>Total weight</th>'+AL.map(function(){ return '<td>'+(s.d?'0':'100')+'</td>'; }).join('')+'</tr>';
+    return h+'</tbody></table></div>';
+  }
+  var left = pm ? tbl(pm, items(pm), 'By product · pp') : tbl(null, PR.map(function(p){return {id:p.id,short:p.short};}), 'By product · weight %', true);
+  var right = tbl(fm, items(fm), 'By factor · '+(fm==='fexp'?'β':'pp'));
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl"><span class="grp"><span class="lbl">Question</span>'+seg('q',[['ret','What drives return'],['risk','What drives risk'],['exp','What is it exposed to']],s.q)+'</span>'+diffCtl(s.d)+'</div><div class="panes">'+left+right+'</div><div class="note">'+(s.q==='exp'?'Weights on the left; factor exposures on the right.':'Both sides add up to the same '+(s.q==='ret'?'expected return':'volatility')+'.')+'</div></div>';
+}};
+R[3] = { s:{d:false}, draw:function(s){
+  function block(ms,list,title){
+    var mx={}; ms.forEach(function(m){ var arr=[]; list.forEach(function(it){ AL.forEach(function(a){ arr.push(v2(a.id,m,it.id,s.d)); }); }); mx[m]=maxAbs(arr); });
+    var h='<table class="t heat"><thead><tr class="g"><th></th>'+ms.map(function(m){ return '<th colspan="'+AL.length+'" class="gs">'+MEAS[m].label+(MEAS[m].unit==='β'?' · β':' · pp')+'</th>'; }).join('')+'</tr><tr><th>'+title+'</th>'+ms.map(function(){ return AL.map(function(a,i){ return '<th'+(i===0?' class="gs"':'')+' title="'+esc(a.name)+'"><span class="dot" style="background:'+a.c+';margin:0"></span></th>'; }).join(''); }).join('')+'</tr></thead><tbody>';
+    list.forEach(function(it){ h+='<tr><th>'+esc(it.short)+'</th>'+ms.map(function(m){ return AL.map(function(a,i){ var v=v2(a.id,m,it.id,s.d); return '<td'+(i===0?' class="gs"':'')+'><span class="hc" style="background:'+shade(v,mx[m])+'" title="'+esc(a.name+' · '+it.label+' · '+MEAS[m].label+': '+fmt(v,2))+'">'+fmt(v,m==='fexp'?2:1)+'</span></td>'; }).join(''); }).join('')+'</tr>'; });
+    return h+'</tbody></table>';
+  }
+  var fl = FA.map(function(f){ return {id:f.id,label:f.name,short:f.name}; });
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl">'+diffCtl(s.d)+'<span class="grp" style="font-size:12px;color:var(--m-ink2)">'+AL.map(function(a){ return adot(a)+esc(a.name); }).join(' &nbsp; ')+'</span></div><div style="display:grid;gap:16px"><div style="overflow-x:auto">'+block(['pret','prisk'],PR.map(function(p){return {id:p.id,label:p.name,short:p.short};}),'Product')+'</div><div style="overflow-x:auto">'+block(['fexp','fret','frisk'],fl,'Factor')+'</div></div><div class="note">Blue is positive, orange negative; deeper shades are larger within each measure. Hover a cell for the allocation and value.</div></div>';
+}};
+R[4] = { s:{m:'fexp',f:'core'}, draw:function(s){
+  var m=s.m, M=MEAS[m], list=items(m), F=AL.filter(function(a){return a.id===s.f;})[0], others=AL.filter(function(a){return a.id!==s.f;}).concat([REF]);
+  var mx=maxAbs([].concat.apply([],list.map(function(it){ return others.map(function(o){ return val(o.id,m,it.id)-val(F.id,m,it.id); }); })));
+  var h='<table class="t"><thead><tr><th>'+(M.side==='p'?'Product':'Factor')+'</th><th>'+adot(F)+esc(F.name)+'</th>'+others.map(function(o){ return '<th>'+adot(o)+esc(o.name)+' <span style="text-transform:none">−&nbsp;focus</span></th>'; }).join('')+'</tr></thead><tbody>';
+  list.forEach(function(it){ var fv=val(F.id,m,it.id); h+='<tr><th>'+esc(it.label)+'</th><td style="font-weight:600"'+cls(fv)+'>'+fmt(fv,M.dp)+'</td>'+others.map(function(o){ var d=val(o.id,m,it.id)-fv; return '<td><span class="cb"><span'+cls(d)+'>'+sfmt(d,M.dp)+'</span>'+cellBar(d,mx,o.c)+'</span></td>'; }).join('')+'</tr>'; });
+  if (M.total) h+='<tr class="tot"><th>'+M.total+'</th><td>'+fmt(tot(F.id,m))+'</td>'+others.map(function(o){ return '<td>'+sfmt(tot(o.id,m)-tot(F.id,m))+'</td>'; }).join('')+'</tr>';
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl"><span class="grp"><span class="lbl">Focus</span>'+seg('f',AL.map(function(a){ return [a.id,adot(a)+esc(a.name)]; }),s.f)+'</span></div><div class="ctl">'+measCtl(m)+'</div>'+h+'<div class="note">'+M.label+(M.unit==='β'?' (β)':' (pp)')+'. The first column is the focus allocation; every other column is its difference from the focus.</div></div>';
+}};
+R[5] = { s:{m:'fexp',d:false}, draw:function(s){
+  var m=s.m, M=MEAS[m], list=items(m), rows=AL.concat(s.d?[]:[REF]);
+  var mx=maxAbs([].concat.apply([],rows.map(function(a){ return list.map(function(it){ return v2(a.id,m,it.id,s.d&&a!==REF); }); })));
+  var PAL=['#2a5fa8','#4f86c6','#86aedc','#1f7a5a','#53a586','#9acbb4','#8a5a9e','#c08a2e','#d9b25e','#9aa6b8','#6b7a90','#c7cfdb','#e3e8ef'];
+  var h='<table class="t sticky"><thead><tr><th>Allocation</th>'+(M.total&&!s.d?'<th style="text-align:left">Composition</th>':'')+list.map(function(it){ return '<th title="'+esc(it.label)+'">'+esc(it.short)+'</th>'; }).join('')+(M.total?'<th>'+M.total+'</th>':'')+'</tr></thead><tbody>';
+  rows.forEach(function(a){ var isRef=a===REF, d=s.d&&!isRef, t=tot(a.id,m);
+    var comp = M.total&&!s.d ? '<td style="text-align:left"><span class="stk" title="Composition of '+esc(M.total.toLowerCase())+'">'+list.map(function(it,i){ var v=val(a.id,m,it.id); return v>0?'<i style="flex:'+v.toFixed(3)+';background:'+PAL[i%PAL.length]+'" title="'+esc(it.label+': '+fmt(v))+'"></i>':''; }).join('')+'</span></td>' : '';
+    h+='<tr'+(isRef?' class="ref"':'')+'><th>'+adot(a)+esc(a.name)+'</th>'+comp+list.map(function(it){ var v=v2(a.id,m,it.id,d); return '<td><span class="hc" style="display:block;padding:3px 5px;border-radius:2px;background:'+shade(v,mx)+'"'+'>'+(d?sfmt(v,M.dp):fmt(v,M.dp))+'</span></td>'; }).join('')+(M.total?'<td style="font-weight:600">'+(d?sfmt(t-tot('ref',m)):fmt(t))+'</td>':'')+'</tr>'; });
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl">'+measCtl(m)+diffCtl(s.d)+'</div><div style="overflow-x:auto">'+h+'</tbody></table></div><div class="note">'+unitOf(m,s.d)+'. Allocation names stay fixed while the columns scroll.</div></div>';
+}};
+R[6] = { s:{m:'fexp'}, draw:function(s){
+  var m=s.m, M=MEAS[m], list=items(m); list.sort(function(a,b){ return Math.abs(val('core',m,b.id))-Math.abs(val('core',m,a.id)); });
+  var all=[]; AL.concat([REF]).forEach(function(a){ list.forEach(function(it){ all.push(val(a.id,m,it.id)); }); });
+  var lo=Math.min(0,Math.min.apply(null,all)), hi=Math.max(0,Math.max.apply(null,all)), Wd=200, L=78, rh=16;
+  var x=function(v){ return L+(v-lo)/(hi-lo)*(Wd-L-6); };
+  var panels = AL.map(function(a){
+    var H=list.length*rh+18, svg='<svg width="'+Wd+'" height="'+H+'" role="img" aria-label="'+esc(a.name+' '+M.label)+'"><line x1="'+x(0)+'" x2="'+x(0)+'" y1="0" y2="'+(H-14)+'" stroke="#9aa6b8"/>';
+    list.forEach(function(it,i){ var v=val(a.id,m,it.id), r=val('ref',m,it.id), y=i*rh+2, x0=x(Math.min(0,v)), x1=x(Math.max(0,v));
+      svg+='<text x="'+(L-5)+'" y="'+(y+11)+'" font-size="10.5" fill="#4a5872" text-anchor="end">'+esc(it.short.length>12?it.short.slice(0,11)+'…':it.short)+'</text><rect x="'+x0.toFixed(1)+'" y="'+(y+3)+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="10" rx="2" fill="'+a.c+'"><title>'+esc(it.label+': '+fmt(v,M.dp)+' (reference '+fmt(r,M.dp)+')')+'</title></rect><line x1="'+x(r).toFixed(1)+'" x2="'+x(r).toFixed(1)+'" y1="'+(y+1)+'" y2="'+(y+15)+'" stroke="#14213a" stroke-width="1.5" opacity=".55"/>'; });
+    svg+='<text x="'+x(lo)+'" y="'+(H-2)+'" font-size="9.5" fill="#7a879b">'+fmt(lo,1)+'</text><text x="'+x(hi)+'" y="'+(H-2)+'" font-size="9.5" fill="#7a879b" text-anchor="end">'+fmt(hi,1)+'</text></svg>';
+    return '<div class="mp"><h5>'+adot(a)+esc(a.name)+'</h5><div class="tv">'+(M.total?M.total+' '+fmt(tot(a.id,m))+'%':'β to each factor')+'</div>'+svg+'</div>';
+  }).join('');
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl">'+measCtl(m)+'</div><div class="multi">'+panels+'</div><div class="note">'+M.label+(M.unit==='β'?' (β)':' (pp)')+'. Same order and scale in every panel; the dark tick is '+esc(REF.name)+'.</div></div>';
+}};
+R[7] = { s:{m:'frisk'}, draw:function(s){
+  var m=s.m, M=MEAS[m], list=items(m);
+  var cols = AL.map(function(a){ var vs=list.map(function(it){ return {it:it,v:val(a.id,m,it.id)}; }).sort(function(p,q){ return Math.abs(q.v)-Math.abs(p.v); }), top=vs.slice(0,5), rest=vs.slice(5), mx=maxAbs(vs.map(function(p){return p.v;}));
+    var h='<div><div class="pane-t">'+adot(a)+esc(a.name)+'</div><div class="note" style="margin:0 0 4px">'+(M.total?M.total+' '+fmt(tot(a.id,m))+'%':'Largest exposures')+'</div><ol>';
+    top.forEach(function(p){ h+='<li><span>'+esc(p.it.short)+'</span><b'+cls(p.v)+'>'+fmt(p.v,M.dp)+'</b><i style="width:'+(Math.abs(p.v)/mx*100).toFixed(0)+'%;background:'+(p.v<0?'#eb6834':a.c)+'"></i></li>'; });
+    if (rest.length && M.total) { var rs=rest.reduce(function(t,p){return t+p.v;},0); h+='<li style="color:var(--m-ink3)"><span>Other '+rest.length+'</span><b>'+fmt(rs,M.dp)+'</b></li>'; }
+    return h+'</ol></div>'; }).join('');
+  var diffs=[]; AL.forEach(function(a){ list.forEach(function(it){ diffs.push({a:a,it:it,d:val(a.id,m,it.id)-val('ref',m,it.id)}); }); });
+  diffs.sort(function(p,q){ return Math.abs(q.d)-Math.abs(p.d); });
+  var dl='<div class="diffs"><h6>Biggest differences from '+esc(REF.name)+'</h6><ul>'+diffs.slice(0,8).map(function(p){ return '<li><span>'+adot(p.a)+esc(p.a.name)+' · '+esc(p.it.label)+'</span><b'+cls(p.d)+'>'+sfmt(p.d,M.dp)+'</b></li>'; }).join('')+'</ul></div>';
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl">'+measCtl(m)+'</div><div class="rank">'+cols+'</div>'+dl+'</div>';
+}};
+R[8] = { s:{a:'core',k:'risk'}, draw:function(s){
+  var X=A[s.a].cross[s.k], cols=FA.map(function(f){return {id:f.id,label:f.name};}).concat(s.k==='exp'?[]:[{id:'__spec',label:'Specific'}]).concat(s.k==='ret'?[{id:'__cash',label:'Cash'}]:[]);
+  var mx=0; PR.forEach(function(p){ cols.forEach(function(c){ var v=X[p.id][c.id]; if(v!=null) mx=Math.max(mx,Math.abs(v)); }); });
+  var dp = s.k==='exp'?2:2, rowLbl = s.k==='exp'?'Weight %':s.k==='ret'?'Return':'Risk';
+  var h='<table class="t heat"><thead><tr><th>Product</th>'+cols.map(function(c){ return '<th>'+esc(c.label)+'</th>'; }).join('')+'<th style="border-left:2px solid #9aa6b8">'+rowLbl+'</th></tr></thead><tbody>';
+  PR.forEach(function(p,i){ var rt = s.k==='exp' ? W[s.a][i] : s.k==='ret' ? A[s.a].pret[p.id] : A[s.a].prisk[p.id];
+    h+='<tr><th>'+esc(p.short)+'</th>'+cols.map(function(c){ var v=X[p.id][c.id]; return '<td>'+(v==null||Math.abs(v)<0.0005?'<span class="hc" style="color:#c7cfdb">·</span>':'<span class="hc" style="background:'+shade(v,mx)+'">'+fmt(v,dp)+'</span>')+'</td>'; }).join('')+'<td style="border-left:2px solid #9aa6b8;font-weight:600">'+fmt(rt,s.k==='exp'?0:2)+'</td></tr>'; });
+  var ct=function(c){ return s.k==='exp' ? A[s.a].fexp[c.id] : s.k==='ret' ? A[s.a].fret[c.id] : A[s.a].frisk[c.id]; };
+  h+='<tr class="tot"><th>'+(s.k==='exp'?'Exposure':s.k==='ret'?'Return':'Risk')+'</th>'+cols.map(function(c){ return '<td'+cls(ct(c))+'>'+fmt(ct(c),2)+'</td>'; }).join('')+'<td style="border-left:2px solid #9aa6b8">'+(s.k==='exp'?'100':fmt(s.k==='ret'?A[s.a].ret:A[s.a].vol))+'</td></tr></tbody></table>';
+  var al=AL.filter(function(a){return a.id===s.a;})[0];
+  return head('Where the exposures come from', 'Forward-looking · ISG factor model · '+esc(al.name))+'<div class="mock-b"><div class="ctl"><span class="grp"><span class="lbl">Allocation</span>'+seg('a',AL.map(function(a){ return [a.id,adot(a)+esc(a.name)]; }),s.a)+'</span><span class="grp"><span class="lbl">Measure</span>'+seg('k',[['exp','Exposure'],['ret','Return'],['risk','Risk']],s.k)+'</span></div><div style="overflow-x:auto">'+h+'</div><div class="note">Row totals are each product’s '+(s.k==='exp'?'weight':s.k==='ret'?'return contribution':'risk contribution')+'; column totals are each factor’s '+(s.k==='exp'?'exposure':s.k==='ret'?'return contribution':'risk contribution')+'.</div></div>';
+}};
+R[9] = { s:{side:'p'}, draw:function(s){
+  var pm = s.side==='p'?'pret':'fret', rm = s.side==='p'?'prisk':'frisk', list=items(rm).filter(function(it){ return it.id!=='__cash'; });
+  var pts=[]; AL.forEach(function(a){ list.forEach(function(it){ var y=A[a.id][pm][it.id], x=A[a.id][rm][it.id]; if (y==null||x==null) return; pts.push({a:a,it:it,x:x,y:y}); }); });
+  var xs=pts.map(function(p){return p.x;}), ys=pts.map(function(p){return p.y;}), x0=Math.min(0,Math.min.apply(null,xs)), x1=Math.max.apply(null,xs)*1.08, y0=Math.min(0,Math.min.apply(null,ys)), y1=Math.max.apply(null,ys)*1.1;
+  var Wd=700,H=320,L=46,B=30,T=26,Rr=110, X=function(v){return L+(v-x0)/(x1-x0)*(Wd-L-Rr);}, Y=function(v){return T+(y1-v)/(y1-y0)*(H-T-B);};
+  var svg='<svg width="'+Wd+'" height="'+H+'" role="img" aria-label="Return contribution against risk contribution">';
+  [0,0.25,0.5,0.75,1].forEach(function(t){ var v=x0+(x1-x0)*t, w=y0+(y1-y0)*t; svg+='<line x1="'+X(v)+'" x2="'+X(v)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#eef1f5"/><text x="'+X(v)+'" y="'+(H-B+14)+'" font-size="10" fill="#7a879b" text-anchor="middle">'+fmt(v,1)+'</text><line x1="'+L+'" x2="'+(Wd-Rr)+'" y1="'+Y(w)+'" y2="'+Y(w)+'" stroke="#eef1f5"/><text x="'+(L-6)+'" y="'+(Y(w)+3)+'" font-size="10" fill="#7a879b" text-anchor="end">'+fmt(w,1)+'</text>'; });
+  svg+='<line x1="'+X(0)+'" x2="'+X(0)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#9aa6b8"/><line x1="'+L+'" x2="'+(Wd-Rr)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" stroke="#9aa6b8"/>';
+  svg+='<text x="'+((L+Wd-Rr)/2)+'" y="'+(H-2)+'" font-size="10.5" fill="#4a5872" text-anchor="middle">Risk contribution, pp</text><text x="'+L+'" y="12" font-size="10.5" fill="#4a5872">Return contribution, pp</text>';
+  list.forEach(function(it){ var ps=pts.filter(function(p){return p.it===it;}); if(ps.length<2) return; svg+='<polyline fill="none" stroke="#c7cfdb" stroke-width="1.2" points="'+ps.map(function(p){return X(p.x).toFixed(1)+','+Y(p.y).toFixed(1);}).join(' ')+'"/>'; });
+  pts.forEach(function(p){ svg+='<circle cx="'+X(p.x).toFixed(1)+'" cy="'+Y(p.y).toFixed(1)+'" r="4.5" fill="'+p.a.c+'" stroke="#fff" stroke-width="1.5"><title>'+esc(p.a.name+' · '+p.it.label+': return '+fmt(p.y)+' pp, risk '+fmt(p.x)+' pp')+'</title></circle>'; });
+  var big = list.map(function(it){ var p=pts.filter(function(q){return q.it===it && q.a.id==='core';})[0]; return p; }).filter(Boolean).sort(function(a,b){ return (b.x+b.y)-(a.x+a.y); }).slice(0,3);
+  big.forEach(function(p){ svg+='<text x="'+(X(p.x)+8).toFixed(1)+'" y="'+(Y(p.y)-6).toFixed(1)+'" font-size="10.5" fill="#14213a" paint-order="stroke" stroke="#fff" stroke-width="3">'+esc(p.it.short)+'</text>'; });
+  svg+=AL.map(function(a,i){ return '<circle cx="'+(Wd-Rr+14)+'" cy="'+(T+12+i*18)+'" r="4.5" fill="'+a.c+'"/><text x="'+(Wd-Rr+24)+'" y="'+(T+16+i*18)+'" font-size="10.5" fill="#4a5872">'+esc(a.name.replace('Strategic Core · ','Core · '))+'</text>'; }).join('')+'</svg>';
+  var strip='';
+  if (s.side==='f') { var ex=[]; AL.forEach(function(a){ FA.forEach(function(f){ ex.push(A[a.id].fexp[f.id]); }); }); var lo=Math.min(0,Math.min.apply(null,ex)), hi=Math.max.apply(null,ex), sw=700, sx=function(v){return 90+(v-lo)/(hi-lo)*(sw-100);};
+    strip='<div class="pane-t" style="margin-top:10px">Exposure (β)</div><svg width="'+sw+'" height="'+(FA.length*15+6)+'">'+FA.map(function(f,i){ var y=i*15+8; return '<text x="84" y="'+(y+4)+'" font-size="10.5" fill="#4a5872" text-anchor="end">'+f.name+'</text><line x1="90" x2="'+(sw-10)+'" y1="'+y+'" y2="'+y+'" stroke="#eef1f5"/>'+AL.map(function(a){ var v=A[a.id].fexp[f.id]; return '<circle cx="'+sx(v).toFixed(1)+'" cy="'+y+'" r="3.5" fill="'+a.c+'"><title>'+esc(a.name+' · '+f.name+': '+fmt(v))+'</title></circle>'; }).join(''); }).join('')+'<line x1="'+sx(0)+'" x2="'+sx(0)+'" y1="0" y2="'+(FA.length*15+4)+'" stroke="#9aa6b8"/></svg>'; }
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl"><span class="grp"><span class="lbl">Points</span>'+seg('side',[['p','Products'],['f','Factors']],s.side)+'</span></div>'+svg+strip+'<div class="note">Each point is one '+(s.side==='p'?'product':'factor')+' in one allocation; grey lines join the same item across allocations. Labels mark the largest items in Strategic Core.</div></div>';
+}};
+R[10] = { s:{m:'fexp'}, draw:function(s){
+  var m=s.m, M=MEAS[m], list=items(m), all=[]; AL.concat([REF]).forEach(function(a){ list.forEach(function(it){ all.push(val(a.id,m,it.id)); }); });
+  var lo=Math.min(0,Math.min.apply(null,all)), hi=Math.max(0,Math.max.apply(null,all)), Wd=700, L=210, rh=22, H=list.length*rh+30, x=function(v){return L+(v-lo)/(hi-lo)*(Wd-L-20);};
+  var svg='<svg width="'+Wd+'" height="'+H+'" role="img" aria-label="'+esc(M.label)+' dot plot">';
+  [0,0.25,0.5,0.75,1].forEach(function(t){ var v=lo+(hi-lo)*t; svg+='<line x1="'+x(v)+'" x2="'+x(v)+'" y1="0" y2="'+(H-20)+'" stroke="#eef1f5"/><text x="'+x(v)+'" y="'+(H-6)+'" font-size="10" fill="#7a879b" text-anchor="middle">'+fmt(v,M.unit==='β'?2:1)+'</text>'; });
+  svg+='<line x1="'+x(0)+'" x2="'+x(0)+'" y1="0" y2="'+(H-20)+'" stroke="#9aa6b8"/>';
+  list.forEach(function(it,i){ var y=i*rh+12, vs=AL.map(function(a){return val(a.id,m,it.id);}), r=val('ref',m,it.id), mn=Math.min.apply(null,vs), mxv=Math.max.apply(null,vs);
+    svg+='<text x="'+(L-10)+'" y="'+(y+4)+'" font-size="11.5" fill="#14213a" text-anchor="end">'+esc(it.label)+'</text><line x1="'+x(mn).toFixed(1)+'" x2="'+x(mxv).toFixed(1)+'" y1="'+y+'" y2="'+y+'" stroke="#c7cfdb" stroke-width="3" stroke-linecap="round"/>';
+    svg+='<path d="M'+x(r).toFixed(1)+' '+(y-6)+' l5 6 l-5 6 l-5 -6 z" fill="#fff" stroke="#14213a" stroke-width="1.3"><title>'+esc(REF.name+' · '+it.label+': '+fmt(r,M.dp))+'</title></path>';
+    AL.forEach(function(a){ var v=val(a.id,m,it.id); svg+='<circle cx="'+x(v).toFixed(1)+'" cy="'+y+'" r="5" fill="'+a.c+'" stroke="#fff" stroke-width="1.5"><title>'+esc(a.name+' · '+it.label+': '+fmt(v,M.dp))+'</title></circle>'; }); });
+  svg+='</svg>';
+  var leg='<span class="grp" style="font-size:12px;color:var(--m-ink2)">'+AL.map(function(a){ return adot(a)+esc(a.name); }).join(' &nbsp; ')+' &nbsp; <svg width="12" height="12" style="vertical-align:-1px"><path d="M6 0 l5 6 l-5 6 l-5 -6 z" fill="#fff" stroke="#14213a" stroke-width="1.3"/></svg> '+esc(REF.name)+'</span>';
+  return head('Drivers &amp; differences', SUB)+'<div class="mock-b"><div class="ctl">'+measCtl(m)+'</div><div class="ctl">'+leg+'</div>'+svg+'<div class="note">'+M.label+(M.unit==='β'?' (β)':' (pp)')+'. The grey band spans the compared allocations; a wide band means they disagree.</div></div>';
+}};
+
+function render(el){ var n=el.dataset.opt, o=R[n]; el.innerHTML=o.draw(o.s); }
+document.querySelectorAll('.mock[data-opt]').forEach(function(el){
+  render(el);
+  el.addEventListener('click', function(e){ var b=e.target.closest('button[data-k]'); if(!b) return; var o=R[el.dataset.opt], k=b.dataset.k, v=b.dataset.v;
+    o.s[k] = (k==='d'||k==='all') ? v==='1' : v; render(el); var nb=el.querySelector('button[data-k="'+k+'"][data-v="'+(k==='all'?(o.s.all?'0':'1'):v)+'"]'); if(nb) nb.focus(); });
+});
+})();
+</script>

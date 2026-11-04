@@ -706,4 +706,118 @@
     });
     return out;
   };
+
+  /**
+   * Whole-portfolio factor breakdown: exposure, risk contribution (factors plus
+   * specific, adding up to the volatility) and return contribution (factors,
+   * cash and specific, adding up to the return). Forward uses the factor model
+   * and the platform assumptions; historical scales the model's split to the
+   * realised volatility and uses premia implied by the period's index returns.
+   */
+  E.factorBreakdown = function (allocation, opts) {
+    var model = E.modelOf(opts.modelId), F = factorCov(model), fs = model.factors, hs = E.effective(allocation), net = E.net(allocation) / 100;
+    if (!hs.length) return null;
+    var out = { exposure: {}, risk: { byFactor: {}, specific: 0, total: 0 }, ret: { byFactor: {}, cash: 0, specific: 0, total: 0 } }, x, premia, total, rf, k = 1;
+    if (opts.basis !== 'historical') {
+      var R = opts.R, mr = E.modelRisk(E.weightsOf(hs), model.id);
+      x = fs.map(function (f) { return mr.exposure[f.id]; });
+      fs.forEach(function (f) { out.risk.byFactor[f.id] = mr.byFactor[f.id]; }); out.risk.specific = mr.specific; out.risk.total = mr.total;
+      rf = D.assumptions.riskFree; premia = E.impliedPremia(model, function (ac) { return R.acReturn[ac].value - rf; });
+      total = U.sum(hs, function (h) { return h.weight / 100 * (R.ret[h.instrumentId] ? R.ret[h.instrumentId].value : 0); });
+    } else {
+      var from = opts.period.start, to = opts.period.end, r = E.rowReturns(allocation, '__total', from, to); if (!r) return null;
+      var clean = r.returns.filter(function (v) { return v != null; }); if (clean.length < 12) return null;
+      var beta = E.historical(allocation, [{ key: '__total', kind: 'total' }], from, to, model.id).rows.__total.beta;
+      x = fs.map(function (f) { return beta[f.id] || 0; });
+      var spec = 0; hs.forEach(function (h) { var sp = E.specificOf(model, h.instrumentId); spec += Math.pow(h.weight / 100, 2) * sp * sp; });
+      var Fx = U.mat.mulVec(F, x), mv = Math.sqrt(Math.max(U.mat.dot(x, Fx) + spec, 1e-12)), rv = U.stats.annualizedVol(clean) * 100; k = rv / mv;
+      fs.forEach(function (f, j) { out.risk.byFactor[f.id] = k * x[j] * Fx[j] / mv; }); out.risk.specific = k * spec / mv; out.risk.total = rv;
+      var ann = function (id) { var s2 = E.holdingSeries(id).series.slice(E.monthIndex(from), E.monthIndex(to) + 1).filter(function (v) { return v != null; }); return s2.length >= 12 ? U.stats.annualizedReturn(s2) * 100 : null; };
+      rf = ann('idx_cash') || 0; premia = E.impliedPremia(model, function (ac) { var v = ann(D.assetClassById[ac].indexId); return v == null ? 0 : v - rf; });
+      total = U.stats.annualizedReturn(clean) * 100;
+    }
+    var fr = 0; fs.forEach(function (f, j) { out.exposure[f.id] = x[j]; var c = x[j] * premia[f.id]; out.ret.byFactor[f.id] = c; fr += c; });
+    out.ret.cash = rf * net; out.ret.total = total; out.ret.specific = total - out.ret.cash - fr;
+    return out;
+  };
+
+  /* ── headline measures ───────────────────────────────────────────── */
+  E.VAR_HORIZONS = [{ id: 'd1', label: '1 day', years: 1 / 252 }, { id: 'w1', label: '1 week', years: 5 / 252 }, { id: 'm1', label: '1 month', years: 21 / 252 }, { id: 'y1', label: '1 year', years: 1 }];
+  /** One-day to one-year 99% value at risk (a loss, % of value): normal, from an annual mean and volatility. */
+  E.var99 = function (mean, vol) { var out = {}; E.VAR_HORIZONS.forEach(function (h) { out[h.id] = 2.3263 * vol * Math.sqrt(h.years) - mean * h.years; }); return out; };
+  /**
+   * The headline measures of a subject against a benchmark (or none).
+   * Excess return over cash splits into passive (the benchmark's excess) and
+   * active (the difference from the benchmark). Risk (volatility) splits into
+   * passive and active contributions, cov(P,B)/σP and cov(P,P−B)/σP, which add
+   * up to it; tracking error is the volatility of P−B. Forward: expected
+   * returns from the assumptions, risk from the factor model. Historical:
+   * realised and annualised over the period; value at risk is parametric from
+   * the realised mean and volatility.
+   */
+  E.headline = function (subject, bench, opts) {
+    var out = { basis: opts.basis === 'historical' ? 'historical' : 'forward' }, mean;
+    var split = function (vp, vb, te) { var cov = (vp * vp + vb * vb - te * te) / 2; out.passiveRisk = vp > 0 ? cov / vp : null; out.activeRisk = vp > 0 ? vp - cov / vp : null; out.trackingError = te; out.benchmarkRisk = vb; };
+    if (out.basis === 'forward') {
+      var R = opts.R, retOf = function (id) { return R.ret[id] ? R.ret[id].value : 0; }, wP = E.weightsOf(subject.holdings), model = E.modelOf(opts.modelId);
+      out.riskFree = D.assumptions.riskFree;
+      out.totalReturn = U.sum(Object.keys(wP), function (id) { return wP[id] / 100 * retOf(id); });
+      out.risk = E.modelRisk(wP, model.id).total; mean = out.totalReturn;
+      if (bench) {
+        var wB = E.weightsOf(bench.holdings), a = {}; Object.keys(wP).concat(Object.keys(wB)).forEach(function (id) { a[id] = (wP[id] || 0) - (wB[id] || 0); });
+        out.benchmarkReturn = U.sum(Object.keys(wB), function (id) { return wB[id] / 100 * retOf(id); });
+        split(out.risk, E.modelRisk(wB, model.id).total, E.modelRisk(a, model.id).total);
+      }
+    } else {
+      var from = opts.period.start, to = opts.period.end, rp = subject.returnsFrom ? subject.returnsFrom(from, to) : E.backtest(subject.holdings, from, to).returns;
+      var rb = bench ? E.backtest(bench.holdings, from, to).returns : null, cash = E.holdingSeries('idx_cash').series.slice(E.monthIndex(from), E.monthIndex(to) + 1);
+      var idx = rp.map(function (v, i) { return v != null && (!rb || rb[i] != null) ? i : null; }).filter(function (i) { return i != null; });
+      out.months = idx.length;
+      if (idx.length < 12) { out.reason = 'Fewer than 12 months of history in the period'; return out; }
+      var P = idx.map(function (i) { return rp[i]; }), C2 = idx.map(function (i) { return cash[i] || 0; });
+      out.totalReturn = U.stats.annualizedReturn(P) * 100; out.riskFree = U.stats.annualizedReturn(C2) * 100; out.risk = U.stats.annualizedVol(P) * 100;
+      mean = U.sum(P) / P.length * 1200;
+      if (rb) { var B = idx.map(function (i) { return rb[i]; }), A = P.map(function (v, k) { return v - B[k]; }); out.benchmarkReturn = U.stats.annualizedReturn(B) * 100; split(out.risk, U.stats.annualizedVol(B) * 100, U.stats.annualizedVol(A) * 100); }
+    }
+    out.excessReturn = out.totalReturn - out.riskFree;
+    if (out.benchmarkReturn != null) { out.passiveExcess = out.benchmarkReturn - out.riskFree; out.activeExcess = out.totalReturn - out.benchmarkReturn; out.informationRatio = out.trackingError > 1e-6 ? out.activeExcess / out.trackingError : null; }
+    out.sharpe = out.risk > 1e-9 ? out.excessReturn / out.risk : null;
+    out.var99 = E.var99(mean, out.risk);
+    return out;
+  };
+
+  /* ── factors over time ───────────────────────────────────────────── */
+  /**
+   * Calendar-year factor exposure, risk contribution and return contribution
+   * of an allocation over a period. Exposures are estimated year by year (the
+   * model loading plus estimation noise); risk contributions are scaled so
+   * each year's add up to its realised volatility; return contributions are
+   * exposure × the factor premia implied by that year's asset-class returns,
+   * with cash and specific making up the year's return.
+   */
+  E.factorHistory = function (allocation, from, to, modelId) {
+    var model = E.modelOf(modelId), F = factorCov(model), fs = model.factors, hs = E.effective(allocation);
+    var r = E.rowReturns(allocation, '__total', from, to); if (!r) return null;
+    var months = D.history.months.slice(E.monthIndex(from), E.monthIndex(to) + 1), i0 = E.monthIndex(from), years = [], byYear = {};
+    months.forEach(function (m, i) { var y = +m.slice(0, 4); if (!byYear[y]) { byYear[y] = []; years.push(y); } byYear[y].push(i); });
+    var compound = function (arr) { var g = 1, n = 0; arr.forEach(function (v) { if (v != null) { g *= 1 + v; n++; } }); return n ? (g - 1) * 100 : null; };
+    var idx = function (id, ix) { var s = E.holdingSeries(id).series; return ix.map(function (i) { return s[i0 + i]; }); };
+    var spec = 0; hs.forEach(function (h) { var s = E.specificOf(model, h.instrumentId); spec += Math.pow(h.weight / 100, 2) * s * s; });
+    var out = { factors: fs.map(function (f) { return { id: f.id, name: f.name }; }), years: [], exposure: {}, risk: {}, ret: {}, totals: { risk: [], ret: [], cash: [], specificRisk: [], specificRet: [] } };
+    fs.forEach(function (f) { out.exposure[f.id] = []; out.risk[f.id] = []; out.ret[f.id] = []; });
+    years.forEach(function (y) {
+      var ix = byYear[y], pr = ix.map(function (i) { return r.returns[i]; }), clean = pr.filter(function (v) { return v != null; });
+      if (clean.length < 6) return;
+      out.years.push({ year: y, partial: ix.length < 12 });
+      var x = fs.map(function (f) { var s2 = 0; hs.forEach(function (h) { var rng = U.rng(U.hash(model.id + h.instrumentId + f.id + y)); s2 += h.weight / 100 * (E.loadingsOf(model, h.instrumentId)[f.id] + rng.normal() * 0.05); }); return s2; });
+      var Fx = U.mat.mulVec(F, x), mv = Math.sqrt(Math.max(U.mat.dot(x, Fx) + spec, 1e-12)), rv = U.stats.annualizedVol(clean) * 100, k = rv / mv;
+      var rf = compound(idx('idx_cash', ix)) || 0, R = compound(pr);
+      var prem = E.impliedPremia(model, function (ac) { var a = D.assetClassById[ac]; var v = a && a.indexId ? compound(idx(a.indexId, ix)) : null; return v == null ? 0 : v - rf; });
+      var facRet = 0;
+      fs.forEach(function (f, j) { out.exposure[f.id].push(x[j]); out.risk[f.id].push(k * x[j] * Fx[j] / mv); var c = x[j] * prem[f.id]; out.ret[f.id].push(c); facRet += c; });
+      out.totals.risk.push(rv); out.totals.specificRisk.push(k * spec / mv);
+      out.totals.ret.push(R); out.totals.cash.push(rf); out.totals.specificRet.push(R - rf - facRet);
+    });
+    return out;
+  };
 })();

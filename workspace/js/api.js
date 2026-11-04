@@ -33,6 +33,9 @@
      POST   /analytics/table                 ← TableRequest   → TableResponse
      POST   /analytics/history               ← HistoryRequest → HistoryResponse
      POST   /analytics/history-pack          ← PackRequest    → PackResponse
+     POST   /analytics/headline              ← {allocations, period, scenario, factorModel, reference} → {period, horizons, series:[{allocationId, benchmark, forward:Headline, historical:Headline}]}
+     POST   /analytics/factor-table          ← {allocations, basis, period, scenario, factorModel, reference} → {factorModel, factors, period, series:[{allocationId, values:{exposure, risk, ret}, reference, referenceLabel}]}
+     POST   /analytics/factor-history        ← {allocations, period, factorModel} → {factorModel, period, series:[{allocationId, history:{factors, years, exposure, risk, ret, totals}}]}
      POST   /analytics/breakdown             ← {allocations}  → BreakdownResponse
      POST   /analytics/projection            ← ProjectionRequest → ProjectionResponse
      POST   /analytics/scenarios             ← ScenarioRequest → ScenarioResponse
@@ -231,11 +234,11 @@
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); return store; } } } catch (e) { /* storage unavailable */ }
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); return store; } } } catch (e) { /* storage unavailable */ }
       store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks);
       return store;
     }
-    function fresh() { return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1 }; }
+    function fresh() { return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }
@@ -429,6 +432,45 @@
         });
       },
 
+      headline: function (req) {
+        return wait(latency()).then(function () {
+          if (config.failAnalytics) fail();
+          var model = E.modelOf(req.factorModel), period = resolvePeriod(req.allocations, req.period), Rbase = E.resolve(null), Rsc = req.scenario ? E.resolve(req.scenario) : null;
+          var series = req.allocations.map(function (a) {
+            var subject = subjectOf(a, '__total');
+            if (!subject) return { allocationId: a.id, reason: 'Nothing allocated' };
+            var bm = benchmarkFor(a, Object.assign({}, req, { rowKey: '__total', against: { mode: 'reference' } })), bench = bm.holdings ? { holdings: bm.holdings } : null;
+            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0 && Rsc && Rsc.corrValid);
+            return { allocationId: a.id, benchmark: bm.label ? { label: bm.label, kind: bm.kind } : null, benchmarkReason: bench ? null : (bm.reason || 'No benchmark'), scenarioApplied: inScope,
+              forward: E.headline(subject, bench, { basis: 'forward', R: inScope ? Rsc : Rbase, modelId: model.id }),
+              historical: E.headline(subject, bench, { basis: 'historical', period: period }) };
+          });
+          return { factorModel: model.id, period: period, horizons: E.VAR_HORIZONS.map(function (h) { return { id: h.id, label: h.label }; }), series: series };
+        });
+      },
+
+      factorTable: function (req) {
+        return wait(latency()).then(function () {
+          if (config.failAnalytics) fail();
+          var model = E.modelOf(req.factorModel), hist = req.basis === 'historical', period = hist ? resolvePeriod(req.allocations, req.period) : null;
+          var Rbase = E.resolve(null), Rsc = req.scenario && !hist ? E.resolve(req.scenario) : null;
+          var series = req.allocations.map(function (a) {
+            var inScope = !!Rsc && Rsc.corrValid && req.scenario.scope.indexOf(a.id) >= 0, R = inScope ? Rsc : Rbase, refInfo = findReference(a, req);
+            var opts = { basis: req.basis, R: R, period: period, modelId: model.id }, own = E.factorBreakdown(a, opts);
+            return { allocationId: a.id, name: a.name, inScope: inScope, values: own, reason: own ? null : (hist ? 'Fewer than 12 months of history in the period' : 'Nothing allocated'), reference: refInfo.alloc ? E.factorBreakdown(refInfo.alloc, opts) : null, referenceLabel: refInfo.label, referenceReason: refInfo.reason };
+          });
+          return { factorModel: model.id, factors: model.factors.map(function (f) { return { id: f.id, name: f.name, description: f.description }; }), period: period, series: series };
+        });
+      },
+
+      factorHistory: function (req) {
+        return wait(latency() * 0.9).then(function () {
+          if (config.failAnalytics) fail();
+          var period = resolvePeriod(req.allocations, req.period), model = E.modelOf(req.factorModel);
+          return { factorModel: model.id, period: period, series: req.allocations.map(function (a) { var h = E.factorHistory(a, period.start, period.end, model.id); return { allocationId: a.id, history: h, reason: h ? null : 'No history in the period' }; }) };
+        });
+      },
+
       historyPack: function (req) {
         return wait(latency() * 0.9).then(function () {
           if (config.failAnalytics) fail();
@@ -590,6 +632,9 @@
       analyzeTable: function (req) { return call('POST', '/analytics/table', req); },
       historySeries: function (req) { return call('POST', '/analytics/history', req); },
       historyPack: function (req) { return call('POST', '/analytics/history-pack', req); },
+      factorHistory: function (req) { return call('POST', '/analytics/factor-history', req); },
+      factorTable: function (req) { return call('POST', '/analytics/factor-table', req); },
+      headline: function (req) { return call('POST', '/analytics/headline', req); },
       breakdown: function (req) { return call('POST', '/analytics/breakdown', req); },
       projection: function (req) { return call('POST', '/analytics/projection', req); },
       scenarioComparison: function (req) { return call('POST', '/analytics/scenarios', req); },

@@ -29,31 +29,68 @@
   function packReq(ctx) { return { allocations: U.clone(ctx.members), period: U.clone(ctx.prefs.period) }; }
   function monthsTable(months, series, fmt) { return V.table([{ label: 'Month' }].concat(series.map(function (s) { return { label: esc(s.name), num: true }; })), months.map(function (m, i) { return { cells: [F.month(m)].concat(series.map(function (s) { var v = s.values ? s.values[i] : null; return v == null ? '—' : fmt(v); })) }; }), { maxHeight: '240px' }); }
 
-  /* ── Headline: both bases side by side ───────────────────────────── */
-  C.register({ id: 'headline', title: 'Headline', description: 'Forward-looking and historical return, risk, active return and tracking error side by side, with the maximum drawdown and the allocated total.', group: 'Summary', size: { w: 12, h: 5 }, min: { w: 6, h: 3 }, basis: 'dual', factorModel: true,
+  /* ── Headline: return, risk, ratios and value at risk on both bases ─ */
+  var HL_ROWS = [
+    { g: 'Return' },
+    { k: 'totalReturn', l: 'Total return', tip: 'Expected (forward) or annualised realised (historical) return' },
+    { k: 'excessReturn', l: 'Excess return', tip: 'Total return minus cash' },
+    { k: 'passiveExcess', l: 'Passive excess return', ind: true, tip: 'The benchmark’s excess return' },
+    { k: 'activeExcess', l: 'Active excess return', ind: true, tip: 'Return minus the benchmark’s return' },
+    { g: 'Risk' },
+    { k: 'risk', l: 'Risk (volatility)', tip: 'Forward: from the factor model. Historical: realised' },
+    { k: 'passiveRisk', l: 'Passive risk', ind: true, tip: 'Covariance with the benchmark ÷ volatility' },
+    { k: 'activeRisk', l: 'Active risk', ind: true, tip: 'Covariance with the active return ÷ volatility; negative where departing from the benchmark lowers risk' },
+    { k: 'trackingError', l: 'Tracking error', tip: 'Volatility of the active return' },
+    { g: 'Ratios' },
+    { k: 'sharpe', l: 'Sharpe ratio', tip: 'Excess return ÷ risk' },
+    { k: 'informationRatio', l: 'Information ratio', tip: 'Active excess return ÷ tracking error' },
+    { g: '99% value at risk · loss, % of value' },
+    { k: 'var99.d1', l: '1 day', ind: true }, { k: 'var99.w1', l: '1 week', ind: true }, { k: 'var99.m1', l: '1 month', ind: true }, { k: 'var99.y1', l: '1 year', ind: true }
+  ];
+  function hlSettings(card, ctx) { var s = card.settings || {}, ids = ctx.members.map(function (a) { return a.id; }); return { view: s.view === 'focus' ? 'focus' : 'table', focus: ids.indexOf(s.focus) >= 0 ? s.focus : ids.indexOf(ctx.ws.comparison.activeId) >= 0 ? ctx.ws.comparison.activeId : ids[0] }; }
+  function hlGet(o, k) { if (!o || o.reason) return null; if (k.indexOf('var99.') === 0) return o.var99 ? o.var99[k.slice(6)] : null; return o[k]; }
+  C.register({ id: 'headline', title: 'Headline', description: 'Total, excess, passive and active return; risk, passive and active risk and tracking error; Sharpe and information ratios; 99% value at risk over a day, week, month and year. Forward-looking and historical side by side, as a table of every allocation or with one allocation in focus and the others as differences from it.', group: 'Summary', size: { w: 12, h: 12 }, min: { w: 6, h: 6 }, basis: 'dual', factorModel: true,
     settings: [],
-    subtitle: function (ctx, s, card) { return '% a year · whole portfolio · active against ' + UI.context.referenceLabel() + C.modelDeparture(card); },
-    data: function (ctx, s, card) {
-      var req = function (basis) { return { revision: ctx.revision, allocations: U.clone(ctx.members), rowKey: '__total', basis: basis, period: U.clone(ctx.prefs.period), scenario: basis === 'forward' ? U.clone(ctx.scenario) : null, factorModel: C.modelIdOf(card), returnMethod: 'arithmetic', decompose: 'factor', reference: U.clone(ctx.ws.comparison), against: { mode: 'reference' } }; };
-      return Promise.all([C.fetch('activeAnalysis', req('forward')), C.fetch('activeAnalysis', req('historical')), C.fetch('historyPack', packReq(ctx))]).then(function (r) { return { fwd: r[0], hist: r[1], pack: r[2] }; });
-    },
+    subtitle: function (ctx, s, card) { var h = hlSettings(card, ctx), f = h.view === 'focus' && ctx.members.length > 1 ? (S.allocation(h.focus) || {}).name : null; return '% a year unless stated · whole portfolio · against ' + UI.context.referenceLabel() + (f ? ' · focus ' + f : '') + C.modelDeparture(card); },
+    data: function (ctx, s, card) { return C.fetch('headline', { revision: ctx.revision, allocations: U.clone(ctx.members), period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario), factorModel: C.modelIdOf(card), reference: U.clone(ctx.ws.comparison) }); },
     render: function (body, data, ctx, s, card) {
-      var E = PA.engine, one = function (res, a) { return res.series.filter(function (q) { return q.allocationId === a.id; })[0]; };
+      var one = function (a) { return data.series.filter(function (q) { return q.allocationId === a.id; })[0] || {}; }, active = ctx.ws.comparison.activeId;
+      var set = hlSettings(card, ctx), focusView = set.view === 'focus' && ctx.members.length > 1;
       var na = function (why) { return '<span class="faint" data-tip="' + esc(why || 'Unavailable') + '">—</span>'; };
-      var th = function (l, cls) { return '<th scope="col" class="num' + (cls ? ' ' + cls : '') + '">' + l + '</th>'; };
-      var head = '<thead><tr class="hl-groups"><th scope="col" rowspan="2" class="hl-name">Allocation</th><th scope="colgroup" colspan="4" class="hl-grp is-fwd">→ Forward-looking' + (ctx.scenario ? ' <span class="faint">· scenario ' + esc(ctx.scenario.name) + ' where applied</span>' : '') + '</th><th scope="colgroup" colspan="5" class="hl-grp is-hist grp-start">◷ Historical · ' + esc(data.hist.period ? data.hist.period.label : '') + '</th><th scope="col" rowspan="2" class="num grp-start">Allocated</th></tr><tr>' +
-        th('Expected return') + th('Risk') + th('Active return') + th('Tracking error') + th('Return', 'grp-start') + th('Volatility') + th('Active return') + th('Tracking error') + th('Max drawdown') + '</tr></thead>';
-      var rows = ctx.members.map(function (a) {
-        var f = one(data.fwd, a), h = one(data.hist, a), p = data.pack.series.filter(function (q) { return q.allocationId === a.id; })[0], alloc = E.allocated(a);
-        var allocCell = Math.abs(alloc - 100) < 0.05 ? F.num(alloc) : '<span class="warn" data-tip="' + (alloc < 100 ? F.num(100 - alloc) + '% unallocated' : 'Borrowing ' + F.num(alloc - 100) + '%') + '">' + F.num(alloc) + '</span>';
-        var fc = !f || f.reason ? [na(f && f.reason), na(), na(f && f.reason), na()] : [F.num(f.totalReturn, 1), F.num(f.totalRisk, 1), V.signed(f.activeReturn, 2), F.num(f.activeRisk, 2)];
-        var hc = !h || h.reason || h.totalReturn == null ? [na(h && h.reason), na(), na(h && h.reason), na()] : [F.num(h.totalReturn, 1), F.num(h.totalRisk, 1), V.signed(h.activeReturn, 2), F.num(h.activeRisk, 2)];
-        var dd = p && p.stats ? V.signed(p.stats.maxDrawdown, 1) : na('No history in the period');
-        return '<tr><th scope="row"><span class="dot" style="background:' + colorOf(a) + '"></span>' + esc(a.name) + (UI.kindTag(a) ? ' ' + UI.kindTag(a) : '') + '</th>' + fc.map(function (c, i) { return '<td class="num' + (i === 0 ? ' lead' : '') + '">' + c + '</td>'; }).join('') + hc.concat([dd]).map(function (c, i) { return '<td class="num' + (i === 0 ? ' lead grp-start' : '') + '">' + c + '</td>'; }).join('') + '<td class="num grp-start">' + allocCell + '</td></tr>';
-      }).join('');
-      body.innerHTML = '<div class="hl-tbl"><div class="tblwrap" style="max-height:100%"><table class="tbl hl-dual"><caption class="sr-only">Headline figures, forward-looking and historical</caption>' + head + '<tbody>' + rows + '</tbody></table></div></div>' +
-        C.notes(card, ['<b>Forward-looking:</b> return from the platform assumptions (' + esc(D.assumptions.model) + ')' + (ctx.scenario ? ', scenario where applied' : '') + '; risk and tracking error from the ' + esc(D.factorModelById[data.fwd.factorModel].name) + ' factor model.', '<b>Historical:</b> realised and annualised from monthly returns, ' + esc(data.hist.period ? data.hist.period.label : '') + '. ' + esc((data.hist.period && data.hist.period.note) || ''), 'Active return and tracking error are measured against ' + esc(UI.context.referenceLabel()) + '. The Active risk & return card shows where they come from.', 'Allocated is the sum of category targets; it is highlighted when it is not 100%.']);
-    } });
+      var why = function (x, o, r) { return o && o.reason ? o.reason : (/passive|active|tracking|information/i.test(r.k) ? (x.benchmarkReason || 'No benchmark') : 'Unavailable'); };
+      var cell = function (x, o, r) { var v = hlGet(o, r.k); if (v == null) return na(why(x, o, r)); return '<span' + (v < -0.005 ? ' class="neg"' : '') + '>' + F.num(v, 2) + '</span>'; };
+      var diff = function (x, o, fo, r) { var v = hlGet(o, r.k), f = hlGet(fo, r.k); if (v == null || f == null) return na(v == null ? why(x, o, r) : 'Unavailable for the focus allocation'); var d = v - f; return '<span' + (d < -0.005 ? ' class="neg"' : d > 0.005 ? ' class="pos"' : '') + '>' + (Math.abs(d) < 0.005 ? '0.00' : F.signed(d, 2)) + '</span>'; };
+      var subHead = function (n, extra) { var out = ''; for (var i = 0; i < n; i++) out += '<th scope="col" class="num grp-start hl-b is-fwd" data-tip="Forward-looking: platform assumptions; risk from the factor model">→ Fwd</th><th scope="col" class="num hl-b is-hist" data-tip="Historical: realised over ' + esc(data.period ? data.period.label : 'the period') + '">◷ Hist</th>'; return out; };
+      var allocHead = function (a, label, cls) { return '<th scope="colgroup" colspan="2" class="hl-alloc grp-start' + (cls || '') + '"><span class="dot" style="background:' + colorOf(a) + '"></span>' + esc(a.name) + (UI.kindTag(a) ? ' ' + UI.kindTag(a) : '') + (label ? ' <span class="hl-rel">' + label + '</span>' : '') + '</th>'; };
+      var focus = focusView ? (ctx.members.filter(function (a) { return a.id === set.focus; })[0] || ctx.members[0]) : null, others = focusView ? ctx.members.filter(function (a) { return a.id !== focus.id; }) : [];
+      var head, rows;
+      if (focusView) {
+        var fx = one(focus);
+        head = '<thead><tr><th scope="col" rowspan="2" class="hl-name">Measure</th>' + allocHead(focus, '· focus', ' is-focus') + others.map(function (a) { return allocHead(a, '− focus', ' is-diff'); }).join('') + '</tr><tr>' + subHead(ctx.members.length) + '</tr></thead>';
+        rows = HL_ROWS.map(function (r) {
+          if (r.g) return '<tr class="hl-g"><th scope="rowgroup" colspan="' + (1 + ctx.members.length * 2) + '">' + esc(r.g) + '</th></tr>';
+          return '<tr' + (r.ind ? ' class="hl-ind"' : '') + '><th scope="row"' + (r.tip ? ' data-tip="' + esc(r.tip) + '"' : '') + '>' + esc(r.l) + '</th><td class="num grp-start lead">' + cell(fx, fx.forward, r) + '</td><td class="num lead">' + cell(fx, fx.historical, r) + '</td>' + others.map(function (a) { var x = one(a); return '<td class="num grp-start hl-d">' + diff(x, x.forward, fx.forward, r) + '</td><td class="num hl-d">' + diff(x, x.historical, fx.historical, r) + '</td>'; }).join('') + '</tr>';
+        }).join('');
+      } else {
+        head = '<thead><tr><th scope="col" rowspan="2" class="hl-name">Measure</th>' + ctx.members.map(function (a) { return allocHead(a, '', a.id === active ? ' is-active' : ''); }).join('') + '</tr><tr>' + subHead(ctx.members.length) + '</tr></thead>';
+        rows = HL_ROWS.map(function (r) {
+          if (r.g) return '<tr class="hl-g"><th scope="rowgroup" colspan="' + (1 + ctx.members.length * 2) + '">' + esc(r.g) + '</th></tr>';
+          return '<tr' + (r.ind ? ' class="hl-ind"' : '') + '><th scope="row"' + (r.tip ? ' data-tip="' + esc(r.tip) + '"' : '') + '>' + esc(r.l) + '</th>' + ctx.members.map(function (a) { var x = one(a); return '<td class="num grp-start">' + cell(x, x.forward, r) + '</td><td class="num">' + cell(x, x.historical, r) + '</td>'; }).join('') + '</tr>';
+        }).join('');
+      }
+      var seg = function (name, label, opts, cur) { return '<div class="ctl"><span class="label">' + label + '</span><div class="seg" role="group" aria-label="' + esc(label) + '">' + opts.map(function (o) { return '<button type="button" data-hl="' + name + '" data-val="' + esc(o[0]) + '" aria-pressed="' + (cur === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div></div>'; };
+      var tools = ctx.members.length > 1 ? '<div class="dd-tools hl-tools">' + seg('view', 'View', [['table', 'Table'], ['focus', 'Focus']], focusView ? 'focus' : 'table') +
+        (focusView ? seg('focus', 'Focus', ctx.members.map(function (a) { return [a.id, '<span class="dot" style="background:' + colorOf(a) + '"></span>' + esc(a.name)]; }), focus.id) : '') + '</div>' : '';
+      var bms = {}; data.series.forEach(function (x) { if (x.benchmark) bms[x.benchmark.label] = 1; });
+      body.innerHTML = tools + '<div class="hl-tbl"><div class="tblwrap" style="max-height:100%"><table class="tbl hl-m' + (focusView ? ' hl-focus' : '') + '"><caption class="sr-only">Headline measures, forward-looking and historical' + (focusView ? ', with each allocation shown as its difference from ' + esc(focus.name) : '') + '</caption>' + head + '<tbody>' + rows + '</tbody></table></div></div>' +
+        C.notes(card, (focusView ? ['Focus view: ' + esc(focus.name) + ' is shown in full; every other allocation is shown as its value minus the focus value, in the same units (percentage points for returns, risk and value at risk).'] : []).concat(['Indented rows add up to the row above them: passive and active excess return to the excess return, passive and active risk to the risk. Tracking error is the volatility of the active return, so it differs from active risk.',
+          '<b>Forward-looking:</b> returns from the platform assumptions (' + esc(D.assumptions.model) + ')' + (ctx.scenario ? ', scenario where applied' : '') + '; risk, passive and active risk and tracking error from the ' + esc(D.factorModelById[data.factorModel].name) + ' factor model. Cash ' + F.num(D.assumptions.riskFree, 1) + '%.',
+          '<b>Historical:</b> realised and annualised from monthly returns, ' + esc(data.period ? data.period.label : '') + '; cash is the cash index over the same months.',
+          '99% value at risk is parametric (normal) from each basis’s mean and volatility, over 1/252, 5/252 and 21/252 of a year and one year.',
+          'Passive and active figures are measured against ' + esc(Object.keys(bms).join(', ') || UI.context.referenceLabel()) + '.']));
+      U.on(body, 'click', '[data-hl]', function (e, b) { var p = U.clone(card.settings || {}); p[b.dataset.hl] = b.dataset.val; if (b.dataset.hl === 'view' && b.dataset.val === 'focus' && !p.focus) p.focus = set.focus; S.updateCard(card.id, { settings: p }); var nb = document.querySelector('[data-card="' + CSS.escape(card.id) + '"] [data-hl="' + b.dataset.hl + '"][data-val="' + CSS.escape(b.dataset.val) + '"]'); if (nb) nb.focus(); });
+    },
+    dataTable: function (data, ctx) { return V.table([{ label: 'Measure' }].concat([].concat.apply([], ctx.members.map(function (a) { return [{ label: esc(a.name) + ' · Fwd', num: true }, { label: esc(a.name) + ' · Hist', num: true }]; }))), HL_ROWS.filter(function (r) { return r.k; }).map(function (r) { return { cells: [esc(r.l)].concat([].concat.apply([], ctx.members.map(function (a) { var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0] || {}; return [x.forward, x.historical].map(function (o) { var v = hlGet(o, r.k); return v == null ? '—' : F.num(v, 2); }); }))) }; }), { maxHeight: '260px' }); } });
 
   /* ── Allocations side by side ────────────────────────────────────── */
   C.register({ id: 'allocations', title: 'Allocations side by side', description: 'Category weights of every compared allocation, with the index-modelled remainder hatched.', group: 'Structure', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'none', livePrefs: true,
@@ -175,7 +212,7 @@
     factorModel: function (s, card) { return s.decompose === 'factor' && C.basisOf(card) === 'forward'; },
     settings: [{ key: 'decompose', label: 'Decompose by', type: 'select', options: [['category', 'Category (platform assumptions)'], ['factor', 'Factor (factor model)']], default: 'category', when: function (s, card) { return C.basisOf(card) === 'forward'; } },
       { key: 'riskUnits', label: 'Units', type: 'select', options: [['share', 'Share of total risk (%)'], ['vol', 'Contribution to volatility (pp)']], default: 'share', when: function (s, card) { return s.decompose !== 'factor' || C.basisOf(card) !== 'forward'; } },
-      { key: 'view', label: 'View', type: 'select', options: [['bars', 'Bars · every allocation'], ['waterfall', 'Waterfall · one allocation']], default: 'bars' }],
+      { key: 'view', label: 'View', type: 'select', options: [['bars', 'Bars · every allocation'], ['waterfall', 'Waterfall · one allocation']], default: 'waterfall' }],
     subtitle: function (ctx, s, card) { if (s.decompose === 'factor' && ctx.basis === 'forward') return 'pp of portfolio volatility, by factor and specific' + C.modelDeparture(card); return (s.riskUnits === 'share' ? '% share of total risk' : 'pp of portfolio volatility') + ' · by category' + scenarioSuffix(ctx); },
     data: function (ctx, s, card) { if (s.decompose === 'factor' && ctx.basis === 'forward') return C.fetch('factorRisk', { allocations: U.clone(ctx.members), rowKey: '__total', factorModel: C.modelIdOf(card) }); return C.fetch('analyzeTable', tableReq(ctx, 'risk', { riskUnits: s.riskUnits })); },
     render: function (body, data, ctx, s, card) {
@@ -212,7 +249,7 @@
       var get = function (a, fid) { var c = data.cells[a.id] && data.cells[a.id][key]; if (!c) return null; var cell = c.scenario || c.base; return cell && cell.factors ? cell.factors[fid] : null; };
       var cov = ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key]; return c && c.base && c.base.coverage ? a.name + ': ' + c.base.coverage.replace(/^Proxied by the category index in [^:]+: /, 'proxied by its index in ' + m.name + ': ') : null; });
       body.innerHTML = legend(ctx) + '<div class="viz-host"></div>' + foot((pick.mapped ? '<span class="tag tag-info">Mapped</span><span>' + esc(pick.mapped) + '.</span>' : '') + modelFoot(cov)) + C.notes(card, [esc(m.long) + ', as of ' + F.date(m.asOf) + '. ' + (ctx.basis === 'forward' ? 'Model exposures.' : 'Estimated over the period.'), 'Units differ by factor, so compare an exposure across allocations rather than across factors.']);
-      V.groupedBars(body.querySelector('.viz-host'), { groups: ids.map(function (f) { return m.factorById[f].name; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: ids.map(function (f) { return get(a, f); }) }; }), unit: 'β', dp: 2, height: Math.max(160, body.clientHeight - 80), aria: ctx.rowLabel + ' factor exposures under ' + m.name + ' for ' + ctx.members.length + ' allocations' });
+      V.hBars(body.querySelector('.viz-host'), { rows: ids.map(function (f) { return m.factorById[f].name; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: ids.map(function (f) { return get(a, f); }) }; }), unit: 'β', dp: 2, aria: ctx.rowLabel + ' factor exposures under ' + m.name + ' for ' + ctx.members.length + ' allocations' });
       wireLegend(body);
     },
     dataTable: function (data, ctx, s, card) { var key = card.followRow ? ctx.row : '__total', m = D.factorModelById[data.factorModel || 'isg']; return V.table([{ label: 'Factor · ' + esc(m.name) }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), C.factorsFor(s.factors, m.id).ids.filter(function (f) { return m.factorById[f]; }).map(function (f) { return { cells: [esc(m.factorById[f].name)].concat(ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key], cell = c && (c.scenario || c.base); var v = cell && cell.factors ? cell.factors[f] : null; return v == null ? '—' : F.num(v, 2); })) }; }), { maxHeight: '200px' }); } });

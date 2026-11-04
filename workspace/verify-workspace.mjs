@@ -16,9 +16,9 @@ fs.mkdirSync(shots, { recursive: true });
 
 const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1100 }, deviceScaleFactor: 1 });
-const errors = []; page.on('pageerror', e => errors.push('page: ' + e.message.split('\n')[0])); page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text().split('\n')[0]); });
+const errors = []; page.on('pageerror', e => errors.push('page: ' + e.message.split('\n')[0])); page.on('console', m => { if (m.type() === 'error') errors.push('console' + (globalThis.__step ? ' [' + globalThis.__step + ']' : '') + ': ' + m.text().split('\n')[0]); });
 const checks = []; const check = (name, ok, detail) => checks.push({ name, pass: !!ok, detail });
-const step = async (name, fn) => { try { await fn(); } catch (e) { errors.push('step ' + name + ': ' + e.message.split('\n')[0]); } };
+const step = async (name, fn) => { globalThis.__step = name; try { await fn(); } catch (e) { errors.push('step ' + name + ': ' + e.message.split('\n')[0]); } };
 const shot = (name) => page.screenshot({ path: path.join(shots, name + '.png'), fullPage: false });
 const text = (sel) => page.locator(sel).innerText();
 const count = (sel) => page.locator(sel).count();
@@ -33,11 +33,36 @@ await shot('workspaces');
 await step('open workspace', async () => {
   await page.click('.ws-card[data-id="ws_global_review"]'); await page.waitForTimeout(3000);
   check('Workspace opens with four compared allocations', await count('.member') === 4);
-  check('Seven cards render with data, Headline first and Active risk & return last', await count('.card') === 7 && await page.locator('.card').first().getAttribute('data-card') === 'c0' && await count('[data-card="c0"] .hl-tbl tbody tr') === 4 && await count('[data-card="c6"] .act-tabs') === 1 && await count('.card .tbl.dd') === 1 && await count('.card svg.viz') >= 2);
+  check('A workspace opens with two cards: Headline, then Allocations side by side', await count('.card') === 2 && await page.locator('.card').first().getAttribute('data-card') === 'c0' && await page.locator('.card').nth(1).getAttribute('data-card') === 'c1' && await count('[data-card="c1"] svg.viz') === 1);
+  const hlRows = await page.$$eval('[data-card="c0"] .hl-m tbody tr:not(.hl-g) th', els => els.map(e => e.textContent));
+  check('Headline lists the fourteen measures and four value-at-risk horizons', hlRows.join('|') === 'Total return|Excess return|Passive excess return|Active excess return|Risk (volatility)|Passive risk|Active risk|Tracking error|Sharpe ratio|Information ratio|1 day|1 week|1 month|1 year', hlRows.join('|'));
+  check('Headline gives every allocation a forward-looking and a historical column', await count('[data-card="c0"] thead th.hl-b.is-fwd') === 4 && await count('[data-card="c0"] thead th.hl-b.is-hist') === 4 && await count('[data-card="c0"] tbody td.num') === 14 * 8);
+  const hlRec = await page.evaluate(() => PA.api.headline({ allocations: PA.store.ws.comparison.members.map(id => PA.store.allocation(id)), period: PA.store.ws.prefs.period, factorModel: 'isg', reference: PA.store.ws.comparison }).then(r => r.series.every(x => [x.forward, x.historical].every(o => Math.abs(o.passiveExcess + o.activeExcess - o.excessReturn) < 1e-9 && Math.abs(o.passiveRisk + o.activeRisk - o.risk) < 1e-9 && Math.abs(o.excessReturn - o.totalReturn + o.riskFree) < 1e-9 && o.var99.d1 < o.var99.w1 && o.var99.w1 < o.var99.m1 && o.var99.m1 < o.var99.y1 && Math.abs(o.sharpe - o.excessReturn / o.risk) < 1e-9 && Math.abs(o.informationRatio - o.activeExcess / o.trackingError) < 1e-9))));
+  check('Headline reconciles on both bases: passive + active = excess and = risk; Sharpe and IR match; value at risk grows with the horizon', hlRec);
+  await page.mouse.move(1595, 1095); await page.waitForTimeout(300);
+  await page.locator('[data-card="c0"]').screenshot({ path: path.join(shots, 'headline.png') });
+  await shot('workspace');
+  check('Headline opens in the Table view with a Table / Focus switch', await page.locator('[data-card="c0"] [data-hl="view"][data-val="table"]').getAttribute('aria-pressed') === 'true' && await count('[data-card="c0"] [data-hl="focus"]') === 0);
+  await page.click('[data-card="c0"] [data-hl="view"][data-val="focus"]'); await page.waitForTimeout(900);
+  await page.click('[data-card="c0"] [data-hl="focus"][data-val="al_income"]'); await page.waitForTimeout(900);
+  const hlF = await page.evaluate(() => { const c = document.querySelector('[data-card="c0"]'); const hs = [...c.querySelectorAll('thead th.hl-alloc')].map(h => h.textContent); const first = c.querySelector('tbody tr:not(.hl-g)'); const tds = [...first.querySelectorAll('td')].map(t => t.textContent); return { hs, lead: c.querySelectorAll('tbody td.lead').length, diff: c.querySelectorAll('tbody td.hl-d').length, tds, sub: c.querySelector('.card-sub, .card-subtitle, header')?.textContent || '' }; });
+  const hlApi = await page.evaluate(() => PA.api.headline({ allocations: PA.store.ws.comparison.members.map(id => PA.store.allocation(id)), period: PA.store.ws.prefs.period, factorModel: 'isg', reference: PA.store.ws.comparison }).then(r => { const g = id => r.series.filter(x => x.allocationId === id)[0]; return { inc: g('al_income'), core: g('al_core') }; }));
+  const sgn2 = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
+  check('Headline Focus view puts the focus allocation first and every other allocation as a difference', /Income Tilt.*focus/.test(hlF.hs[0]) && hlF.hs.slice(1).every(h => /− focus/.test(h)) && hlF.hs.length === 4 && hlF.lead === 14 * 2 && hlF.diff === 14 * 6, JSON.stringify(hlF.hs));
+  check('Headline Focus differences equal the other allocation minus the focus, on both bases', hlF.tds[0] === hlApi.inc.forward.totalReturn.toFixed(2) && hlF.tds[1] === hlApi.inc.historical.totalReturn.toFixed(2) && hlF.tds[2].replace('-', '−') === sgn2(+(hlApi.core.forward.totalReturn - hlApi.inc.forward.totalReturn).toFixed(2)) && hlF.tds[3].replace('-', '−') === sgn2(+(hlApi.core.historical.totalReturn - hlApi.inc.historical.totalReturn).toFixed(2)), JSON.stringify(hlF.tds.slice(0, 4)));
+  check('Headline remembers the view and focus in the card settings', await page.evaluate(() => { const c = PA.store.ws.cards.filter(x => x.id === 'c0')[0]; return c.settings.view === 'focus' && c.settings.focus === 'al_income'; }));
+  await page.mouse.move(1595, 1095); await page.waitForTimeout(300);
+  await page.locator('[data-card="c0"]').screenshot({ path: path.join(shots, 'headline-focus.png') });
+  await page.click('[data-card="c0"] [data-hl="view"][data-val="table"]'); await page.waitForTimeout(900);
+  check('Headline returns to the Table view', await count('[data-card="c0"] tbody td.lead') === 0 && await count('[data-card="c0"] tbody td.num') === 14 * 8);
+  /* the remaining checks use the earlier seven-card arrangement */
+  await page.evaluate(() => { Object.keys(PA.cards.state).forEach(k => delete PA.cards.state[k]); var card = (id, type, x, y, w, h, s) => ({ id, type, x, y, w, h, settings: s, name: null, followRow: false }); PA.store.update('Test cards', ws => { ws.cards = [card('c0', 'headline', 0, 0, 12, 11, {}), card('c1', 'drivers-differences', 0, 11, 12, 9, { basis: 'forward', metric: 'return', values: 'absolute', riskUnits: 'share', factors: ['equity', 'term', 'fx'], scenarioView: 'delta' }), card('c2', 'allocations', 0, 20, 6, 6, { view: 'bars' }), card('c3', 'cumulative-return', 6, 20, 6, 6, { scope: 'portfolio' }), card('c4', 'drawdowns', 0, 26, 6, 6, { count: 5 }), card('c5', 'summary-stats', 6, 26, 6, 6, {}), card('c6', 'active-risk', 0, 32, 12, 8, { basis: 'forward', against: 'reference', decompose: 'factor', view: 'summary' })]; }, { type: 'card' }); PA.store.session.history.past.length = 0; PA.store.session.history.future.length = 0; });
+  await page.waitForTimeout(3000);
+  check('Seven cards render with data, Headline first and Active risk & return last', await count('.card') === 7 && await page.locator('.card').first().getAttribute('data-card') === 'c0' && await count('[data-card="c6"] .act-tabs') === 1 && await count('.card .tbl.dd') === 1 && await count('.card svg.viz') >= 2);
   check('Rail shows the category → product tree, with no portfolio row', await count('#tree .tree-row.depth-0') === 7 && await count('#tree .tree-row.depth-1') > 8 && await count('#tree .is-root') === 0);
   check('Hatched index remainder shows for under-implemented categories', await count('[data-card="c2"] rect[fill="url(#hatch)"]') >= 2);
-  await shot('workspace');
-  await page.locator('[data-card="c0"]').screenshot({ path: path.join(shots, 'headline.png') });
+
+
 });
 await step('clarity: say it once, tag the exception, quiet until needed', async () => {
   await page.mouse.move(1590, 1090); await page.waitForTimeout(300);
@@ -47,7 +72,7 @@ await step('clarity: say it once, tag the exception, quiet until needed', async 
   check('Buttons and control labels are in sentence case', await page.$eval('#cx-add', el => getComputedStyle(el).textTransform) === 'none' && await page.$eval('#context-bar .label', el => getComputedStyle(el).textTransform) === 'none');
   check('Card tools are hidden at rest and the model chip is hidden while a card follows the workspace', await page.$eval('[data-card="c2"] [data-settings]', el => getComputedStyle(el).opacity) === '0' && await count('[data-card="c6"] [data-model-chip]:not([hidden])') === 0);
   check('No Basis switch: each card opens its subtitle with its own basis, then names the measure', await count('[data-cx="basis"]') === 0 && /^→ Forward-looking · Return contribution/.test(await text('[data-card="c1"] .card-sub')) && /^◷ Historical · common history · Growth of 100/.test(await text('[data-card="c3"] .card-sub')) && await count('[data-card="c0"] .basis-tag') === 0 && await count('[data-card="c2"] .basis-tag') === 0);
-  check('Headline shows forward-looking and historical figures side by side, with the maximum drawdown', await count('[data-card="c0"] .hl-grp') === 2 && /Forward-looking/.test(await text('[data-card="c0"] .hl-grp.is-fwd')) && /Historical · \w{3} \d{4} – \w{3} \d{4}/.test(await text('[data-card="c0"] .hl-grp.is-hist')) && /Max drawdown/i.test(await text('[data-card="c0"] thead')) && await count('[data-card="c0"] tbody td.num') === 4 * 10);
+
   check('The context bar states the reporting currency once', /Reporting in\s*USD/.test(await text('#cx-ccy')) && await count('.card-sub:has-text("USD")') === 0);
   check('Column heads carry no basis label when every column shares it', await count('.tbl.dd .gmeta') === 0);
   check('Method notes are closed by default behind “About these figures”', await count('[data-card="c1"] details.card-notes') === 1 && await count('details.card-notes[open]') === 0);
@@ -241,10 +266,10 @@ await step('cards: settings, follow row, data table', async () => {
 });
 await step('cards: add from repository, keyboard move, resize, remove, undo', async () => {
   await page.click('#cx-add'); await page.waitForTimeout(900);
-  check('Card repository lists 34 entries in four groups by basis, and the saved cards', await count('#card-sheet [data-add-type]') === 34 && await count('#card-sheet [data-add-saved]') === 3 && await count('#card-sheet [data-sheet-group]') === 5);
+  check('Card repository lists 35 entries in four groups by basis, and the saved cards', await count('#card-sheet [data-add-type]') === 35 && await count('#card-sheet [data-add-saved]') === 3 && await count('#card-sheet [data-sheet-group]') === 5);
   await page.click('#card-sheet [data-sheet-group="Historical"]'); await page.waitForTimeout(200);
   const vis = await page.$$eval('#card-sheet .sheet-sec:not([hidden]) [data-add-type]', els => els.length);
-  check('Filtering by basis shows only that group (17 historical cards)', vis === 17, String(vis));
+  check('Filtering by basis shows only that group (18 historical cards)', vis === 18, String(vis));
   await page.click('#card-sheet [data-sheet-group=""]'); await page.waitForTimeout(200);
   await page.click('#card-sheet [data-add-type="stress-periods"]'); await page.waitForTimeout(1500);
   check('Catalogue card added', await count('.card') === 8);
@@ -269,17 +294,29 @@ await step('cards: add from repository, keyboard move, resize, remove, undo', as
   check('Pack layout, from the header menu, keeps every card on the grid', await count('.card') === 9);
 });
 await step('context bar', async () => {
-  const groups = await page.$$eval('[data-card="c1"] [data-dd-metric] optgroup', els => els.map(e => e.label));
-  check('Drivers & differences groups its metrics by basis', groups.join('|') === 'Forward-looking|Historical');
-  await page.selectOption('[data-card="c1"] [data-dd-metric]', 'return:historical'); await page.waitForTimeout(2000);
+  const groups = await page.$$eval('[data-card="c1"] .dd-tools .ctl > .label', els => els.map(e => e.textContent));
+  check('Drivers & differences groups its measures by product and by factor, with a basis and a view switch', ['By product', 'By factor', 'Basis', 'View'].every(g => groups.includes(g)));
+  await page.click('[data-card="c1"] [data-dd="basis"][data-val="historical"]'); await page.waitForTimeout(2000);
   check('A historical metric switches the table to backtests and its subtitle says so', /backtest|actual/i.test(await text('.tbl.dd thead')) && /^◷ Historical/.test(await text('[data-card="c1"] .card-sub')));
   await page.selectOption('#cx-period', '3y'); await page.waitForTimeout(2000);
   check('Period change flows to every history card (stated in its notes and basis)', (await page.locator('[data-card="c5"] .card-notes').textContent()).includes('Nov 2023') && /last 3 years/.test(await text('[data-card="c5"] .card-sub')));
-  await page.selectOption('#cx-period', 'common'); await page.selectOption('[data-card="c1"] [data-dd-metric]', 'return:forward'); await page.waitForTimeout(800);
+  await page.selectOption('#cx-period', 'common'); await page.click('[data-card="c1"] [data-dd="basis"][data-val="forward"]'); await page.waitForTimeout(800);
   await page.click('#cx-scenario'); await page.waitForTimeout(500); await page.selectOption('#scn-sel', 'sc_rates'); await page.waitForTimeout(2000);
   check('Scenario columns appear in the table', /Δ vs Base/i.test(await text('.tbl.dd thead tr.sub')));
   await page.click('#drawer-close'); await page.waitForTimeout(400);
   await shot('scenario');
+  await page.click('[data-card="c1"] [data-dd="metric"][data-val="factorRisk"]'); await page.waitForTimeout(1500);
+  const fr = await page.evaluate(() => [...document.querySelectorAll('[data-card="c1"] .tbl.dd-f tbody tr')].map(tr => tr.querySelector('th').textContent));
+  check('By factor: one row per factor, largest first, then specific and the volatility', fr.length === 10 && fr[8] === 'Specific' && fr[9] === 'Volatility', fr.join(','));
+  await page.click('[data-card="c1"] [data-dd-allf]'); await page.waitForTimeout(500);
+  check('Show all lists the eleven ISG factors', await count('[data-card="c1"] .tbl.dd-f tbody tr.frow:not(.is-fixed)') === 11);
+  const rec = await page.evaluate(() => PA.api.factorTable({ allocations: PA.store.ws.comparison.members.map(id => PA.store.allocation(id)), basis: 'forward', factorModel: 'isg', reference: PA.store.ws.comparison }).then(r => r.series.every(x => { const v = x.values, sr = Object.values(v.risk.byFactor).reduce((t, y) => t + y, 0) + v.risk.specific, rt = Object.values(v.ret.byFactor).reduce((t, y) => t + y, 0) + v.ret.cash + v.ret.specific; return Math.abs(sr - v.risk.total) < 1e-9 && Math.abs(rt - v.ret.total) < 1e-9; })));
+  check('Factor risk and return contributions add up to the volatility and the return', rec);
+  await page.click('[data-card="c1"] [data-dd="view"][data-val="focus"]'); await page.waitForTimeout(1500);
+  check('Focus view: the focus column, then every other allocation and the reference as differences', await count('[data-card="c1"] .dd-focus-tbl thead th.grp') === (await count('.member')) + 1 && /Reference − focus/.test(await text('[data-card="c1"] .dd-focus-tbl thead')));
+  await page.click('[data-card="c1"] [data-dd="metric"][data-val="return"]'); await page.waitForTimeout(1500);
+  check('Focus view works for product measures, on the category tree', await count('[data-card="c1"] .dd-focus-tbl tr.cat') >= 5);
+  await page.evaluate(() => { const c = PA.store.card('c1'), s = Object.assign({}, c.settings); delete s.view; delete s.focus; PA.store.updateCard('c1', { settings: s }); }); await page.waitForTimeout(1200);
 });
 await step('persistence', async () => {
   await page.waitForTimeout(1000); await page.reload(); await page.waitForTimeout(3000);
@@ -346,6 +383,7 @@ await step('active risk & return', async () => {
   await page.click('#cx-ref'); await page.waitForTimeout(250); await page.click('.ref-menu .menu-item:has(span:text-is("Strategic Core"))'); await page.waitForTimeout(2000);
   check('An allocation measured against itself has no active risk', /no active risk/.test(await act.locator('.act-tbl tbody tr').first().innerText()));
   await page.click('#cx-ref'); await page.waitForTimeout(250); await page.click('.ref-menu .menu-item:has(span:text-is("Global 60/40"))'); await page.waitForTimeout(1800);
+  await page.evaluate(() => { var c = PA.store.card('c6'), p = JSON.parse(JSON.stringify(c.settings)); p.sources = 'table'; PA.store.updateCard('c6', { settings: p }); }); await page.waitForTimeout(1200);
   await act.locator('[data-act-view="risk"]').click(); await page.waitForTimeout(800);
   check('Risk sources reconcile in the card’s notes', /Tracking error [\d.]+ = factors [\d.]+ \+ specific [\d.]+/.test(await act.locator('.act-eq').textContent()) && await act.locator('.act-src tbody tr').count() >= 4);
   await act.locator('[data-act-view="return"]').click(); await page.waitForTimeout(800);
@@ -376,7 +414,7 @@ await step('active risk & return', async () => {
   await act.hover(); await act.locator('[data-menu]').click(); await page.waitForTimeout(250); await page.click('.menu-item:has-text("Show forward-looking instead")'); await page.waitForTimeout(1500);
   await page.evaluate(() => { var c = PA.store.card('c6'), p = JSON.parse(JSON.stringify(c.settings)); p.sources = 'waterfall'; p.view = 'risk'; p.against = 'reference'; PA.store.updateCard('c6', { settings: p, followRow: false }); }); await page.waitForTimeout(1800);
   check('Risk sources can be drawn as a waterfall that ends at the tracking error', await act.locator('svg.wf').count() === 1 && /Tracking error/.test(await act.locator('svg.wf').textContent()));
-  await page.evaluate(() => { var c = PA.store.card('c6'), p = JSON.parse(JSON.stringify(c.settings)); delete p.sources; PA.store.updateCard('c6', { settings: p }); }); await page.waitForTimeout(1200);
+  await page.evaluate(() => { var c = PA.store.card('c6'), p = JSON.parse(JSON.stringify(c.settings)); p.sources = 'table'; PA.store.updateCard('c6', { settings: p }); }); await page.waitForTimeout(1200);
   await page.evaluate(() => { var c = PA.store.card('c6'), p = JSON.parse(JSON.stringify(c.settings)); p.against = 'reference'; p.view = 'summary'; PA.store.updateCard('c6', { settings: p, followRow: false }); });
   await page.waitForTimeout(1800); await act.scrollIntoViewIfNeeded(); await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove()));
   await act.locator('[data-act-view="risk"]').click(); await page.waitForTimeout(1000); await page.mouse.move(5, 5);
@@ -473,7 +511,11 @@ await step('sleeve repository', async () => {
 });
 await step('controls follow the cards', async () => {
   await page.goto(url + '#/w/ws_glide'); await page.waitForTimeout(2500);
-  check('A workspace with a Projections card shows Horizon and band; without a factor card it shows no Factor model', await count('#cx-horizon') === 1 && await count('#cx-band') === 1 && await count('[data-cx="model"]') === 0);
+  check('A workspace opens without Horizon, band or a projections card', await count('#cx-horizon') === 0 && await count('#cx-band') === 0);
+  await page.evaluate(() => PA.store.addCard({ id: 'tproj', type: 'projections', x: 0, y: 40, w: 12, h: 6, settings: {}, followRow: false })); await page.waitForTimeout(1500);
+  check('Adding a Projections card brings Horizon and band; the Headline card brings the factor model', await count('#cx-horizon') === 1 && await count('#cx-band') === 1 && await count('[data-cx="model"]') === 2);
+  await page.evaluate(() => PA.store.removeCard('c0')); await page.waitForTimeout(1200);
+  check('Without a factor card the context bar shows no Factor model', await count('[data-cx="model"]') === 0);
 });
 await step('the card suite', async () => {
   const kinds = ['expected-risk-return', 'outcomes', 'var-es', 'stress-tests', 'factor-risk', 'diversification', 'return-contribution', 'monthly-returns', 'rolling-active', 'attribution', 'capture', 'distribution', 'active-weights', 'currency-exposure'];

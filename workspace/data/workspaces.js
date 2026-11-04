@@ -97,13 +97,8 @@
     ],
     activeScenarioId: null,
     cards: [
-      card('c0', 'headline', 0, 0, 12, 5, {}),
-      card('c1', 'drivers-differences', 0, 5, 12, 9, { basis: 'forward', metric: 'return', values: 'absolute', riskUnits: 'share', factors: ['equity', 'term', 'fx'], scenarioView: 'delta' }),
-      card('c2', 'allocations', 0, 14, 6, 6, { view: 'bars' }),
-      card('c3', 'cumulative-return', 6, 14, 6, 6, { scope: 'portfolio' }),
-      card('c4', 'drawdowns', 0, 20, 6, 6, { count: 5 }),
-      card('c5', 'summary-stats', 6, 20, 6, 6, {}),
-      card('c6', 'active-risk', 0, 26, 12, 8, { basis: 'forward', against: 'reference', decompose: 'factor', view: 'summary' })
+      card('c0', 'headline', 0, 0, 12, 12, {}),
+      card('c1', 'allocations', 0, 12, 12, 6, { view: 'bars' })
     ],
     prefs: prefs({ emphasis: ['al_core', 'al_income'] }),
     activity: [
@@ -133,7 +128,7 @@
     ],
     comparison: { members: ['al_endow_a', 'al_endow_b'], activeId: 'al_endow_a', referenceMode: 'shared', sharedBenchmarkId: 'bm_endow', referencePortfolioId: null },
     scenarios: [], activeScenarioId: null,
-    cards: [card('c1', 'allocations', 0, 0, 6, 6, { view: 'bars' }), card('c2', 'summary-stats', 6, 0, 6, 6, {}), card('c3', 'drivers-differences', 0, 6, 12, 8, { metric: 'risk', values: 'absolute', riskUnits: 'share', factors: ['equity', 'term', 'fx'], scenarioView: 'delta' })],
+    cards: [card('c0', 'headline', 0, 0, 12, 12, {}), card('c1', 'allocations', 0, 12, 12, 6, { view: 'bars' })],
     prefs: prefs({ emphasis: ['al_endow_a', 'al_endow_b'] }),
     activity: [{ at: '2026-08-02T10:00:00Z', type: 'create', label: 'Workspace created' }]
   };
@@ -153,7 +148,7 @@
     ],
     comparison: { members: ['al_g1', 'al_g2', 'al_g3'], activeId: 'al_g2', referenceMode: 'individual', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
     scenarios: [], activeScenarioId: null,
-    cards: [card('c1', 'cumulative-return', 0, 0, 8, 6, { scope: 'portfolio' }), card('c2', 'stress-periods', 8, 0, 4, 6, {}), card('c3', 'projections', 0, 6, 12, 6, {}, true), card('c4', 'calendar-years', 0, 12, 12, 5, {})],
+    cards: [card('c0', 'headline', 0, 0, 12, 12, {}), card('c1', 'allocations', 0, 12, 12, 6, { view: 'bars' })],
     prefs: prefs({ emphasis: ['al_g1', 'al_g2', 'al_g3'] }),
     activity: [{ at: '2026-06-11T08:30:00Z', type: 'create', label: 'Workspace created' }]
   };

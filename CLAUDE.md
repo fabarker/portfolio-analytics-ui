@@ -47,7 +47,7 @@ the user asks for them.
   area is a free-form grid of cards from a card repository. The spec in
   `spec/` (version 2, 2026-11-02) describes this iteration, embeds the
   mockup in an iframe and inlines `workspace/screenshots/` at build time
-  (eighteen of them, listed in `build-document.mjs`),
+  (nineteen of them, listed in `build-document.mjs`),
   so run the workspace checks before `build-document.mjs`.
 - `spec/` — the built spec plus its sources; `cd spec && node build-document.mjs`
   rebuilds it, `verify-document.mjs` checks it.
@@ -60,7 +60,7 @@ the user asks for them.
   and `rail-benchmarks-cards.html` (built 2026-11-03 with sample 1, elbow
   guides, instead of the recommended 2, and the other nine defaults: quick
   add, preset/custom benchmarks and the benchmark library `#/benchmarks`,
-  no Basis toggle (per-card bases, dual-basis Headline, 34-entry catalogue),
+  no Basis toggle (per-card bases, dual-basis Headline, 34-entry catalogue, now 35),
   required reporting currency). Added the same day at the user's request:
   ISG's eleven factors and Axioma's seventeen, and waterfall views for every
   contribution measure. Also 2026-11-03 (built directly, no design page): the
@@ -71,5 +71,19 @@ the user asks for them.
   class or product; products can be added by pasting an Excel range of returns
   (dates, one column per product, names in the header) and appear in a new
   **product directory** (`#/products`) with forward and historical analytics.
+  Later on 2026-11-03 (design page `drivers-differences-alternatives.html`,
+  options 1 and 4 chosen): Drivers & Differences shows measures by product
+  (tree) or by factor (rows, largest eight first), with a Table or Focus view;
+  contribution charts open as waterfalls; Factor exposures uses horizontal
+  bars; a new Factors over time heat-map card.
+  Then: every workspace opens with two cards, Headline and Allocations side
+  by side; Headline shows total/excess/passive/active return, risk/passive/
+  active risk, tracking error, Sharpe, IR and 99% VaR (1d/1w/1m/1y),
+  forward (factor-based) and historical. Ten Headline layouts are in
+  `design/headline-alternatives.html`; on 2026-11-04 the user chose option 1
+  (measures as rows, Fwd/Hist per allocation) with option 8 (Focus: one
+  allocation in full, the others as differences) as the card's second view.
+  `design/spec-restructure.html` is the formal, capability-led product
+  specification (17 chapters), kept alongside the built spec.
 - `reference/venn/` — reference screenshots.
 - Remote: https://github.com/fabarker/portfolio-analytics-ui.git (branch main).

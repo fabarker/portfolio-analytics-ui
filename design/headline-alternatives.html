@@ -1,0 +1,367 @@
+<title>Headline Card Alternatives</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Ten layouts for the Headline card: total, excess, passive and active return; risk, passive and active risk, tracking error; Sharpe and information ratios; 99% value at risk over four horizons; forward-looking and historical.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a reading column for the argument, with each option's working mock-up
+   in a wide framed "card" that keeps the app's own light surface. */
+:root{
+  --pg:#f3f5f8; --surface:#ffffff; --ink:#14213a; --ink-2:#4a5872; --ink-3:#66748b; --line:#dde3ea;
+  --navy:#12233f; --accent:#2a6ad0; --accent-bg:#e8f0fc; --ok:#1a7f37; --warn:#8a5a00; --warn-bg:#fdf3dc;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-cond:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  /* the mock-ups are the app's light surface in both themes */
+  --m-bg:#ffffff; --m-ink:#14213a; --m-ink2:#4a5872; --m-ink3:#7a879b; --m-line:#e3e8ef; --m-head:#f6f8fb; --m-sel:#12233f;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --accent:#8fb4ff; --accent-bg:#1b2a45; --ok:#6fd08c; --warn:#f3c46b; --warn-bg:#2e2612; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --pg:#0d1320; --surface:#151d2c; --ink:#e8edf5; --ink-2:#aab6c8; --ink-3:#8593a8; --line:#28344a;
+  --navy:#0a1527; --accent:#8fb4ff; --accent-bg:#1b2a45; --ok:#6fd08c; --warn:#f3c46b; --warn-bg:#2e2612; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--pg);color:var(--ink);font:15.5px/1.6 var(--f-body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;padding-block:36px 80px}
+.prose{max-width:760px}
+h1{font:600 32px/1.15 var(--f-cond);letter-spacing:-.005em;margin:6px 0 10px;text-wrap:balance}
+h2{font:600 24px/1.2 var(--f-cond);margin:0;text-wrap:balance}
+h3{font:600 16px/1.3 var(--f-body);margin:22px 0 6px}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+p{margin:0 0 12px}
+.lede{font-size:17px;color:var(--ink-2)}
+.must{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:18px 0 8px}
+.must div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:14px}
+.must b{display:block;font:600 12px/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:2px}
+.opt{margin-top:56px;padding-top:22px;border-top:2px solid var(--navy)}
+:root:not([data-theme="light"]) .opt{border-top-color:var(--line)}
+.opt-head{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+.opt-num{font:600 13px/1 var(--f-mono);color:var(--ink-3)}
+.opt .idea{color:var(--ink-2);margin:6px 0 14px;max-width:780px}
+.pc{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px;font-size:14.5px}
+.pc>div{min-width:0}
+.pc h4{margin:0 0 4px;font:600 12px/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.pc ul{margin:0;padding-left:18px}.pc li{margin:3px 0}
+@media (max-width:640px){.pc{grid-template-columns:1fr}}
+.rec{background:var(--accent-bg);border-radius:8px;padding:18px 20px;margin-top:22px}
+.rec h3{margin-top:0}
+.cmp{overflow-x:auto;margin-top:14px}
+.cmp table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px;background:var(--surface)}
+.cmp th,.cmp td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.cmp th{font:500 12px/1.3 var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.cmp td.c{text-align:center}
+.dots{letter-spacing:2px;color:var(--accent)}
+
+/* ── the mock card ───────────────────────────────────────────────── */
+.scroller{overflow-x:auto;border-radius:8px;box-shadow:0 1px 0 rgba(16,24,40,.04),0 8px 24px -14px rgba(16,24,40,.35)}
+.mock{min-width:760px;background:var(--m-bg);color:var(--m-ink);border:1px solid #d5dce6;border-radius:8px;font:13px/1.4 var(--f-body);font-variant-numeric:tabular-nums}
+.mock-h{padding:12px 16px 8px;border-bottom:1px solid var(--m-line)}
+.mock-h b{font-size:14.5px;font-weight:600}
+.mock-h .sub{color:var(--m-ink2);font-size:12px}
+.mock-b{padding:10px 16px 14px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid #cdd5e0;border-radius:5px;overflow:hidden}
+.seg button{font:500 12px/1 var(--f-body);color:var(--m-ink2);background:#fff;border:0;border-left:1px solid #cdd5e0;padding:6px 9px;cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--m-sel);color:#fff}
+.seg button:focus-visible{outline:2px solid #2a78d6;outline-offset:-2px}
+.ctl .lbl{font:500 11px/1 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3)}
+.grp{display:inline-flex;align-items:center;gap:6px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+table.t{border-collapse:collapse;width:100%}
+.t th,.t td{padding:5px 8px;border-bottom:1px solid var(--m-line);white-space:nowrap}
+.t thead th{font:500 11px/1.25 var(--f-mono);text-transform:uppercase;letter-spacing:.04em;color:var(--m-ink3);background:var(--m-head);text-align:right;vertical-align:bottom}
+.t thead th:first-child{text-align:left}
+.t tbody th{text-align:left;font-weight:500;color:var(--m-ink)}
+.t td{text-align:right}
+.t tr.tot th,.t tr.tot td{font-weight:600;border-top:1.5px solid #9aa6b8}
+.t tr.sec th{font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3);background:#fbfcfd;padding-top:8px}
+.t .ref{color:var(--m-ink3)}
+.neg{color:#c2410c}
+.cb{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.cb i{display:inline-block;height:6px;border-radius:2px}
+.cb .track{width:46px;height:6px;position:relative;background:#eef1f5;border-radius:2px}
+.cb .track i{position:absolute;top:0}
+.cb .track .mid{position:absolute;left:50%;top:-2px;width:1px;height:10px;background:#9aa6b8}
+.more{font:500 12px var(--f-body);color:#2a6ad0;background:none;border:0;padding:6px 0 0;cursor:pointer}
+.note{font-size:11.5px;color:var(--m-ink3);margin-top:8px}
+.panes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panes>div{min-width:0}
+.pane-t{font:600 12px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink2);margin:2px 0 6px}
+.heat td{padding:2px 2px}
+.heat .hc{display:block;min-width:38px;padding:4px 5px;border-radius:2px;font-size:11.5px;text-align:right}
+.heat thead tr.g th{text-align:center;border-bottom:0;color:var(--m-ink2)}
+.heat thead th.gs,.heat td.gs{border-left:2px solid #fff}
+.multi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mp{border:1px solid var(--m-line);border-radius:6px;padding:8px 10px}
+.mp h5{margin:0 0 4px;font-size:12.5px;font-weight:600}
+.mp .tv{font-size:11.5px;color:var(--m-ink2);margin-bottom:4px}
+.rank{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.rank ol{list-style:none;margin:0;padding:0}
+.rank li{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:4px 0;border-bottom:1px solid var(--m-line);font-size:12px}
+.rank li i{grid-column:1 / -1;display:block;height:4px;border-radius:2px}
+.diffs{margin-top:14px}
+.diffs h6{margin:0 0 6px;font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3)}
+.diffs ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+.diffs li{font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--m-line);display:flex;justify-content:space-between;gap:10px}
+svg text{font-family:var(--f-body)}
+.sticky th:first-child,.sticky td:first-child{position:sticky;left:0;background:#fff;z-index:1}
+.sticky thead th:first-child{background:var(--m-head)}
+.stk{display:flex;height:12px;width:150px;border-radius:2px;overflow:hidden;gap:1px;background:#fff}
+.stk i{display:block;height:100%}
+</style>
+
+<style>
+.t tr.g th{font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3);background:#fbfcfd;padding-top:8px;text-align:left}
+.t th.ind{padding-left:22px;font-weight:400;color:var(--m-ink2)}
+.t .bf{color:#1f5fbf}.t .bh{color:#5d6879}
+.t thead tr.s th{font-size:10.5px}
+.t td.sep,.t th.sep{border-left:1px solid var(--m-line)}
+.two{display:block;line-height:1.25}.two .h{display:block;color:#7a879b;font-size:11.5px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tile{border:1px solid var(--m-line);border-radius:6px;padding:10px 12px}
+.tile h5{margin:0 0 6px;font-size:12.5px;font-weight:600}
+.tile .big{display:flex;gap:16px;margin-bottom:6px}
+.tile .big div{display:grid}.tile .big b{font-size:20px;font-weight:600;line-height:1.1}.tile .big span{font-size:11px;color:var(--m-ink3)}
+.tile dl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin:0;font-size:12px}.tile dt{color:var(--m-ink2)}.tile dd{margin:0;text-align:right}
+.tile .vr{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:6px;border-top:1px solid var(--m-line);padding-top:6px;font-size:11.5px;text-align:center}.tile .vr span{display:block;color:var(--m-ink3);font-size:10.5px}
+.decomp{display:grid;gap:14px}
+.drow{display:grid;grid-template-columns:150px 1fr 1fr 210px;gap:16px;align-items:center;border-bottom:1px solid var(--m-line);padding-bottom:10px}
+.drow h5{margin:0;font-size:12.5px;font-weight:600}
+.dbar{font-size:11px;color:var(--m-ink2)}.dbar .bar{display:flex;height:14px;border-radius:2px;overflow:hidden;margin:3px 0;background:#eef1f5;position:relative}
+.dbar .bar i{display:block;height:100%}.dbar .te{position:absolute;top:-3px;bottom:-3px;width:2px;background:#14213a}
+.chips{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px}.chips span{color:var(--m-ink3)}
+.fly{display:grid;grid-template-columns:1fr auto 1fr;gap:0;font-size:13px}
+.fly div{padding:5px 8px;border-bottom:1px solid var(--m-line)}
+.fly .l{text-align:right}.fly .c{text-align:center;color:var(--m-ink2);min-width:190px}.fly .hd{font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3);background:var(--m-head)}
+.fly .gg{background:#fbfcfd;font:600 11px/1.2 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--m-ink3);text-align:center}
+.flybar{display:inline-block;height:6px;border-radius:2px;vertical-align:middle;margin:0 6px}
+.lines{display:grid;gap:10px}
+.line{border-left:3px solid;padding:4px 0 4px 10px;font-size:12.5px;line-height:1.7}
+.line b{font-weight:600}.line .k{color:var(--m-ink3)}.line .bs{font:500 10.5px var(--f-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--m-ink3);display:inline-block;width:82px}
+.vpanel{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start}
+.vpanel>div{min-width:0}
+</style>
+
+<div class="wrap">
+<div class="prose">
+  <div class="eyebrow">Design options · Headline card · 3 November 2026</div>
+  <h1>Ten layouts for the Headline card</h1>
+  <p class="lede">The Headline card becomes the summary of every workspace: one of only two cards a new workspace opens with, beside Allocations side by side. It carries fourteen measures on two bases for every compared allocation.</p>
+  <div class="must">
+    <div><b>Return</b>Total return · Excess return = Passive excess + Active excess</div>
+    <div><b>Risk</b>Risk (volatility) = Passive risk + Active risk · Tracking error</div>
+    <div><b>Ratios</b>Sharpe ratio · Information ratio</div>
+    <div><b>99% value at risk</b>1 day · 1 week · 1 month · 1 year</div>
+    <div><b>Bases</b>Forward-looking (factor model) and historical (the period)</div>
+  </div>
+  <h3>Definitions used in every option</h3>
+  <ul>
+    <li><strong>Excess return</strong> is total return minus cash. <strong>Passive excess</strong> is the benchmark's excess return; <strong>active excess</strong> is the allocation's return minus the benchmark's. The two add up to the excess return.</li>
+    <li><strong>Risk</strong> is volatility. <strong>Passive risk</strong> is the allocation's covariance with its benchmark divided by its volatility; <strong>active risk</strong> is the covariance with its active return divided by its volatility. The two add up to the volatility. Active risk is negative when departing from the benchmark lowers risk (Income Tilt below).</li>
+    <li><strong>Tracking error</strong> is the volatility of the active return. It is a different number from active risk, so it is always shown.</li>
+    <li><strong>Information ratio</strong> is active excess return divided by tracking error. <strong>Sharpe ratio</strong> is excess return divided by risk.</li>
+    <li><strong>99% value at risk</strong> is the loss exceeded with 1% probability over the horizon (1 day = 1/252 of a year, 1 week = 5/252, 1 month = 21/252), from the mean and volatility on each basis.</li>
+    <li>Forward-looking returns come from the platform assumptions; forward risk comes from the factor model (ISG here). Historical figures are realised over Jan 2015 – Oct 2026.</li>
+  </ul>
+  <p>The figures are the mockup's own, for the sample workspace measured against Global 60/40, and they reconcile on both bases.</p>
+</div>
+
+<section class="opt" id="o1"><div class="opt-head"><span class="opt-num">01</span><h2>Measures as rows, bases side by side</h2></div>
+<p class="idea">Measures run down the side in four groups; each allocation has a Forward and a Historical column. Every number is visible at once, and the card widens only with the number of allocations.</p>
+<div class="scroller"><div class="mock" data-opt="1"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>All 14 measures on both bases with no switching.</li><li>The passive and active parts sit indented under the total they add up to.</li></ul></div><div><h4>Costs</h4><ul><li>A tall card: about 19 rows.</li><li>Six allocations means twelve value columns.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o2"><div class="opt-head"><span class="opt-num">02</span><h2>Allocations as rows, one basis at a time</h2></div>
+<p class="idea">Today's layout extended: one row per allocation and the measures across, in four column groups. A switch chooses Forward-looking or Historical.</p>
+<div class="scroller"><div class="mock" data-opt="2"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Familiar and compact in height; extra allocations add short rows.</li><li>Comparing one measure down the allocations is direct.</li></ul></div><div><h4>Costs</h4><ul><li>Sixteen columns is wide; it scrolls in a half-width card.</li><li>Only one basis is visible at a time.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o3"><div class="opt-head"><span class="opt-num">03</span><h2>Allocations as rows, both bases in each cell</h2></div>
+<p class="idea">As option 2, but each cell holds both values: forward-looking above, historical below in grey. No switch is needed.</p>
+<div class="scroller"><div class="mock" data-opt="3"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Both bases visible without doubling the columns.</li><li>Forward and historical can be read against each other in one place.</li></ul></div><div><h4>Costs</h4><ul><li>Dense: two numbers per cell across sixteen columns.</li><li>Sorting by a column is ambiguous.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o4"><div class="opt-head"><span class="opt-num">04</span><h2>One tile per allocation</h2></div>
+<p class="idea">A tile per allocation with total return and risk in large type, the splits and ratios beneath, and value at risk as a strip of four horizons. A switch chooses the basis.</p>
+<div class="scroller"><div class="mock" data-opt="4"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>The most legible summary; reads well on a phone.</li><li>Each allocation is self-contained.</li></ul></div><div><h4>Costs</h4><ul><li>Comparing a measure across allocations means scanning across tiles.</li><li>One basis at a time.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o5"><div class="opt-head"><span class="opt-num">05</span><h2>Decomposition bars</h2></div>
+<p class="idea">Per allocation, one bar shows excess return built from passive and active, and another shows risk built from passive and active risk with tracking error marked. Ratios and value at risk sit to the right as text.</p>
+<div class="scroller"><div class="mock" data-opt="5"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Makes the "subsets" visible: how much of return and risk is the benchmark.</li><li>Negative active parts stand out.</li></ul></div><div><h4>Costs</h4><ul><li>Exact values need the labels or hover.</li><li>One basis at a time.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o6"><div class="opt-head"><span class="opt-num">06</span><h2>Forward against historical, one allocation</h2></div>
+<p class="idea">A butterfly for one allocation at a time: forward-looking values on the left, historical on the right, measure names in the middle, with bars drawn outward from the centre. Tabs choose the allocation.</p>
+<div class="scroller"><div class="mock" data-opt="6"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Shows directly whether expectations match the record.</li><li>Narrow enough for a half-width card.</li></ul></div><div><h4>Costs</h4><ul><li>One allocation at a time; comparison needs the tabs.</li><li>Bars across mixed units (%, ratio) need care.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o7"><div class="opt-head"><span class="opt-num">07</span><h2>Tabs by section</h2></div>
+<p class="idea">Tabs for Return, Risk, Ratios and Value at risk. Each tab is a small table: allocations as rows, with Forward and Historical columns for each measure in the section.</p>
+<div class="scroller"><div class="mock" data-opt="7"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Short tables that fit any card size.</li><li>Both bases visible within a section.</li></ul></div><div><h4>Costs</h4><ul><li>The headline is split: return and risk are never on screen together.</li><li>A click to see each section.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o8"><div class="opt-head"><span class="opt-num">08</span><h2>Focus allocation with differences</h2></div>
+<p class="idea">As option 1, but one allocation is the focus: its values come first, and every other allocation is shown as its difference from the focus, matching the Focus view of Drivers &amp; Differences.</p>
+<div class="scroller"><div class="mock" data-opt="8"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Shows at once how each alternative changes return, risk and value at risk.</li><li>Consistent with the Drivers &amp; Differences focus view.</li></ul></div><div><h4>Costs</h4><ul><li>The other allocations' own values are one click away.</li><li>Differences of ratios read less naturally than differences of returns.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o9"><div class="opt-head"><span class="opt-num">09</span><h2>Table with a value-at-risk chart</h2></div>
+<p class="idea">Return, risk and ratios in a compact table on the left; on the right, 99% value at risk drawn against horizon for every allocation, so the term structure of loss is visible. A switch chooses the basis.</p>
+<div class="scroller"><div class="mock" data-opt="9"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>The four value-at-risk horizons read as one shape rather than four numbers.</li><li>The table stays short.</li></ul></div><div><h4>Costs</h4><ul><li>The chart is dominated by the one-year value; short horizons sit close together.</li><li>One basis at a time.</li></ul></div></div>
+</section>
+
+<section class="opt" id="o10"><div class="opt-head"><span class="opt-num">10</span><h2>Statement lines</h2></div>
+<p class="idea">Each allocation is summarised in two lines of labelled figures, one per basis, written in the order the measures build up: return, its split, risk, its split, ratios, value at risk.</p>
+<div class="scroller"><div class="mock" data-opt="10"></div></div>
+<div class="pc"><div><h4>Good for</h4><ul><li>Very compact; fits a short, full-width card.</li><li>The additive relationships are written out.</li></ul></div><div><h4>Costs</h4><ul><li>Hard to compare one measure across allocations.</li><li>Less scannable than a table.</li></ul></div></div>
+</section>
+
+<section class="opt" id="cmp"><div class="opt-head"><span class="opt-num">—</span><h2>Side by side</h2></div>
+<div class="cmp"><table>
+<thead><tr><th>Option</th><th>Both bases at once</th><th>Compare allocations</th><th>Shows the splits</th><th>Card size</th></tr></thead>
+<tbody>
+<tr><td>01 Measures as rows</td><td class="c">yes</td><td class="c dots">●●●</td><td class="c dots">●●●</td><td>Full width, tall</td></tr>
+<tr><td>02 Allocations as rows, one basis</td><td class="c">—</td><td class="c dots">●●●</td><td class="c dots">●●</td><td>Full width, short</td></tr>
+<tr><td>03 Both bases in each cell</td><td class="c">yes</td><td class="c dots">●●</td><td class="c dots">●●</td><td>Full width, short</td></tr>
+<tr><td>04 Tiles</td><td class="c">—</td><td class="c dots">●</td><td class="c dots">●●</td><td>Full width, medium</td></tr>
+<tr><td>05 Decomposition bars</td><td class="c">—</td><td class="c dots">●●</td><td class="c dots">●●●</td><td>Full width, medium</td></tr>
+<tr><td>06 Forward against historical</td><td class="c">yes</td><td class="c dots">●</td><td class="c dots">●●</td><td>Half width</td></tr>
+<tr><td>07 Tabs by section</td><td class="c">yes</td><td class="c dots">●●●</td><td class="c dots">●●</td><td>Any</td></tr>
+<tr><td>08 Focus with differences</td><td class="c">yes</td><td class="c dots">●●●</td><td class="c dots">●●</td><td>Full width, tall</td></tr>
+<tr><td>09 Table with value-at-risk chart</td><td class="c">—</td><td class="c dots">●●</td><td class="c dots">●●</td><td>Full width, medium</td></tr>
+<tr><td>10 Statement lines</td><td class="c">yes</td><td class="c dots">●</td><td class="c dots">●●●</td><td>Full width, short</td></tr>
+</tbody></table></div>
+<div class="rec prose">
+  <h3>Recommendation</h3>
+  <p><b>01</b>, with <b>08</b> as an alternative view inside the card (the same Table / Focus switch as Drivers &amp; Differences). Option 01 is the only layout that shows every measure on both bases for every allocation without a click, and the indented splits make the additive structure clear. The mockup's Headline card has been built this way for now, so the measures can be tried; it is straightforward to change once a layout is chosen.</p>
+</div>
+</section>
+</div>
+
+<script>
+(function(){
+'use strict';
+var DATA = {"names": [{"id": "al_core", "name": "Strategic Core", "color": "#2a78d6", "kind": "live"}, {"id": "al_income", "name": "Income Tilt", "color": "#eb6834", "kind": "live"}, {"id": "al_growth", "name": "Growth Tilt", "color": "#1baf7a", "kind": "live"}, {"id": "al_core_snap", "name": "Strategic Core \u00b7 Mar 2026", "color": "#eda100", "kind": "snapshot"}], "res": {"factorModel": "isg", "period": {"start": "2015-01", "end": "2026-10", "label": "Jan 2015 \u2013 Oct 2026", "note": "Common period set by Strategic Core (actual history from Jan 2015)", "adjusted": false, "commonStart": "2015-01", "driver": "Strategic Core"}, "horizons": [{"id": "d1", "label": "1 day"}, {"id": "w1", "label": "1 week"}, {"id": "m1", "label": "1 month"}, {"id": "y1", "label": "1 year"}], "series": [{"allocationId": "al_core", "benchmark": {"label": "Global 60/40", "kind": "benchmark"}, "benchmarkReason": null, "scenarioApplied": false, "forward": {"basis": "forward", "riskFree": 3.2, "totalReturn": 6.8999999999999995, "risk": 10.359515207045163, "benchmarkReturn": 6.8784, "passiveRisk": 9.340111177132824, "activeRisk": 1.019404029912339, "trackingError": 1.8607949981123668, "benchmarkRisk": 9.468951908738367, "excessReturn": 3.6999999999999993, "passiveExcess": 3.6784, "activeExcess": 0.021599999999999397, "informationRatio": 0.011607941778600509, "sharpe": 0.3571595703130733, "var99": {"d1": 1.4907347856934707, "w1": 3.2577052261419133, "m1": 6.381880283429797, "y1": 17.19934022614916}}, "historical": {"basis": "historical", "months": 142, "totalReturn": 7.331662100031555, "riskFree": 2.3461082202044903, "risk": 9.396165951965987, "benchmarkReturn": 7.791488542289482, "passiveRisk": 9.497106094281277, "activeRisk": -0.1009401423152898, "trackingError": 2.2836593419423266, "benchmarkRisk": 9.767289042704961, "excessReturn": 4.985553879827065, "passiveExcess": 5.445380322084992, "activeExcess": -0.4598264422579268, "informationRatio": -0.2013550943490676, "sharpe": 0.5305944898497587, "var99": {"d1": 1.3470486560846124, "w1": 2.929464972429182, "m1": 5.682155647701368, "y1": 14.324793333763967}}}, {"allocationId": "al_income", "benchmark": {"label": "Global 60/40", "kind": "benchmark"}, "benchmarkReason": null, "scenarioApplied": false, "forward": {"basis": "forward", "riskFree": 3.2, "totalReturn": 6.711160000000001, "risk": 8.852726887434176, "benchmarkReturn": 6.8784, "passiveRisk": 9.33914117664174, "activeRisk": -0.4864142892075627, "trackingError": 1.6364874559555898, "benchmarkRisk": 9.468951908738367, "excessReturn": 3.511160000000001, "passiveExcess": 3.6784, "activeExcess": -0.16723999999999872, "informationRatio": -0.10219448941778947, "sharpe": 0.3966190355407717, "var99": {"d1": 1.2706746808091727, "w1": 2.7677070666242893, "m1": 5.385740839824898, "y1": 13.882938558238122}}, "historical": {"basis": "historical", "months": 142, "totalReturn": 6.610515966059083, "riskFree": 2.3461082202044903, "risk": 7.616328878999763, "benchmarkReturn": 7.791488542289482, "passiveRisk": 9.508723181638748, "activeRisk": -1.8923943026389853, "trackingError": 2.9266490898928734, "benchmarkRisk": 9.767289042704961, "excessReturn": 4.264407745854593, "passiveExcess": 5.445380322084992, "activeExcess": -1.180972576230399, "informationRatio": -0.4035238048554797, "sharpe": 0.559903309534426, "var99": {"d1": 1.0895069870440202, "w1": 2.362653358795856, "m1": 4.555820614011206, "y1": 11.011225458074204}}}, {"allocationId": "al_growth", "benchmark": {"label": "Global 60/40", "kind": "benchmark"}, "benchmarkReason": null, "scenarioApplied": false, "forward": {"basis": "forward", "riskFree": 3.2, "totalReturn": 7.627699999999998, "risk": 12.80991274365286, "benchmarkReturn": 6.8784, "passiveRisk": 9.230879951433677, "activeRisk": 3.5790327922191842, "trackingError": 4.154681853042421, "benchmarkRisk": 9.468951908738367, "excessReturn": 4.427699999999998, "passiveExcess": 3.6784, "activeExcess": 0.7492999999999981, "informationRatio": 0.18035075283834193, "sharpe": 0.3456463825012285, "var99": {"d1": 1.8469360012420266, "w1": 4.046213955662359, "m1": 7.966790746210062, "y1": 22.17200001555965}}, "historical": {"basis": "historical", "months": 142, "totalReturn": 8.682284891740188, "riskFree": 2.3461082202044903, "risk": 11.213127804830172, "benchmarkReturn": 7.791488542289482, "passiveRisk": 9.529401240306576, "activeRisk": 1.683726564523596, "trackingError": 2.7249554838694774, "benchmarkRisk": 9.767289042704961, "excessReturn": 6.336176671535698, "passiveExcess": 5.445380322084992, "activeExcess": 0.8907963494507065, "informationRatio": 0.3269030832701026, "sharpe": 0.5650677297021731, "var99": {"d1": 1.6075779801087862, "w1": 3.4961780169371117, "m1": 6.781914388138892, "y1": 17.106637557421386}}}, {"allocationId": "al_core_snap", "benchmark": {"label": "Global 60/40", "kind": "benchmark"}, "benchmarkReason": null, "scenarioApplied": false, "forward": {"basis": "forward", "riskFree": 3.2, "totalReturn": 6.7496, "risk": 9.76962218819131, "benchmarkReturn": 6.8784, "passiveRisk": 9.362318607423395, "activeRisk": 0.4073035807679144, "trackingError": 1.4744276007997132, "benchmarkRisk": 9.468951908738367, "excessReturn": 3.5496, "passiveExcess": 3.6784, "activeExcess": -0.12880000000000003, "informationRatio": -0.08735593387572257, "sharpe": 0.3633303245124929, "var99": {"d1": 1.4048868443416314, "w1": 3.0673929783769123, "m1": 5.998273929704571, "y1": 15.977472096389441}}, "historical": {"basis": "historical", "months": 142, "totalReturn": 7.041473990805702, "riskFree": 2.3461082202044903, "risk": 8.898735833719677, "benchmarkReturn": 7.791488542289482, "passiveRisk": 9.63694075749387, "activeRisk": -0.7382049237741928, "trackingError": 1.7533552377605481, "benchmarkRisk": 9.767289042704961, "excessReturn": 4.695365770601212, "passiveExcess": 5.445380322084992, "activeExcess": -0.7500145514837797, "informationRatio": -0.42775960930867996, "sharpe": 0.527644134890399, "var99": {"d1": 1.2754101806333742, "w1": 2.772749321259182, "m1": 5.3744952217112765, "y1": 13.484256837607193}}}]}};
+var AL = DATA.names.map(function(n){ var x = DATA.res.series.filter(function(q){ return q.allocationId===n.id; })[0]; return { id:n.id, name:n.name, c:n.color, kind:n.kind, f:x.forward, h:x.historical, bm:x.benchmark ? x.benchmark.label : null }; });
+var HZ = [['d1','1 day'],['w1','1 week'],['m1','1 month'],['y1','1 year']];
+var M = [
+  {g:'Return'},
+  {k:'totalReturn',l:'Total return',u:'%'},
+  {k:'excessReturn',l:'Excess return',u:'%'},
+  {k:'passiveExcess',l:'Passive excess return',u:'%',ind:1},
+  {k:'activeExcess',l:'Active excess return',u:'%',ind:1},
+  {g:'Risk'},
+  {k:'risk',l:'Risk (volatility)',u:'%'},
+  {k:'passiveRisk',l:'Passive risk',u:'%',ind:1},
+  {k:'activeRisk',l:'Active risk',u:'%',ind:1},
+  {k:'trackingError',l:'Tracking error',u:'%'},
+  {g:'Ratios'},
+  {k:'sharpe',l:'Sharpe ratio',u:'x'},
+  {k:'informationRatio',l:'Information ratio',u:'x'},
+  {g:'99% value at risk'}
+].concat(HZ.map(function(h){ return {k:'var99.'+h[0],l:h[1],u:'%',ind:1}; }));
+var MEAS = M.filter(function(m){ return m.k; });
+function get(o,k){ if(!o) return null; if(k.indexOf('var99.')===0) return o.var99 ? o.var99[k.slice(6)] : null; return o[k]; }
+function fmt(v){ if(v==null||!isFinite(v)) return '—'; var s=Math.abs(v).toFixed(2); return (v<0&&+s!==0?'−':'')+s; }
+function sf(v){ if(v==null) return '—'; var s=fmt(v); return v>0&&+Math.abs(v).toFixed(2)!==0?'+'+s:s; }
+function cl(v){ return v!=null && v< -0.0049 ? ' class="neg"' : ''; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function adot(a){ return '<span class="dot" style="background:'+a.c+'"></span>'; }
+function seg(name,opts,cur){ return '<span class="seg" role="group">'+opts.map(function(o){ return '<button type="button" data-k="'+name+'" data-v="'+o[0]+'" aria-pressed="'+(o[0]===cur)+'">'+o[1]+'</button>'; }).join('')+'</span>'; }
+function basisCtl(b){ return '<span class="grp"><span class="lbl">Basis</span>'+seg('b',[['f','→ Forward-looking'],['h','◷ Historical']],b)+'</span>'; }
+var SUB = '% a year unless stated · whole portfolio · against Global 60/40 · forward risk from ISG · historical '+DATA.res.period.label;
+function head(t){ return '<div class="mock-h"><b>'+(t||'Headline')+'</b><div class="sub">'+SUB+'</div></div>'; }
+function B(a,b){ return b==='f'?a.f:a.h; }
+function short(n){ return n.replace('Strategic Core · ','Core · '); }
+
+var R = {};
+R[1] = { s:{}, draw:function(){
+  var h='<table class="t"><thead><tr><th rowspan="2">Measure</th>'+AL.map(function(a){ return '<th colspan="2" class="sep" style="text-align:center">'+adot(a)+esc(a.name)+'</th>'; }).join('')+'</tr><tr class="s">'+AL.map(function(){ return '<th class="sep bf">→ Fwd</th><th class="bh">◷ Hist</th>'; }).join('')+'</tr></thead><tbody>';
+  M.forEach(function(m){ if(m.g){ h+='<tr class="g"><th colspan="'+(1+AL.length*2)+'">'+m.g+'</th></tr>'; return; }
+    h+='<tr><th'+(m.ind?' class="ind"':'')+'>'+m.l+'</th>'+AL.map(function(a){ var f=get(a.f,m.k), x=get(a.h,m.k); return '<td class="sep"><span'+cl(f)+'>'+fmt(f)+'</span></td><td><span'+cl(x)+'>'+fmt(x)+'</span></td>'; }).join('')+'</tr>'; });
+  return head()+'<div class="mock-b">'+h+'</tbody></table><div class="note">Indented rows add up to the row above them. Value at risk is a loss, % of value.</div></div>';
+}};
+R[2] = { s:{b:'f'}, draw:function(s){
+  var groups=[['Return',['totalReturn','excessReturn','passiveExcess','activeExcess'],['Total','Excess','Passive','Active']],['Risk',['risk','passiveRisk','activeRisk','trackingError'],['Vol','Passive','Active','TE']],['Ratios',['sharpe','informationRatio'],['Sharpe','IR']],['99% VaR',HZ.map(function(h){return 'var99.'+h[0];}),['1d','1w','1m','1y']]];
+  var h='<table class="t"><thead><tr><th rowspan="2">Allocation</th>'+groups.map(function(g){ return '<th colspan="'+g[1].length+'" class="sep" style="text-align:center">'+g[0]+'</th>'; }).join('')+'</tr><tr class="s">'+groups.map(function(g){ return g[2].map(function(l,i){ return '<th'+(i===0?' class="sep"':'')+'>'+l+'</th>'; }).join(''); }).join('')+'</tr></thead><tbody>';
+  AL.forEach(function(a){ var o=B(a,s.b); h+='<tr><th>'+adot(a)+esc(a.name)+'</th>'+groups.map(function(g){ return g[1].map(function(k,i){ var v=get(o,k); return '<td'+(i===0?' class="sep"':'')+'><span'+cl(v)+'>'+fmt(v)+'</span></td>'; }).join(''); }).join('')+'</tr>'; });
+  return head()+'<div class="mock-b"><div class="ctl">'+basisCtl(s.b)+'</div>'+h+'</tbody></table></div>';
+}};
+R[3] = { s:{}, draw:function(){
+  var groups=[['Return',['totalReturn','excessReturn','passiveExcess','activeExcess'],['Total','Excess','Passive','Active']],['Risk',['risk','passiveRisk','activeRisk','trackingError'],['Vol','Passive','Active','TE']],['Ratios',['sharpe','informationRatio'],['Sharpe','IR']],['99% VaR',HZ.map(function(h){return 'var99.'+h[0];}),['1d','1w','1m','1y']]];
+  var h='<table class="t"><thead><tr><th rowspan="2">Allocation<br><span style="text-transform:none" class="bf">→ forward</span> / <span style="text-transform:none">◷ historical</span></th>'+groups.map(function(g){ return '<th colspan="'+g[1].length+'" class="sep" style="text-align:center">'+g[0]+'</th>'; }).join('')+'</tr><tr class="s">'+groups.map(function(g){ return g[2].map(function(l,i){ return '<th'+(i===0?' class="sep"':'')+'>'+l+'</th>'; }).join(''); }).join('')+'</tr></thead><tbody>';
+  AL.forEach(function(a){ h+='<tr><th>'+adot(a)+esc(a.name)+'</th>'+groups.map(function(g){ return g[1].map(function(k,i){ var f=get(a.f,k), x=get(a.h,k); return '<td'+(i===0?' class="sep"':'')+'><span class="two"><span'+cl(f)+'>'+fmt(f)+'</span><span class="h">'+fmt(x)+'</span></span></td>'; }).join(''); }).join('')+'</tr>'; });
+  return head()+'<div class="mock-b">'+h+'</tbody></table></div>';
+}};
+R[4] = { s:{b:'f'}, draw:function(s){
+  var t=AL.map(function(a){ var o=B(a,s.b);
+    return '<div class="tile"><h5>'+adot(a)+esc(a.name)+'</h5><div class="big"><div><b>'+fmt(o.totalReturn)+'%</b><span>Total return</span></div><div><b>'+fmt(o.risk)+'%</b><span>Risk</span></div></div><dl>'+
+      [['Excess return',o.excessReturn],['· passive',o.passiveExcess],['· active',o.activeExcess],['Passive risk',o.passiveRisk],['Active risk',o.activeRisk],['Tracking error',o.trackingError],['Sharpe ratio',o.sharpe],['Information ratio',o.informationRatio]].map(function(p){ return '<dt>'+p[0]+'</dt><dd'+cl(p[1])+'>'+fmt(p[1])+'</dd>'; }).join('')+'</dl><div class="vr">'+HZ.map(function(h){ return '<div><span>VaR '+h[1]+'</span>'+fmt(o.var99[h[0]])+'%</div>'; }).join('')+'</div></div>'; }).join('');
+  return head()+'<div class="mock-b"><div class="ctl">'+basisCtl(s.b)+'</div><div class="tiles">'+t+'</div></div>';
+}};
+R[5] = { s:{b:'f'}, draw:function(s){
+  var mxR=0,mxV=0; AL.forEach(function(a){ var o=B(a,s.b); mxR=Math.max(mxR,Math.abs(o.passiveExcess)+Math.abs(o.activeExcess),o.excessReturn); mxV=Math.max(mxV,Math.abs(o.passiveRisk)+Math.abs(o.activeRisk),o.trackingError); });
+  function bar(p,ac,mx,c,te){ var pw=Math.max(0,p)/mx*100, aw=Math.abs(ac)/mx*100; return '<div class="bar"><i style="width:'+pw.toFixed(1)+'%;background:#9aa6b8" title="Passive '+fmt(p)+'"></i>'+(ac>=0?'<i style="width:'+aw.toFixed(1)+'%;background:'+c+'" title="Active '+fmt(ac)+'"></i>':'<i style="width:'+aw.toFixed(1)+'%;background:repeating-linear-gradient(45deg,'+c+' 0 3px,#fff 3px 6px);margin-left:-'+aw.toFixed(1)+'%" title="Active '+fmt(ac)+'"></i>')+(te!=null?'<span class="te" style="left:'+(te/mx*100).toFixed(1)+'%" title="Tracking error '+fmt(te)+'"></span>':'')+'</div>'; }
+  var rows=AL.map(function(a){ var o=B(a,s.b);
+    return '<div class="drow"><h5>'+adot(a)+esc(a.name)+'</h5><div class="dbar">Excess return <b>'+fmt(o.excessReturn)+'%</b>'+bar(o.passiveExcess,o.activeExcess,mxR,a.c)+'passive '+fmt(o.passiveExcess)+' · active <span'+cl(o.activeExcess)+'>'+sf(o.activeExcess)+'</span> · total return '+fmt(o.totalReturn)+'</div><div class="dbar">Risk <b>'+fmt(o.risk)+'%</b>'+bar(o.passiveRisk,o.activeRisk,mxV,a.c,o.trackingError)+'passive '+fmt(o.passiveRisk)+' · active <span'+cl(o.activeRisk)+'>'+sf(o.activeRisk)+'</span> · TE '+fmt(o.trackingError)+' (line)</div><div class="chips"><div><span>Sharpe</span> '+fmt(o.sharpe)+'</div><div><span>IR</span> '+fmt(o.informationRatio)+'</div><div style="flex-basis:100%"><span>99% VaR</span> '+HZ.map(function(h){ return h[0].replace('d1','1d').replace('w1','1w').replace('m1','1m').replace('y1','1y')+' '+fmt(o.var99[h[0]]); }).join(' · ')+'</div></div></div>'; }).join('');
+  return head()+'<div class="mock-b"><div class="ctl">'+basisCtl(s.b)+'<span class="grp" style="font-size:11.5px;color:var(--m-ink2)"><span class="dot" style="background:#9aa6b8"></span>Passive &nbsp; <span class="dot" style="background:#14213a;border-radius:0;width:2px"></span>Tracking error &nbsp; hatched = negative active</span></div><div class="decomp">'+rows+'</div></div>';
+}};
+R[6] = { s:{a:AL[0].id}, draw:function(s){
+  var a=AL.filter(function(x){return x.id===s.a;})[0], h='<div class="fly"><div class="hd l">→ Forward-looking</div><div class="hd c">Measure</div><div class="hd">◷ Historical</div>';
+  M.forEach(function(m){ if(m.g){ h+='<div class="gg" style="grid-column:1 / -1">'+m.g+'</div>'; return; }
+    var f=get(a.f,m.k), x=get(a.h,m.k), mx=Math.max(Math.abs(f||0),Math.abs(x||0))||1, sc=m.u==='x'?40:(m.k.indexOf('var99')===0?60:60), w=function(v){ return (Math.abs(v||0)/(m.u==='x'?1.2:25)*sc).toFixed(1); };
+    h+='<div class="l"><span'+cl(f)+'>'+fmt(f)+'</span><span class="flybar" style="width:'+w(f)+'px;background:'+(f<0?'#eb6834':a.c)+'"></span></div><div class="c">'+(m.ind?'· ':'')+m.l+'</div><div><span class="flybar" style="width:'+w(x)+'px;background:'+(x<0?'#eb6834':'#9aa6b8')+'"></span><span'+cl(x)+'>'+fmt(x)+'</span></div>'; });
+  return head()+'<div class="mock-b"><div class="ctl"><span class="grp"><span class="lbl">Allocation</span>'+seg('a',AL.map(function(x){ return [x.id,adot(x)+esc(x.name)]; }),s.a)+'</span></div><div style="max-width:620px">'+h+'</div></div></div>';
+}};
+R[7] = { s:{t:'ret'}, draw:function(s){
+  var sec={ret:[['totalReturn','Total'],['excessReturn','Excess'],['passiveExcess','Passive'],['activeExcess','Active']],risk:[['risk','Risk'],['passiveRisk','Passive'],['activeRisk','Active'],['trackingError','Tracking error']],ratio:[['sharpe','Sharpe ratio'],['informationRatio','Information ratio']],var:HZ.map(function(h){ return ['var99.'+h[0],h[1]]; })}[s.t];
+  var h='<table class="t"><thead><tr><th rowspan="2">Allocation</th>'+sec.map(function(c){ return '<th colspan="2" class="sep" style="text-align:center">'+c[1]+'</th>'; }).join('')+'</tr><tr class="s">'+sec.map(function(){ return '<th class="sep bf">→ Fwd</th><th class="bh">◷ Hist</th>'; }).join('')+'</tr></thead><tbody>';
+  AL.forEach(function(a){ h+='<tr><th>'+adot(a)+esc(a.name)+'</th>'+sec.map(function(c){ var f=get(a.f,c[0]),x=get(a.h,c[0]); return '<td class="sep"><span'+cl(f)+'>'+fmt(f)+'</span></td><td><span'+cl(x)+'>'+fmt(x)+'</span></td>'; }).join('')+'</tr>'; });
+  return head()+'<div class="mock-b"><div class="ctl">'+seg('t',[['ret','Return'],['risk','Risk'],['ratio','Ratios'],['var','99% value at risk']],s.t)+'</div>'+h+'</tbody></table></div>';
+}};
+R[8] = { s:{f:AL[0].id}, draw:function(s){
+  var F=AL.filter(function(a){return a.id===s.f;})[0], O=AL.filter(function(a){return a.id!==s.f;});
+  var h='<table class="t"><thead><tr><th rowspan="2">Measure</th><th colspan="2" class="sep" style="text-align:center">'+adot(F)+esc(F.name)+' · focus</th>'+O.map(function(a){ return '<th colspan="2" class="sep" style="text-align:center">'+adot(a)+esc(short(a.name))+' − focus</th>'; }).join('')+'</tr><tr class="s">'+[F].concat(O).map(function(){ return '<th class="sep bf">→ Fwd</th><th class="bh">◷ Hist</th>'; }).join('')+'</tr></thead><tbody>';
+  M.forEach(function(m){ if(m.g){ h+='<tr class="g"><th colspan="'+(3+O.length*2)+'">'+m.g+'</th></tr>'; return; }
+    var ff=get(F.f,m.k), fh=get(F.h,m.k);
+    h+='<tr><th'+(m.ind?' class="ind"':'')+'>'+m.l+'</th><td class="sep" style="font-weight:600"><span'+cl(ff)+'>'+fmt(ff)+'</span></td><td style="font-weight:600"><span'+cl(fh)+'>'+fmt(fh)+'</span></td>'+O.map(function(a){ var d1=get(a.f,m.k)-ff, d2=get(a.h,m.k)-fh; return '<td class="sep"><span'+cl(d1)+'>'+sf(d1)+'</span></td><td><span'+cl(d2)+'>'+sf(d2)+'</span></td>'; }).join('')+'</tr>'; });
+  return head()+'<div class="mock-b"><div class="ctl"><span class="grp"><span class="lbl">Focus</span>'+seg('f',AL.map(function(a){ return [a.id,adot(a)+esc(a.name)]; }),s.f)+'</span></div>'+h+'</tbody></table></div>';
+}};
+R[9] = { s:{b:'f'}, draw:function(s){
+  var rows=[['totalReturn','Total return'],['excessReturn','Excess return'],['passiveExcess','· passive'],['activeExcess','· active'],['risk','Risk'],['passiveRisk','· passive'],['activeRisk','· active'],['trackingError','Tracking error'],['sharpe','Sharpe ratio'],['informationRatio','Information ratio']];
+  var h='<table class="t"><thead><tr><th>Measure</th>'+AL.map(function(a){ return '<th title="'+esc(a.name)+'">'+adot(a)+esc(short(a.name))+'</th>'; }).join('')+'</tr></thead><tbody>'+rows.map(function(r){ return '<tr><th'+(r[1].indexOf('·')===0?' class="ind"':'')+'>'+r[1]+'</th>'+AL.map(function(a){ var v=get(B(a,s.b),r[0]); return '<td'+cl(v)+'>'+fmt(v)+'</td>'; }).join('')+'</tr>'; }).join('')+'</tbody></table>';
+  var W=330,H=230,L=38,Bm=30,T=10,Rr=28, mx=0; AL.forEach(function(a){ mx=Math.max(mx,B(a,s.b).var99.y1); }); mx=Math.ceil(mx/5)*5;
+  var xs=HZ.map(function(_,i){ return L+i*(W-L-Rr)/(HZ.length-1); }), y=function(v){ return T+(1-v/mx)*(H-T-Bm); };
+  var svg='<svg width="'+W+'" height="'+H+'" role="img" aria-label="99% value at risk by horizon">';
+  for(var t=0;t<=mx;t+=5) svg+='<line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+y(t)+'" y2="'+y(t)+'" stroke="#eef1f5"/><text x="'+(L-6)+'" y="'+(y(t)+3)+'" font-size="10" fill="#7a879b" text-anchor="end">'+t+'</text>';
+  HZ.forEach(function(hz,i){ svg+='<text x="'+xs[i]+'" y="'+(H-Bm+16)+'" font-size="10.5" fill="#4a5872" text-anchor="middle">'+hz[1]+'</text>'; });
+  AL.forEach(function(a){ var o=B(a,s.b); svg+='<polyline fill="none" stroke="'+a.c+'" stroke-width="2" points="'+HZ.map(function(hz,i){ return xs[i]+','+y(o.var99[hz[0]]).toFixed(1); }).join(' ')+'"/>'+HZ.map(function(hz,i){ return '<circle cx="'+xs[i]+'" cy="'+y(o.var99[hz[0]]).toFixed(1)+'" r="3.5" fill="'+a.c+'" stroke="#fff" stroke-width="1.5"><title>'+esc(a.name+' · '+hz[1]+': '+fmt(o.var99[hz[0]])+'%')+'</title></circle>'; }).join(''); });
+  svg+='<text x="'+L+'" y="'+(H-2)+'" font-size="10" fill="#7a879b">99% value at risk, % loss</text></svg>';
+  return head()+'<div class="mock-b"><div class="ctl">'+basisCtl(s.b)+'</div><div class="vpanel"><div>'+h+'</div><div>'+svg+'</div></div></div>';
+}};
+R[10] = { s:{}, draw:function(){
+  var l=AL.map(function(a){ function line(o,lab){ return '<div><span class="bs">'+lab+'</span>Return <b>'+fmt(o.totalReturn)+'</b> <span class="k">·</span> Excess <b>'+fmt(o.excessReturn)+'</b> <span class="k">= passive</span> '+fmt(o.passiveExcess)+' <span class="k">+ active</span> <span'+cl(o.activeExcess)+'>'+fmt(o.activeExcess)+'</span> <span class="k">·</span> Risk <b>'+fmt(o.risk)+'</b> <span class="k">= passive</span> '+fmt(o.passiveRisk)+' <span class="k">+ active</span> <span'+cl(o.activeRisk)+'>'+fmt(o.activeRisk)+'</span> <span class="k">·</span> TE '+fmt(o.trackingError)+' <span class="k">·</span> Sharpe '+fmt(o.sharpe)+' <span class="k">·</span> IR '+fmt(o.informationRatio)+' <span class="k">· 99% VaR</span> '+HZ.map(function(h){ return fmt(o.var99[h[0]]); }).join(' / ')+'</div>'; }
+    return '<div class="line" style="border-color:'+a.c+'"><b>'+esc(a.name)+'</b>'+line(a.f,'→ Forward')+line(a.h,'◷ Historical')+'</div>'; }).join('');
+  return head()+'<div class="mock-b"><div class="lines">'+l+'</div><div class="note">Value at risk: 1 day / 1 week / 1 month / 1 year, % loss.</div></div>';
+}};
+
+function render(el){ var o=R[el.dataset.opt]; el.innerHTML=o.draw(o.s); }
+document.querySelectorAll('.mock[data-opt]').forEach(function(el){
+  render(el);
+  el.addEventListener('click', function(e){ var b=e.target.closest('button[data-k]'); if(!b) return; var o=R[el.dataset.opt]; o.s[b.dataset.k]=b.dataset.v; render(el); var nb=el.querySelector('button[data-k="'+b.dataset.k+'"][data-v="'+b.dataset.v+'"]'); if(nb) nb.focus(); });
+});
+})();
+</script>

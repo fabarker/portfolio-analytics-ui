@@ -360,3 +360,36 @@
 .pd-fac{max-width:520px}
 .pd-fac td:first-child{width:40%}
 .pd-how ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:13px;color:var(--ink-2)}
+
+/* Drivers & differences: factor rows, in-cell bars, focus view */
+.dd-tools .ctl{display:inline-flex;align-items:center;gap:6px}
+.dd-tools .seg .dot{width:7px;height:7px;margin-right:5px}
+.tbl.dd-f th.grp,.tbl.dd-focus-tbl th.grp{text-align:right}
+.tbl.dd-f th.grp .gname,.tbl.dd-focus-tbl th.grp .gname{justify-content:flex-end}
+.tbl.dd-f tr.is-fixed th.rowhead{color:var(--ink-2);font-weight:400}
+.tbl.dd-f tr.is-fixed:first-of-type,.tbl.dd-f tr.frow:not(.is-fixed)+tr.is-fixed td,.tbl.dd-f tr.frow:not(.is-fixed)+tr.is-fixed th{border-top:1px solid var(--line-strong)}
+.ddcell{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.ddbar{position:relative;display:inline-block;width:48px;height:6px;background:var(--line);border-radius:2px;flex:none}
+.ddbar::after{content:"";position:absolute;left:50%;top:-2px;width:1px;height:10px;background:var(--ink-3)}
+.ddbar i{position:absolute;top:0;height:100%;border-radius:2px}
+.tbl.dd-focus-tbl td.lead{font-weight:600}
+.dd-more{font-size:12px;margin-top:8px}
+
+/* Headline: measures as rows, forward and historical per allocation */
+.tbl.hl-m thead th{position:static}
+.tbl.hl-m thead th.hl-alloc{text-align:center;font-size:12px;letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink)}
+.tbl.hl-m thead th.hl-alloc.is-active{box-shadow:inset 0 -2px 0 var(--accent)}
+.tbl.hl-m thead th.hl-alloc .dot{width:8px;height:8px;margin-right:6px}
+.tbl.hl-m thead th.hl-b{font-size:10.5px;letter-spacing:.06em}
+.tbl.hl-m thead th.hl-b.is-fwd{color:var(--accent)}
+.tbl.hl-m .grp-start{border-left:1px solid var(--line)}
+.tbl.hl-m tr.hl-g th{background:var(--bg-soft,#f7f9fb);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;padding-top:7px;padding-bottom:5px}
+.tbl.hl-m tbody th{font-weight:600;white-space:nowrap}
+.tbl.hl-m tr.hl-ind th{padding-left:26px;font-weight:400;color:var(--ink-2)}
+.tbl.hl-m tbody td.num{font-size:14px}
+.hl-tools{padding-bottom:8px}
+.tbl.hl-m thead th .hl-rel{font-weight:500;color:var(--ink-3)}
+.tbl.hl-m thead th.hl-alloc.is-focus{box-shadow:inset 0 -2px 0 var(--accent)}
+.tbl.hl-m td.lead{font-weight:700}
+.tbl.hl-m td.hl-d{color:var(--ink-2)}
+.tbl.hl-m td.hl-d .pos{color:var(--ink)}

@@ -146,7 +146,7 @@ Liquidity, Funding, FX, EM, Dollar, Size, Value, Commodities and Momentum.
 Axioma has the same eleven, under the same ids, plus Credit, Short Volatility,
 Quality, Carry, Local Inflation and Local Equity. *Factor model* in the context bar (ISG ·
 Axioma) sets the risk model for every card that uses one: Factor exposures,
-the Factors metric of Drivers & Differences, the factor view of Risk by
+the factor measures of Drivers & Differences, Factors over time, the factor view of Risk by
 category, Active risk & return and Headline. The control shows only when such
 a card is in the workspace; its tooltip counts pinned cards. A card that
 follows the workspace names no model (the bar does). The card menu pins it to
@@ -179,9 +179,10 @@ The checks confirm, for all four attributions, both models and both bases, that
 contributions sum to the tracking error and the return sources to the active
 return, and that passive and active risk with their correlation make the total.
 
-**Waterfalls.** Every contribution measure that adds up to a total can be drawn
-as a waterfall, one allocation at a time (tabs above the chart): Return
-contribution by category (opens as one), Risk contribution by category (by
+**Waterfalls.** Every contribution measure that adds up to a total opens as a
+waterfall, one allocation at a time (tabs above the chart); bars or a table
+remain in the card's settings: Return
+contribution by category, Risk contribution by category (a share of risk runs to 100%) (by
 category, or by factor plus specific), Risk by factor, Return attribution (from
 the reference's return to the allocation's), and the risk and return sources of
 Active risk & return (*Risk and return sources: Waterfall* in its settings).
@@ -221,12 +222,27 @@ The page follows five rules (the plan is `../design/workspace-clarity.html`):
   mapping, basis per allocation) stay visible. Snapshot, versions and layout
   live in the header ⋮ menu. Exports carry the context as one line.
 
-**Headline** (the Summary group, first in the sample workspace) gives one row
-per compared allocation with both bases side by side: a forward-looking group
-(expected return, risk, active return, tracking error) and a historical group
-for the period (return, volatility, active return, tracking error, maximum
-drawdown), then the allocated total, highlighted when it is not 100%. It makes
-two `activeAnalysis` requests and reuses `historyPack`.
+**Every workspace opens with two cards**: Headline and, below it, Allocations
+side by side. Everything else, Drivers & Differences included, is added from
+the repository. (Sample workspaces saved in a browser before this change are
+reset to the two cards once; their allocations and scenarios are kept.)
+
+**Headline** (the Summary group) lists measures as rows, in four groups, with a
+forward-looking and a historical column for every compared allocation: total
+return; excess return over cash, split into passive (the benchmark's excess)
+and active (return minus the benchmark's), which add up to it; risk
+(volatility), split into passive risk cov(P,B)/σP and active risk
+cov(P,P−B)/σP, which add up to it; tracking error (the volatility of P−B,
+which differs from active risk); Sharpe and information ratios; and 99% value
+at risk over 1 day, 1 week, 1 month and 1 year (2.326·σ·√h − μ·h). Forward
+returns come from the assumptions and forward risk from the factor model;
+historical figures are realised over the period, with the cash index as cash.
+A **Table / Focus** switch at the top of the card picks the view: Table (the
+default) shows every allocation's values; Focus shows one allocation (the one
+being edited unless another is picked) in bold and every other allocation as
+its value minus the focus value, signed, on both bases, as in Drivers &
+Differences. The view and focus are stored in the card's settings (`view`,
+`focus`). It makes one `headline` request.
 
 ## Benchmarks and the reporting currency
 
@@ -285,9 +301,12 @@ newer one, the rail and the column's menu offer to show it. *Make an editable
 copy* turns it into a live allocation.
 
 **The analytics area is a collection of cards.** Each card is one piece of
-analysis from a catalogue of 34 entries over 30 types, grouped by basis:
-**Summary** (Headline, Drivers & Differences, whose metric list is grouped by
-basis); **Forward-looking** (expected return & risk, projections with bands,
+analysis from a catalogue of 35 entries over 31 types, grouped by basis:
+**Summary** (Headline, Drivers & Differences: measures by product (weight,
+return, risk, on the category tree) or by factor (exposure, return, risk: one
+row per factor, largest eight first, with cash, specific and the total), a
+basis switch, and a *Table* or *Focus* view, where one allocation's values sit
+first and every other allocation and the reference show as differences from it); **Forward-looking** (expected return & risk, projections with bands,
 probability of outcomes, value at risk & expected shortfall, hypothetical
 stress tests, scenario comparison, return contribution by category, risk
 contribution by category, risk by factor, factor exposures, active risk &
@@ -296,7 +315,9 @@ statistics, calendar-year returns as a heat grid, monthly returns, worst
 drawdowns, underwater, rolling return and volatility, rolling active return &
 tracking error, stress periods, correlation, return attribution, up & down
 capture, distribution of monthly returns, and the realised versions of return
-contribution, risk contribution, factor exposures and active risk & return);
+contribution, risk contribution, factor exposures and active risk & return, and
+Factors over time: exposure, risk or return contribution by factor in each
+calendar year as a heat map); Factor exposures draws horizontal bars;
 **Structure** (allocations side by side, active weights vs the reference,
 currency exposure). A type that can read either basis has two entries that
 add the same card with its basis fixed; the card menu offers *Show historical
@@ -392,6 +413,9 @@ two adapters:
 | `deleteSavedCard(id)` | `DELETE /cards/:id` | `{}` |
 | `analyzeTable(TableRequest)` | `POST /analytics/table` | `TableResponse` |
 | `historySeries(HistoryRequest)` | `POST /analytics/history` | `HistoryResponse` |
+| `headline({allocations, period, scenario, factorModel, reference})` | `POST /analytics/headline` | per allocation and basis: total, excess, passive and active excess return; risk, passive and active risk, tracking error; Sharpe, information ratio; 99% VaR at four horizons |
+| `factorTable({allocations, basis, period, scenario, factorModel, reference})` | `POST /analytics/factor-table` | per allocation and its reference: exposure, risk by factor + specific (= volatility), return by factor + cash + specific (= return) |
+| `factorHistory({allocations, period, factorModel})` | `POST /analytics/factor-history` | per allocation, each calendar year: exposure, risk and return contribution by factor |
 | `historyPack(PackRequest)` | `POST /analytics/history-pack` | `PackResponse` (returns, growth, drawdowns, stats, calendar years, stress periods, rolling series, correlations) |
 | `breakdown({allocations})` | `POST /analytics/breakdown` | `BreakdownResponse` (targets, products, index remainders by category) |
 | `projection(ProjectionRequest)` | `POST /analytics/projection` | `ProjectionResponse` |
@@ -504,8 +528,8 @@ adding from the repository, moving, resizing, removing, undo; the context
 bar; the clarity rules (no default tags, one door to scenarios, controls shown only when a card reads them,
 quiet card tools and rail inputs, the silver rule above each category, notes closed by default, identifiers on a wide rail);
 the elbow guides and quick add (including `/` across every category); the Optimize tab (every objective and constraint, apply and undo, save as new);
-active attribution by factor, category, asset class and product; the paste parser, paste-anywhere, fitting, the product directory and an uploaded product's analytics; per-card bases and the dual Headline; the eleven ISG and seventeen Axioma factors;
-benchmarks (picker, builder rules, versions, library, fixed rate); the reporting currency; every new card and the waterfalls;
+active attribution by factor, category, asset class and product; the paste parser, paste-anywhere, fitting, the product directory and an uploaded product's analytics; per-card bases; the two opening cards and the Headline measures (reconciled on both bases) and its Focus view; the eleven ISG and seventeen Axioma factors;
+benchmarks (picker, builder rules, versions, library, fixed rate); the reporting currency; every new card and the waterfalls; Drivers & Differences by factor and in focus view;
 persistence; the sleeve repository; failure states; three viewports),
 asserts on what the user would see, reports console errors, and writes
 screenshots to `screenshots/`. It uses the same Playwright runtime as

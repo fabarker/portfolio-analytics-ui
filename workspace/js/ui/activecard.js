@@ -161,7 +161,7 @@
       { key: 'decompose', label: 'Attribute risk and return by', type: 'select', options: [['factor', 'Factor (the factor model)'], ['category', 'Category'], ['assetClass', 'Asset class'], ['product', 'Product']], default: 'factor' },
       { key: 'returnMethod', label: 'Active return', type: 'select', options: [['arithmetic', 'Arithmetic difference'], ['geometric', 'Geometric']], default: 'arithmetic' },
       { key: 'showPassive', label: 'Show passive figures', type: 'toggle', default: true },
-      { key: 'sources', label: 'Risk and return sources', type: 'select', options: [['table', 'Table with bars'], ['waterfall', 'Waterfall']], default: 'table' }],
+      { key: 'sources', label: 'Risk and return sources', type: 'select', options: [['table', 'Table with bars'], ['waterfall', 'Waterfall']], default: 'waterfall' }],
     subtitle: function (ctx, s, card) { return 'vs ' + againstLabel(ctx, s) + H.rowSuffix(ctx, card) + C.modelDeparture(card) + ' · % a year'; },
     data: function (ctx, s, card) {
       return against(s).then(function (ag) {

@@ -4,10 +4,12 @@
    products, expand or collapse, rename, benchmark, snapshot); four tabs split
    the rail's jobs. Build: the tree, category → product. Each category sits
    under a silver rule, marked by its colour tile; its products are leaves,
-   indented and joined to it by elbow guides. Categories carry their own
-   target weight (index-level modelling); products implement them; the
-   unimplemented remainder shows as an index leaf. + on a category row adds
-   an empty leaf that searches the product library (quick add). Sleeves are
+   indented and joined to it by elbow guides. A category's weight is the sum
+   of its products and indices: changing a product changes the category, and
+   changing the category rescales its products pro rata. Categories belong to
+   the workspace: they can be added, renamed, deleted when empty, and moved
+   (drag the grip, Alt+↑/↓, or the row menu). + on a category row adds an
+   empty leaf that searches the product library (quick add). Sleeves are
    created from a category or a product selection here. / opens quick add
    searching every category. Optimize: mean-variance optimisation of the
    allocation (ui/optimizer.js). Sleeves: the repository, with Apply and Compare.
@@ -110,10 +112,10 @@
     var counts = {}; list.forEach(function (s) { counts[s.categoryId] = (counts[s.categoryId] || 0) + 1; });
     if (sleeveCat && !counts[sleeveCat]) sleeveCat = '';
     var chip = function (id, label, color) { return '<button type="button" class="rail-chip" data-slcat="' + id + '" data-fkey="slchip:' + (id || 'all') + '" aria-pressed="' + (sleeveCat === id) + '">' + (color ? '<span class="sw" style="background:' + color + '" aria-hidden="true"></span>' : '') + esc(label) + '</button>'; };
-    var chips = '<div class="rail-chips" role="group" aria-label="Filter sleeves by category">' + chip('', 'All · ' + list.length) + D.categories.filter(function (c) { return counts[c.id]; }).map(function (c) { return chip(c.id, c.short + ' · ' + counts[c.id], c.color); }).join('') + '</div>';
+    var chips = '<div class="rail-chips" role="group" aria-label="Filter sleeves by category">' + chip('', 'All · ' + list.length) + D.taxonomy.filter(function (c) { return counts[c.id]; }).map(function (c) { return chip(c.id, c.short + ' · ' + counts[c.id], c.color); }).join('') + '</div>';
     var compared = {}; S.ws.allocations.forEach(function (x) { if (x.kind === 'sleeve' && members.indexOf(x.id) >= 0) compared[x.sleeve.id] = x.sleeve.version; });
     var applied = {}; a.holdings.forEach(function (h) { if (h.sleeveRef) applied[h.sleeveRef.sleeveId] = h.sleeveRef.version; });
-    var groups = D.categories.filter(function (c) { return counts[c.id] && (!sleeveCat || sleeveCat === c.id); }).map(function (c) {
+    var groups = D.taxonomy.filter(function (c) { return counts[c.id] && (!sleeveCat || sleeveCat === c.id); }).map(function (c) {
       return '<div class="rail-sleeve-group">' + esc(c.name) + '</div>' + list.filter(function (s) { return s.categoryId === c.id; }).map(function (s) {
         var v = UI.sleeves.latest(s), idx = sleeveList.indexOf(s), top = v.holdings.slice().sort(function (x, y) { return y.weight - x.weight; });
         var names = top.slice(0, 3).map(function (h) { return D.instrumentById[h.instrumentId].identifier + ' ' + F.num(h.weight, 0) + '%'; }).join(' · ') + (top.length > 3 ? ' · +' + (top.length - 3) : '');
@@ -130,21 +132,17 @@
   /** What needs attention in an allocation; each item names the way to fix it. */
   function issues(a) {
     var out = [], tree = E.tree(a), res = 100 - E.allocated(a), live = a.kind === 'live';
-    if (res > 1e-9) out.push({ t: F.num(res) + '% unallocated', s: 'It earns nothing and carries no risk. Raise a category target or add a product.', acts: [['show', '__total', 'Show in Build']] });
-    tree.forEach(function (t) {
-      if (t.remainder > 1e-9) out.push({ t: t.short + ': ' + F.num(t.remainder) + '% at index level', s: t.products.length ? 'Part of the ' + F.num(t.target) + '% target is not in products yet; the category index stands in.' : 'No products: the whole ' + F.num(t.target) + '% target is modelled by the category index.', acts: live ? [['find', t.id, 'Find products'], ['apply', t.id, 'Apply a sleeve']] : [['show', t.id, 'Show in Build']] });
-      if (t.over) out.push({ t: t.short + ': products over target by ' + F.num(-t.remainder) + '%', s: 'Products add up to ' + F.num(t.implemented) + '% against a ' + F.num(t.target) + '% target. Raise the target or lower a product.', acts: [['show', t.id, 'Show in Build']].concat(live ? [['fit', t.id, 'Set target to ' + F.num(t.implemented) + '%']] : []) });
-    });
+    if (res > 1e-9) out.push({ t: F.num(res) + '% unallocated', s: 'It earns nothing and carries no risk. Add a product or index, or raise a weight.', acts: [['show', '__total', 'Show in Build']] });
     var px = a.holdings.filter(function (h) { return D.instrumentById[h.instrumentId].coverage !== 'full'; });
-    if (px.length) out.push({ t: px.length + ' product' + (px.length === 1 ? '' : 's') + ' with limited history', s: px.map(function (h) { var ins = D.instrumentById[h.instrumentId]; return ins.identifier + ' (' + (ins.coverage === 'none' ? 'no history' : 'proxy') + ')'; }).join(', ') + '. Historical cards disclose it.', acts: [['show', E.categoryOf(px[0].instrumentId) + '/' + px[0].instrumentId, 'Show in Build']] });
+    if (px.length) out.push({ t: px.length + ' product' + (px.length === 1 ? '' : 's') + ' with limited history', s: px.map(function (h) { var ins = D.instrumentById[h.instrumentId]; return ins.identifier + ' (' + (ins.coverage === 'none' ? 'no history' : 'proxy') + ')'; }).join(', ') + '. Historical cards disclose it.', acts: [['show', E.categoryOf(px[0]) + '/' + px[0].instrumentId, 'Show in Build']] });
     var fm = D.factorModelById[(S.ws.prefs.factorModel) || 'isg'], prox = a.holdings.filter(function (h) { return fm.coverage(D.instrumentById[h.instrumentId]); });
-    if (prox.length) out.push({ t: fm.name + ': ' + prox.length + ' product' + (prox.length === 1 ? '' : 's') + ' proxied by the category index', s: prox.map(function (h) { return D.instrumentById[h.instrumentId].identifier; }).join(', ') + ' are not covered by the ' + fm.name + ' factor model, so factor exposures and factor risk use the category index in their place.', acts: [['show', E.categoryOf(prox[0].instrumentId) + '/' + prox[0].instrumentId, 'Show in Build'], ['model', fm.id, 'About ' + fm.name]] });
+    if (prox.length) out.push({ t: fm.name + ': ' + prox.length + ' product' + (prox.length === 1 ? '' : 's') + ' proxied by the category index', s: prox.map(function (h) { return D.instrumentById[h.instrumentId].identifier; }).join(', ') + ' are not covered by the ' + fm.name + ' factor model, so factor exposures and factor risk use the category index in their place.', acts: [['show', E.categoryOf(prox[0]) + '/' + prox[0].instrumentId, 'Show in Build'], ['model', fm.id, 'About ' + fm.name]] });
     if (!a.benchmarkId && a.kind !== 'sleeve') out.push({ t: 'No benchmark assigned', s: 'Differences against “each allocation’s benchmark” are unavailable until one is set.', acts: live ? [['bench', '', 'Assign benchmark']] : [] });
     return out;
   }
   function renderCheck(a, iss) {
     var items = iss.length ? iss.map(function (x, i) { return '<div class="rail-check warn">' + I.warn + '<div class="txt"><b>' + esc(x.t) + '</b><small>' + esc(x.s) + '</small>' + (x.acts.length ? '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:5px">' + x.acts.map(function (c, j) { return '<button type="button" class="btn btn-xs" data-issue="' + i + ':' + j + '" data-fkey="issue:' + esc(c[0] + ':' + c[1]) + '">' + esc(c[2]) + '</button>'; }).join('') + '</div>' : '') + '</div></div>'; }).join('')
-      : '<div class="rail-check ok">' + I.ok + '<div class="txt"><b>Nothing needs attention</b><small>Fully allocated, every category implemented in products, complete histories and a benchmark.</small></div></div>';
+      : '<div class="rail-check ok">' + I.ok + '<div class="txt"><b>Nothing needs attention</b><small>Fully allocated, complete histories and a benchmark.</small></div></div>';
     return '<div class="rail-sec"><div class="rail-sec-head"><span class="rail-eyebrow">To check · ' + iss.length + '</span></div>' + items + '</div>' + renderSummary(a) + (a.kind === 'sleeve' ? '' : renderLeverage(a)) + '<div class="field-err" id="check-err" role="alert" style="color:var(--rail-bad)"></div>';
   }
 
@@ -155,7 +153,7 @@
     var row = function (o) {
       var isCol = !!col[o.key];
       return '<div class="tree-row depth-' + o.depth + (sel === o.key ? ' is-selected' : '') + (o.index ? ' is-index' : '') + (o.over ? ' is-over' : '') + '" data-key="' + esc(o.key) + '">' +
-        '<div class="tree-main">' + (o.depth === 0 ? (o.hasChildren ? '<button type="button" class="tw" data-toggle="' + esc(o.key) + '" aria-expanded="' + (!isCol) + '" aria-label="' + (isCol ? 'Expand ' : 'Collapse ') + esc(o.plain) + '">' + I.chevron + '</button>' : '<span class="tw is-leaf" aria-hidden="true">' + I.chevron + '</span>') + '<span class="ttile" aria-hidden="true"></span>' : '') +
+        '<div class="tree-main">' + (o.depth === 0 ? '<span class="tdrag" draggable="true" data-drag="' + esc(o.key) + '" aria-hidden="true" title="Drag to move ' + esc(o.plain) + ' (or Alt+↑/↓)">' + I.grip + '</span>' + (o.hasChildren ? '<button type="button" class="tw" data-toggle="' + esc(o.key) + '" aria-expanded="' + (!isCol) + '" aria-label="' + (isCol ? 'Expand ' : 'Collapse ') + esc(o.plain) + '">' + I.chevron + '</button>' : '<span class="tw is-leaf" aria-hidden="true">' + I.chevron + '</span>') + '<span class="ttile" aria-hidden="true"></span>' : '') +
         (selMode && o.selectable ? '<input type="checkbox" class="tsel" data-sel="' + esc(o.selId) + '" aria-label="Select ' + esc(o.plain) + '"' + (o.selected ? ' checked' : '') + (o.indeterminate ? ' data-ind="1"' : '') + '>' : '') +
         '<button type="button" class="tname" data-select="' + esc(o.key) + '" data-fkey="n:' + esc(o.key) + '" aria-label="' + esc(o.plain + (o.aria ? ', ' + o.aria : '')) + ', select row"><b>' + o.labelHtml + '</b>' + (o.subHtml ? '<small' + (o.subWarn ? ' class="warn"' : '') + '>' + o.subHtml + '</small>' : '') + (o.ident ? '<small class="ident">' + o.ident + '</small>' : '') + '</button></div>' +
         '<div class="tright">' + (o.depth === 0 && !ro ? '<button type="button" class="tqa' + (quick && quick.cat === o.key ? ' is-on' : '') + '" data-quickadd="' + esc(o.key) + '" data-fkey="qa:' + esc(o.key) + '" aria-label="Add a product to ' + esc(o.plain) + '" data-tip="Add a product to ' + esc(o.plain) + '">' + I.plus + '</button>' : '') + (o.rel ?'<span class="trel"' + (o.relTip ? ' data-tip="' + esc(o.relTip) + '"' : '') + '>' + esc(o.rel) + '</span>' : '') + (o.readonly ? '<span class="tval" data-tip="' + esc(o.tip || '') + '">' + F.num(o.weight) + '</span>' : (function () { var saved = F.num(o.weight, o.weight % 1 ? 2 : 1).replace('−', '-'), pv = !ro && pend[o.key] !== undefined ? pend[o.key] : null; return '<input class="tw-input' + (o.depth === 0 ? ' is-sleeve' : '') + (pv !== null ? ' is-pending' : '') + '" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="' + esc(pv !== null ? pv : saved) + '" data-saved="' + esc(saved) + '" data-key="' + esc(o.key) + '" data-fkey="w:' + esc(o.key) + '" aria-label="' + esc(o.plain) + ' weight, percent of total portfolio. Type a value and press Enter to apply."' + (ro ? ' disabled' : '') + '>'; })()) + '<span class="tpct">' + (o.depth === 0 ? '%' : '') + '</span>' +
@@ -164,39 +162,41 @@
     var html = tree.filter(function (t) { return a.kind !== 'sleeve' || t.target > 0 || t.products.length; }).map(function (t) {
       var nSel = t.products.filter(function (h) { return selection.indexOf(h.id) >= 0; }).length, isCol = !!col[t.id], subs = [], warn = false;
       if (t.sleeveRef) subs.push('<span class="sleeve-tag" data-tip="All products in this category come from the sleeve ' + esc(t.sleeveRef.name) + ' v' + t.sleeveRef.version + '">' + I.layers + esc(t.sleeveRef.name) + ' v' + t.sleeveRef.version + '</span>');
-      if (t.remainder > 1e-9) { warn = true; subs.push(t.products.length ? F.num(t.remainder) + '% at index level' : 'No products · modelled at index level'); }
-      else if (t.over) { warn = true; subs.push('Products over target by ' + F.num(-t.remainder) + '%'); }
+      if (!t.products.length) subs.push('Empty · add a product or index with +');
       if (isCol && t.products.length) subs.push(t.products.length + ' product' + (t.products.length === 1 ? '' : 's'));
-      var o = '<li class="depth-0" style="--cat:' + t.color + '">' + row({ key: t.id, depth: 0, plain: t.name, labelHtml: esc(t.name), subHtml: subs.join(' · '), subWarn: warn, aria: t.products.length + ' products, ' + F.num(t.implemented) + '% implemented', weight: t.target, hasChildren: t.products.length > 0 || t.remainder > 1e-9 || !!(quick && quick.cat === t.id), menu: 'category', over: t.over, selectable: t.products.length > 0, selId: 'cat:' + t.id, selected: t.products.length > 0 && nSel === t.products.length, indeterminate: nSel > 0 && nSel < t.products.length });
+      var o = '<li class="depth-0" style="--cat:' + t.color + '">' + row({ key: t.id, depth: 0, plain: t.name, labelHtml: esc(t.name), subHtml: subs.join(' · '), subWarn: warn, aria: t.products.length + ' holdings, weight ' + F.num(t.target) + '%, the sum of its holdings', weight: t.target, readonly: !t.products.length, tip: 'Empty: the weight is the sum of its holdings. Add a product or index with +.', hasChildren: t.products.length > 0 || !!(quick && quick.cat === t.id), menu: 'category', over: false, selectable: t.products.length > 0, selId: 'cat:' + t.id, selected: t.products.length > 0 && nSel === t.products.length, indeterminate: nSel > 0 && nSel < t.products.length });
       if (!isCol) {
         o += '<ul>' + t.products.map(function (h, i) {
           var ins = D.instrumentById[h.instrumentId], key = t.id + '/' + h.instrumentId, share = t.target ? h.weight / t.target * 100 : null;
           var cov = ins.coverage !== 'full' ? '<span class="cov" data-tip="' + esc(ins.proxyNote) + '" role="img" aria-label="' + esc(ins.proxyNote) + '"></span>' : '';
           var from = h.sleeveRef && !t.sleeveRef ? '<span class="from-sleeve" data-tip="From the sleeve ' + esc(h.sleeveRef.name) + ' v' + h.sleeveRef.version + '" role="img" aria-label="From the sleeve ' + esc(h.sleeveRef.name) + '">' + I.layers + '</span>' : '';
           return '<li class="depth-1">' + row({ key: key, depth: 1, plain: ins.name, labelHtml: esc(ins.name) + cov + from, ident: esc(ins.type) + ' · ' + esc(ins.identifier) + (h.sleeveRef ? ' · from ' + esc(h.sleeveRef.name) + ' v' + h.sleeveRef.version : ''), aria: ins.type + ' ' + ins.identifier + (share != null ? ', ' + F.num(share, 1) + '% of ' + t.name : ''), rel: share != null ? F.num(share, 0) + '%' : '—', relTip: share != null ? F.num(share, 1) + '% of ' + t.name : null, weight: h.weight, hasChildren: false, menu: 'product', selectable: true, selId: h.id, selected: selection.indexOf(h.id) >= 0 }) + '</li>';
-        }).join('') + (t.remainder > 1e-9 ? '<li class="depth-1">' + row({ key: t.id + '/__index', depth: 1, plain: t.short + ' Index', labelHtml: esc(t.short) + ' Index', aria: 'unimplemented remainder', rel: 'remainder', relTip: 'Modelled by the category index basket: ' + D.categoryById[t.id].index.map(function (p) { return D.instrumentById[p[0]].name + ' ' + p[1] + '%'; }).join(', '), weight: t.remainder, readonly: true, index: true, tip: 'Target ' + F.num(t.target) + '% less ' + F.num(t.implemented) + '% in products.', hasChildren: false, menu: null }) + '</li>' : '') + (quick && quick.allocId === a.id && quick.cat === t.id ? quickRow(a, t) : '') + '</ul>';
+        }).join('') + (quick && quick.allocId === a.id && quick.cat === t.id ? quickRow(a, t) : '') + '</ul>';
       }
       return o + '</li>';
     }).join('');
     var selW = U.sum(a.holdings.filter(function (h) { return selection.indexOf(h.id) >= 0; }), function (h) { return h.weight; });
     return '<div class="rail-sec">' +
       (selMode ? '<div class="selbar" role="status"><span><b>' + selection.length + '</b> selected · <b>' + F.num(selW) + '%</b></span><span class="spacer"></span><button type="button" class="btn btn-xs" id="sel-create"' + (selection.length ? '' : ' disabled') + ' data-tip="Save the selection to the repository, rescaled to 100%">' + I.layers + '<span>Save as sleeve</span></button><button type="button" class="btn btn-xs btn-primary" id="sel-compare"' + (selection.length ? '' : ' disabled') + ' data-tip="Save it, then add it to the comparison as its own column to see its analytics">' + I.plus + '<span>Save &amp; compare</span></button><button type="button" class="btn btn-xs btn-ghost" id="sel-clear">Clear</button><button type="button" class="btn btn-xs" id="sel-done">Done</button></div>' : '') +
-      '<ul class="tree" id="tree" role="tree" aria-label="Categories and products of ' + esc(a.name) + '. Weights are percent of the total portfolio.">' + html + '</ul>' +
+      '<ul class="tree" id="tree" role="tree" aria-label="Categories and products of ' + esc(a.name) + '. Weights are percent of the total portfolio; a category is the sum of its holdings.">' + html + '</ul>' +
+      '<button type="button" class="tree-addcat" id="tree-addcat" data-fkey="tree-addcat">' + I.plus + '<span>New category</span></button>' +
       '<div class="tree-pending" id="tree-pending" role="status">' + pendingHtml(a) + '</div><div class="field-err" id="tree-err" role="alert" style="color:var(--rail-bad)"></div></div>';
   }
   /* ── quick add: an empty leaf under a category, searching the product library ──
-     + on a category row opens it; the search is limited to that category until
-     “Search all categories”. Choosing a product moves focus to its weight,
-     prefilled with the category's index-level remainder; Enter adds it, Esc
-     removes the row. Nothing changes until Enter. */
-  var quick = null; /* {allocId, cat, q, all, results, active, chosen, filedUnder, weight} */
+     + on a category row opens it; for a standard category the search is
+     limited to its asset classes until “Search all categories”, and a
+     category the user added searches everything. The product is added to the
+     category whose + opened the row. Choosing a product moves focus to its
+     weight; Enter adds it, Esc removes the row. Nothing changes until Enter. */
+  var quick = null; /* {allocId, cat, q, all, results, active, chosen, weight} */
+  var searchable = function (catId) { var c = D.categoryById[catId]; return !!(c && c.assetClasses && c.assetClasses.length); };
   function quickRow(a, t) {
     var q = quick, cat = D.categoryById[t.id], label = q.all ? 'all products' : cat.short;
-    var lead = q.chosen ? '<span class="qa-name"><b>' + esc(q.chosen.name) + '</b><small>' + esc(q.chosen.type + ' · ' + q.chosen.identifier) + (q.filedUnder ? ' · files under ' + esc(D.categoryById[q.filedUnder].short) : '') + '</small></span>'
+    var lead = q.chosen ? '<span class="qa-name"><b>' + esc(q.chosen.name) + '</b><small>' + esc(q.chosen.type + ' · ' + q.chosen.identifier) + '</small></span>'
       : '<span class="qa-search">' + I.search + '<input type="text" id="qa-input" data-fkey="qa-input" role="combobox" aria-expanded="' + !!(q.results && q.results.length) + '" aria-controls="qa-list" aria-autocomplete="list" aria-label="Search ' + esc(label) + ' to add a product to ' + esc(cat.name) + '" placeholder="Search ' + esc(label) + '…" autocomplete="off" spellcheck="false" value="' + esc(q.q) + '"' + (q.results && q.results.length ? ' aria-activedescendant="qa-opt-' + q.active + '"' : '') + '></span>';
     var w = '<input class="tw-input qa-w' + (q.chosen ? ' is-pending' : '') + '" type="text" inputmode="decimal" id="qa-weight" data-fkey="qa-weight" autocomplete="off" spellcheck="false" placeholder="' + (q.chosen ? '%' : '') + '" value="' + esc(q.weight) + '" aria-label="' + esc(q.chosen ? q.chosen.name + ' weight, percent of total portfolio. Press Enter to add it.' : 'Weight, after choosing a product') + '"' + (q.chosen ? '' : ' disabled') + '>';
     return '<li class="depth-1 is-adding"><div class="tree-row depth-1 qa-row"><div class="tree-main">' + lead + '</div><div class="tright"><span class="trel"></span>' + w + '<span class="tpct"></span><button type="button" class="tmenu qa-x" id="qa-cancel" aria-label="Cancel adding (Esc)" data-tip="Cancel (Esc)">' + I.close + '</button></div></div>' +
-      (q.chosen ? '<div class="qa-hint">' + (q.weight ? 'Prefilled with the ' + F.num(Number(q.weight)) + '% ' + esc((q.filedUnder ? D.categoryById[q.filedUnder] : cat).short) + ' holds at index level. ' : '') + '<kbd>Enter</kbd> adds it · <kbd>Esc</kbd> cancels</div>' : '<div class="qa-dd" id="qa-dd">' + quickList(t) + '</div>') + '</li>';
+      (q.chosen ? '<div class="qa-hint">Adds it to ' + esc(cat.name) + '. <kbd>Enter</kbd> adds it · <kbd>Esc</kbd> cancels</div>' : '<div class="qa-dd" id="qa-dd">' + quickList(t) + '</div>') + '</li>';
   }
   function quickList(t) {
     var q = quick, a = S.active(), cat = D.categoryById[q.cat], list = q.results;
@@ -206,7 +206,7 @@
         var tag = held ? '<span class="tag">Held ' + F.num(held.weight) + '%</span>' : r.uploaded ? '<span class="tag tag-info">Uploaded</span>' : r.coverage !== 'full' ? '<span class="tag tag-warn">' + (r.coverage === 'none' ? 'No history' : 'Proxy') + '</span>' : '';
         return '<div role="option" class="qa-opt" id="qa-opt-' + i + '" data-qa-pick="' + i + '" aria-selected="' + (i === q.active) + '"><span><b>' + esc(r.name) + '</b><small>' + esc(r.type + ' · ' + r.identifier + (q.all ? ' · ' + r.category : '')) + '</small></span>' + tag + '</div>';
       }).join('') + '</div>';
-    return head + '<div class="qa-foot"><span>' + (q.all ? 'In every category · <button type="button" class="btn-link" id="qa-all">Only ' + esc(cat.short) + '</button>' : 'In ' + esc(cat.short) + ' · <button type="button" class="btn-link" id="qa-all">Search all categories</button>') + '</span><button type="button" class="btn-link" data-paste data-tip="Paste a cell range from Excel: dates, then one column of returns per product">' + I.paste + 'Paste returns</button></div>';
+    return head + '<div class="qa-foot"><span>' + (!searchable(q.cat) ? 'In every category' : q.all ? 'In every category · <button type="button" class="btn-link" id="qa-all">Only ' + esc(cat.short) + '</button>' : 'In ' + esc(cat.short) + ' · <button type="button" class="btn-link" id="qa-all">Search all categories</button>') + '</span><button type="button" class="btn-link" data-paste data-tip="Paste a cell range from Excel: dates, then one column of returns per product">' + I.paste + 'Paste returns</button></div>';
   }
   function paintQuickList() {
     var dd = U.$('#qa-dd'); if (!dd || !quick) return; dd.innerHTML = quickList();
@@ -225,14 +225,15 @@
   }
   B.quickAdd = function (catId) { var a = S.active(); if (a) openQuick(a, catId); };
   /** Quick add with a product already chosen (after adding it from its returns): only the weight is left. */
-  B.addProduct = function (instrumentId) {
+  B.addProduct = function (instrumentId, categoryId) {
     var a = S.active(), ins = D.instrumentById[instrumentId]; if (!a || a.kind !== 'live' || !ins) return;
-    openRail(); openQuick(a, E.categoryOf(instrumentId)); quickPick(a, { id: ins.id, name: ins.name, type: ins.type, identifier: ins.identifier });
+    var has = function (id) { return D.categories.some(function (c) { return c.id === id; }); }, home = E.categoryOf(instrumentId), cat = categoryId && has(categoryId) ? categoryId : has(home) ? home : D.categories[0].id;
+    openRail(); openQuick(a, cat); quickPick(a, { id: ins.id, name: ins.name, type: ins.type, identifier: ins.identifier });
   };
   function openQuick(a, catId, opts) {
     if (a.kind !== 'live') return;
     var c = collapsed[a.id]; if (c) delete c[catId];
-    quick = { allocId: a.id, cat: catId, q: '', all: !!(opts && opts.all), results: null, active: 0, chosen: null, filedUnder: null, weight: '' };
+    quick = { allocId: a.id, cat: catId, q: '', all: !!(opts && opts.all) || !searchable(catId), results: null, active: 0, chosen: null, weight: '' };
     S.session.railTab = 'build'; B.render(); quickSearch();
     var inp = U.$('#qa-input'); if (inp) { inp.focus(); inp.closest('li').scrollIntoView({ block: 'nearest' }); }
   }
@@ -243,14 +244,12 @@
   function quickPick(a, r) {
     var held = a.holdings.filter(function (h) { return h.instrumentId === r.id; })[0];
     if (held) {
-      var key = E.categoryOf(r.id) + '/' + r.id; quick = null; showRow(a, key);
+      var key = E.categoryOf(held) + '/' + r.id; quick = null; showRow(a, key);
       var w0 = root.querySelector('input[data-key="' + CSS.escape(key) + '"]'); if (w0) { w0.focus(); w0.select(); }
       UI.toast(r.name + ' is already held at ' + F.num(held.weight) + '%. Change its weight in its row.'); return;
     }
-    var own = E.categoryOf(r.id), t = E.tree(a).filter(function (x) { return x.id === own; })[0];
     quick.chosen = { id: r.id, name: r.name, type: r.type, identifier: r.identifier };
-    quick.filedUnder = own !== quick.cat ? own : null;
-    quick.weight = t && t.remainder > 1e-9 ? String(U.round(t.remainder, 2)) : '';
+    quick.weight = '';
     B.render();
     var w = U.$('#qa-weight'); if (w) { w.focus(); w.select(); }
     U.announce(r.name + ' chosen. ' + (quick.weight ? 'Weight prefilled with ' + quick.weight + ' percent.' : 'Type a weight.') + ' Press Enter to add it.');
@@ -260,35 +259,32 @@
     var raw = inp.value.trim().replace(',', '.').replace(/%$/, '').replace('−', '-'), v = Number(raw);
     if (raw === '' || !isFinite(v) || v === 0) { inp.setAttribute('aria-invalid', 'true'); err.textContent = 'Enter a weight for ' + q.chosen.name + ', e.g. 3.0.'; inp.focus(); return; }
     v = U.round(v, 2);
-    var id = q.chosen.id, own = E.categoryOf(id), next = { holdings: U.clone(a.holdings).concat([{ id: U.uid('h'), instrumentId: id, weight: v }]), categories: U.clone(E.categoryTargets(a)), leverage: a.leverage };
-    var impl = U.sum(next.holdings.filter(function (h) { return E.categoryOf(h.instrumentId) === own; }), function (h) { return h.weight; }), before = next.categories[own], raised = impl > before + 1e-9;
-    if (raised) next.categories[own] = U.round(impl, 4);
+    var id = q.chosen.id, own = q.cat, next = { holdings: U.clone(a.holdings).concat([{ id: U.uid('h'), instrumentId: id, weight: v, categoryId: own }]), leverage: a.leverage };
+    var before = E.categoryTargets(a)[own], after = E.categoryTargets(next)[own];
     var allocated = E.allocated(next);
     if (!a.leverage && (v < 0 || allocated > 100.0001)) { inp.setAttribute('aria-invalid', 'true'); err.textContent = v < 0 ? 'Negative weights need shorts & leverage enabled.' : 'That takes the allocation to ' + F.num(allocated) + '%. Lower the weight, lower another weight, or enable shorts & leverage.'; inp.focus(); return; }
     var name = q.chosen.name, catName = D.categoryById[own].name; quick = null; err.textContent = '';
-    S.update(a.name + ' · ' + name + ' added at ' + F.num(v) + '%', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = next.holdings; x.categories = next.categories; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
+    S.update(a.name + ' · ' + name + ' added to ' + catName + ' at ' + F.num(v) + '%', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = next.holdings; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
     S.setPref('selectedRow', own + '/' + id); ensureTableExpanded(own + '/' + id);
     var n = root.querySelector('.tree-row[data-key="' + CSS.escape(own + '/' + id) + '"] .tname'); if (n) n.focus();
-    UI.toast(name + ' added at ' + F.num(v) + '%.' + (q.filedUnder ? ' Filed under ' + catName + '.' : '') + (raised ? ' The ' + catName + ' target rose from ' + F.num(before) + '% to ' + F.num(impl) + '% to hold it.' : ''), { action: { label: 'Undo', fn: S.undo } });
+    UI.toast(name + ' added at ' + F.num(v) + '%. ' + catName + ' is now ' + F.num(after) + '% (was ' + F.num(before) + '%).', { action: { label: 'Undo', fn: S.undo } });
   }
 
   function renderSummary(a) {
     var net = E.allocated(a), gross = E.gross(a), res = 100 - net, tree = E.tree(a);
     var bar = tree.map(function (t) { return t.target > 0 ? '<i style="width:' + U.clamp(t.target, 0, 100) + '%;background:' + t.color + '" title="' + esc(t.name) + ' ' + F.num(t.target) + '%"></i>' : ''; }).join('');
-    var idx = U.sum(tree, function (t) { return Math.max(0, t.remainder); });
     return '<div class="rail-sec"><span class="rail-eyebrow">Weights</span><div class="weights-summary" aria-label="Weight summary"><div class="row"><span>Allocated</span><b>' + F.pct(net) + '</b></div><div class="bar" aria-hidden="true">' + bar + '</div>' +
       '<div class="row"><span>' + (res >= -1e-9 ? 'Unallocated' : 'Borrowing') + '</span><b class="' + (res < -1e-9 ? 'warn' : '') + '">' + F.pct(Math.abs(res)) + '</b></div>' +
-      '<div class="row" style="color:var(--rail-ink-2)"><span>In products ' + F.pct(U.sum(a.holdings, function (h) { return h.weight; })) + '</span><span>At index level ' + F.pct(idx) + '</span></div>' +
       '<div class="row" style="color:var(--rail-ink-2)"><span>Gross ' + F.pct(gross) + '</span><span>Net ' + F.pct(E.net(a)) + '</span></div>' +
       (res > 1e-9 ? '<div class="small" style="color:var(--rail-ink-3)">Unallocated weight earns nothing and carries no risk. It is not priced as cash.</div>' : '') + (res < -1e-9 ? '<div class="small" style="color:var(--rail-ink-3)">Borrowing shown as information only: no financing cost is modelled.</div>' : '') + '</div></div>';
   }
   function renderLeverage(a) { return '<div class="rail-sec"><label class="switch"><input type="checkbox" id="lev-switch"' + (a.leverage ? ' checked' : '') + (a.kind !== 'live' ? ' disabled' : '') + '><span class="track"></span><span>Enable shorts &amp; leverage</span></label><div class="field-hint">' + (a.leverage ? 'Negative weights and net allocation above 100% are accepted. Gross, net and borrowing are informational; no risk limit applies.' : 'Off: weights must be between 0% and 100% and the total at most 100%.') + '</div></div>'; }
-  /** Always in view: the category bar (solid in products, hatched at index level) and the allocated total. */
+  /** Always in view: the category bar and the allocated total. */
   function renderFoot(a) {
     if (!foot) return;
     if (!a) { foot.innerHTML = ''; return; }
     var tree = E.tree(a), net = E.allocated(a), res = 100 - net, scale = Math.max(100, net);
-    var bar = tree.map(function (t) { var p = Math.max(0, Math.min(t.implemented, t.target)), r = Math.max(0, t.remainder); return (p > 0 ? '<i style="width:' + (p / scale * 100) + '%;background:' + t.color + '" title="' + esc(t.name) + ' · ' + F.num(p) + '% in products"></i>' : '') + (r > 1e-9 ? '<i class="ix" style="width:' + (r / scale * 100) + '%;background-color:' + t.color + '" title="' + esc(t.name) + ' · ' + F.num(r) + '% at index level"></i>' : ''); }).join('');
+    var bar = tree.map(function (t) { var p = Math.max(0, t.target); return p > 0 ? '<i style="width:' + (p / scale * 100) + '%;background:' + t.color + '" title="' + esc(t.name) + ' · ' + F.num(p) + '%"></i>' : ''; }).join('');
     foot.innerHTML = '<div class="bar" role="img" aria-label="' + esc(tree.filter(function (t) { return t.target > 0; }).map(function (t) { return t.short + ' ' + F.num(t.target) + '%'; }).join(', ')) + '">' + bar + '</div>' +
       '<div class="row"><span>Allocated <b>' + F.pct(net) + '</b></span><span class="spacer"></span>' + (Math.abs(res) < 1e-9 ? '' : res > 0 ? '<span class="warn">' + F.pct(res) + ' unallocated</span>' : '<span class="warn">Borrowing ' + F.pct(-res) + '</span>') + '</div>';
   }
@@ -303,7 +299,7 @@
     root.onclick = function (e) {
       var b = e.target.closest('[data-slcat],[data-slapply],[data-slcompare],[data-slopen],[data-issue],[data-paste]'); if (!b || !root.contains(b)) return;
       var d = b.dataset, s = sleeveList && sleeveList[Number(d.slapply || d.slcompare || d.slopen)];
-      if (d.paste !== undefined) { var q0 = quick; UI.importer.open({ text: '', categoryId: q0 ? (q0.all ? null : q0.cat) : null, name: q0 && q0.q.trim() ? q0.q.trim() : '' }); }
+      if (d.paste !== undefined) { var q0 = quick; UI.importer.open({ text: '', categoryId: q0 ? (q0.all ? null : q0.cat) : null, addTo: q0 ? q0.cat : null, name: q0 && q0.q.trim() ? q0.q.trim() : '' }); }
       else if (d.slcat !== undefined) { sleeveCat = d.slcat; B.render(); }
       else if (d.slapply) UI.sleeves.apply(a, s.categoryId, s);
       else if (d.slcompare) UI.sleeves.addToWorkspace(s, UI.sleeves.latest(s));
@@ -364,6 +360,7 @@
       tree.addEventListener('keydown', function (e) {
         var names = U.$$('.tname', tree), cur = document.activeElement, i = names.indexOf(cur); if (i < 0) return;
         var key = cur.dataset.select, c = collapsed[a.id] = collapsed[a.id] || {};
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && key.indexOf('/') < 0) { e.preventDefault(); var ids = S.ws.categories.map(function (c) { return c.id; }); moveCategory(key, ids.indexOf(key) + (e.key === 'ArrowUp' ? -1 : 1)); return; }
         if (e.key === 'ArrowDown' && i < names.length - 1) { e.preventDefault(); names[i + 1].focus(); }
         else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); names[i - 1].focus(); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); if (c[key]) { delete c[key]; B.render(); } }
@@ -372,6 +369,13 @@
         else if (e.key === ' ' && S.session.selectMode) { var h = holdingForKey(a, key); if (h) { e.preventDefault(); S.toggleSelected(h.id); } }
         else if ((e.key === '+' || e.key === 'Insert') && key.indexOf('/') < 0 && a.kind === 'live') { e.preventDefault(); openQuick(a, key); }
       });
+      var ac = U.$('#tree-addcat'); if (ac) ac.onclick = function () { B.newCategory(); };
+      /* drag a category by its grip; drop above or below another category */
+      var dragId = null, clearMarks = function () { U.$$('.tree > li.drop-before, .tree > li.drop-after', tree).forEach(function (li) { li.classList.remove('drop-before', 'drop-after'); }); };
+      U.on(tree, 'dragstart', '[data-drag]', function (e, g) { dragId = g.dataset.drag; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch (x) { /* older browsers */ } var li = g.closest('li.depth-0'); if (li) { li.classList.add('is-dragging'); try { e.dataTransfer.setDragImage(li, 20, 16); } catch (x) { /* optional */ } } });
+      tree.addEventListener('dragover', function (e) { if (!dragId) return; var li = e.target.closest && e.target.closest('.tree > li.depth-0'); if (!li) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; var r = li.getBoundingClientRect(), below = e.clientY > r.top + r.height / 2; clearMarks(); li.classList.add(below ? 'drop-after' : 'drop-before'); });
+      tree.addEventListener('drop', function (e) { if (!dragId) return; var li = e.target.closest && e.target.closest('.tree > li.depth-0'); e.preventDefault(); var id = dragId; dragId = null; clearMarks(); if (!li) return; var target = li.querySelector('.tree-row').dataset.key, ids = S.ws.categories.map(function (c) { return c.id; }), r = li.getBoundingClientRect(), below = e.clientY > r.top + r.height / 2, to = ids.indexOf(target) + (below ? 1 : 0), from = ids.indexOf(id); if (from < to) to--; moveCategory(id, to); });
+      tree.addEventListener('dragend', function () { dragId = null; clearMarks(); U.$$('.is-dragging', tree).forEach(function (x) { x.classList.remove('is-dragging'); }); });
       var sc = U.$('#sel-create'); if (sc) sc.onclick = function () { UI.sleeves.create({ alloc: a, holdingIds: S.session.selection.slice() }); };
       var scc = U.$('#sel-compare'); if (scc) scc.onclick = function () { UI.sleeves.create({ alloc: a, holdingIds: S.session.selection.slice(), compare: true }); };
       var scl = U.$('#sel-clear'); if (scl) scl.onclick = function () { S.clearSelection(); };
@@ -396,14 +400,6 @@
     else if (kind === 'apply') UI.sleeves.apply(a, key);
     else if (kind === 'bench') UI.dialogs.assignBenchmark(a);
     else if (kind === 'model') PA.cards.aboutModel(key);
-    else if (kind === 'fit') { var t = E.tree(a).filter(function (x) { return x.id === key; })[0]; setCategory(a, key, t.implemented); }
-  }
-  /** Set a category target from outside the tree (menu items, Check). */
-  function setCategory(a, key, v) {
-    var cats = U.clone(E.categoryTargets(a)), before = cats[key]; cats[key] = U.round(v, 4);
-    var allocated = E.allocated({ holdings: a.holdings, categories: cats });
-    if (!a.leverage && allocated > 100.0001) { UI.toast('That takes ' + a.name + ' to ' + F.num(allocated) + '%. Lower another weight or enable shorts & leverage.', { kind: 'error' }); return; }
-    S.update(a.name + ' · ' + D.categoryById[key].name + ' ' + F.num(before) + '% → ' + F.num(v) + '%', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.categories = cats; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
   }
   function holdingForKey(a, key) { var p = key.split('/'); if (p.length !== 2 || p[1] === '__index') return null; return a.holdings.filter(function (h) { return h.instrumentId === p[1]; })[0] || null; }
   function ensureTableExpanded(key) { var parts = key.split('/'), ex = S.ws.prefs.expanded.slice(); if (parts.length > 1 && ex.indexOf(parts[0]) < 0) { ex.push(parts[0]); S.setPref('expanded', ex); } }
@@ -421,15 +417,64 @@
     if (raw === '' || !isFinite(v)) { inp.setAttribute('aria-invalid', 'true'); err.textContent = 'Enter a number for the weight, e.g. 12.5.'; return; }
     if (inp.dataset.saved !== undefined && Number(inp.dataset.saved) === U.round(v, 2)) { discardPending(a, key); inp.value = inp.dataset.saved; inp.classList.remove('is-pending'); var tp = U.$('#tree-pending'); if (tp) tp.innerHTML = pendingHtml(a); return; }
     v = U.round(v, 2);
-    var parts = key.split('/'), next = { holdings: U.clone(a.holdings), categories: U.clone(E.categoryTargets(a)), leverage: a.leverage }, label, before;
-    if (parts.length === 1) { before = next.categories[key]; next.categories[key] = v; label = D.categoryById[key].name; }
-    else { var h = next.holdings.filter(function (x) { return x.instrumentId === parts[1]; })[0]; if (!h) return; before = h.weight; h.weight = v; label = D.instrumentById[parts[1]].name; }
+    var parts = key.split('/'), next = { holdings: U.clone(a.holdings), leverage: a.leverage }, label, before, note = '';
+    if (parts.length === 1) {
+      /* a category: rescale its holdings pro rata to the new weight */
+      var inCat = next.holdings.filter(function (x) { return E.categoryOf(x) === key; }); if (!inCat.length) return;
+      before = E.categoryTargets(a)[key]; label = D.categoryById[key].name;
+      E.scaleTo(inCat, v);
+      note = ' (' + inCat.length + ' holding' + (inCat.length === 1 ? '' : 's') + ' rescaled pro rata)';
+    }
+    else { var h = next.holdings.filter(function (x) { return x.instrumentId === parts[1]; })[0]; if (!h) return; before = h.weight; h.weight = v; label = D.instrumentById[parts[1]].name; var c0 = D.categoryById[parts[0]], cw = E.categoryTargets(next)[parts[0]]; if (c0) note = '; ' + c0.name + ' is now ' + F.num(cw) + '%'; }
     var allocated = E.allocated(next);
     if (!a.leverage && (v < 0 || allocated > 100.0001)) { inp.setAttribute('aria-invalid', 'true'); err.textContent = v < 0 ? 'Negative weights need shorts & leverage enabled.' : 'That takes the allocation to ' + F.num(allocated) + '%. Lower another weight or enable shorts & leverage.'; return; }
     inp.removeAttribute('aria-invalid'); discardPending(a, key);
-    S.update(a.name + ' · ' + label + ' ' + F.num(before) + '% → ' + F.num(v) + '%', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = next.holdings; x.categories = next.categories; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
-    U.announce(label + ' set to ' + F.num(v) + ' percent. Analytics updating.');
+    S.update(a.name + ' · ' + label + ' ' + F.num(before) + '% → ' + F.num(v) + '%' + note, function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = next.holdings; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
+    U.announce(label + ' set to ' + F.num(v) + ' percent' + note + '. Analytics updating.');
   }
+  /* ── categories: workspace-wide, shared by every allocation in it ── */
+  /** Allocations in the workspace that hold anything in a category. */
+  function categoryUsers(id) { return S.ws.allocations.filter(function (x) { return (x.holdings || []).some(function (h) { return E.categoryOf(h) === id; }); }); }
+  function nameTaken(name, exceptId) { var n = name.trim().toLowerCase(); return D.categories.some(function (c) { return c.id !== exceptId && c.name.trim().toLowerCase() === n; }); }
+  function nextCategoryColor() { var used = D.categories.map(function (c) { return (c.color || '').toLowerCase(); }), pool = D.taxonomy.map(function (c) { return c.color; }).concat(D.extraCategoryColors); for (var i = 0; i < pool.length; i++) if (used.indexOf(pool[i].toLowerCase()) < 0) return pool[i]; return pool[D.categories.length % pool.length]; }
+  /** Add a category (after the selected category, else at the end), then open quick add in it. */
+  B.newCategory = function () {
+    if (!S.ws) return;
+    UI.prompt({ title: 'New category', sub: 'Categories belong to the workspace: the new category appears, empty, in every allocation in it. Add products or indices to it with +.', label: 'Category name', value: '', confirmLabel: 'Create category' }).then(function (name) {
+      if (!name) return;
+      if (nameTaken(name)) { UI.toast('A category called “' + name + '” already exists.', { kind: 'error' }); return; }
+      var id = U.uid('cat'), color = nextCategoryColor(), sel = S.ws.prefs.selectedRow, after = sel ? sel.split('/')[0] : null;
+      S.update('Category “' + name + '” created', function (ws) { var i = ws.categories.map(function (c) { return c.id; }).indexOf(after); ws.categories.splice(i >= 0 ? i + 1 : ws.categories.length, 0, { id: id, name: name, color: color }); }, { type: 'category', refresh: false });
+      S.setPref('selectedRow', id);
+      var a = S.active(); if (a && a.kind === 'live') openQuick(a, id); else { B.render(); }
+      UI.toast('“' + name + '” created. Add products or indices with +, and drag the grip to move it.', { action: { label: 'Undo', fn: S.undo } });
+    });
+  };
+  function renameCategory(id) {
+    var c = D.categoryById[id]; if (!c) return;
+    UI.prompt({ title: 'Rename category', sub: 'Renames it in every allocation in this workspace.', label: 'Category name', value: c.name }).then(function (name) {
+      if (!name || name === c.name) return;
+      if (nameTaken(name, id)) { UI.toast('A category called “' + name + '” already exists.', { kind: 'error' }); return; }
+      S.update('Category “' + c.name + '” renamed to “' + name + '”', function (ws) { ws.categories.forEach(function (x) { if (x.id === id) x.name = name; }); }, { type: 'category' });
+      var n = root.querySelector('.tree-row[data-key="' + CSS.escape(id) + '"] .tname'); if (n) n.focus();
+    });
+  }
+  /** Move a category to position `to` in the workspace's order. */
+  function moveCategory(id, to) {
+    var ids = S.ws.categories.map(function (c) { return c.id; }), from = ids.indexOf(id); to = U.clamp(to, 0, ids.length - 1);
+    if (from < 0 || from === to) return;
+    var c = D.categoryById[id];
+    S.update('Category “' + c.name + '” moved to position ' + (to + 1) + ' of ' + ids.length, function (ws) { var x = ws.categories.splice(from, 1)[0]; ws.categories.splice(to, 0, x); }, { type: 'category' });
+    U.announce(c.name + ' moved to position ' + (to + 1) + ' of ' + ids.length + '.');
+    var n = root.querySelector('.tree-row[data-key="' + CSS.escape(id) + '"] .tname'); if (n) n.focus();
+  }
+  B.moveCategory = moveCategory;
+  function deleteCategory(id) {
+    var c = D.categoryById[id]; if (!c || categoryUsers(id).length) return;
+    S.update('Category “' + c.name + '” deleted', function (ws) { ws.categories = ws.categories.filter(function (x) { return x.id !== id; }); if (ws.prefs.selectedRow && ws.prefs.selectedRow.split('/')[0] === id) ws.prefs.selectedRow = '__total'; ws.prefs.expanded = (ws.prefs.expanded || []).filter(function (x) { return x !== id; }); }, { type: 'category' });
+    UI.toast('“' + c.name + '” deleted.', { action: { label: 'Undo', fn: S.undo } });
+  }
+
   function rowMenu(btn, a, kindOverride) {
     var key = btn.dataset.rowmenu, kind = kindOverride || btn.dataset.kind, items = [], ro = a.kind !== 'live';
     var allTo = function (shut) { var c = collapsed[a.id] = {}; if (shut) D.categories.forEach(function (ct) { c[ct.id] = true; }); B.showTab('build'); };
@@ -437,18 +482,22 @@
       { label: S.session.selectMode ? 'Stop selecting products' : 'Select products for a sleeve', icon: I.check, disabled: ro, onClick: function () { S.session.railTab = 'build'; S.setSelectMode(!S.session.selectMode); } },
       { label: 'Expand every category', onClick: function () { allTo(false); } },
       { label: 'Collapse every category', onClick: function () { allTo(true); } },
-      { sep: true }, { label: 'Find a product to add', icon: I.search, disabled: ro, kbd: '/', onClick: function () { B.findProduct(); } }, { label: 'Add products from returns…', icon: I.paste, onClick: function () { UI.importer.open({ text: '' }); } },
+      { sep: true }, { label: 'New category…', icon: I.plus, onClick: function () { B.newCategory(); } }, { label: 'Find a product to add', icon: I.search, disabled: ro, kbd: '/', onClick: function () { B.findProduct(); } }, { label: 'Add products from returns…', icon: I.paste, onClick: function () { UI.importer.open({ text: '' }); } },
       { sep: true }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } }, { label: 'Show portfolio total in table', icon: I.table, onClick: function () { S.setPref('selectedRow', '__total'); } }];
     else if (kind === 'category') {
-      var t = E.tree(a).filter(function (x) { return x.id === key; })[0];
+      var t = E.tree(a).filter(function (x) { return x.id === key; })[0], ci = D.categories.map(function (c) { return c.id; }).indexOf(key), n = D.categories.length, usedBy = categoryUsers(key);
       items = [{ head: t.name },
         { label: 'Create sleeve from category', icon: I.layers, disabled: !t.products.length, onClick: function () { UI.sleeves.create({ alloc: a, categoryId: key }); } },
         { label: 'Save as sleeve and compare…', icon: I.plus, disabled: !t.products.length || a.kind === 'sleeve', onClick: function () { UI.sleeves.create({ alloc: a, categoryId: key, compare: true }); } },
         { label: 'Apply a sleeve…', icon: I.folder, disabled: ro, onClick: function () { UI.sleeves.apply(a, key); } },
-        { label: 'Add a product here', icon: I.plus, disabled: ro, onClick: function () { openQuick(a, key); } },
+        { label: 'Add a product or index here', icon: I.plus, disabled: ro, onClick: function () { openQuick(a, key); } },
+        { sep: true },
+        { label: 'Rename category…', onClick: function () { renameCategory(key); } },
+        { label: 'Move up', icon: I.arrowUp, kbd: 'Alt+↑', disabled: ci <= 0, onClick: function () { moveCategory(key, ci - 1); } },
+        { label: 'Move down', icon: I.arrowDown, kbd: 'Alt+↓', disabled: ci >= n - 1, onClick: function () { moveCategory(key, ci + 1); } },
+        { label: usedBy.length ? 'Delete category (not empty)' : 'Delete category', icon: I.trash, disabled: usedBy.length > 0 || n <= 1, onClick: function () { deleteCategory(key); } },
         { sep: true },
         { label: 'Show in table', icon: I.table, onClick: function () { S.setPref('selectedRow', key); } },
-        { label: 'Set target to products (' + F.num(t.implemented) + '%)', disabled: ro || Math.abs(t.remainder) < 1e-9, onClick: function () { var inp = root.querySelector('input[data-key="' + CSS.escape(key) + '"]'); if (inp) { inp.value = String(t.implemented); commitWeight(inp, a); } } },
         { label: 'Set weight to 0', disabled: ro || t.target === 0, onClick: function () { var inp = root.querySelector('input[data-key="' + CSS.escape(key) + '"]'); if (inp) { inp.value = '0'; commitWeight(inp, a); } } }];
     } else {
       var parts = key.split('/'), ins = D.instrumentById[parts[1]], h = holdingForKey(a, key), on = h && S.session.selection.indexOf(h.id) >= 0;
@@ -458,8 +507,9 @@
         { label: 'Show in table', icon: I.table, onClick: function () { S.setPref('selectedRow', key); ensureTableExpanded(key); } },
         { sep: true },
         { label: 'Remove from allocation', icon: I.trash, disabled: ro, onClick: function () {
-          S.update(a.name + ' · ' + ins.name + ' removed', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.categories = E.categoryTargets(x); x.holdings = x.holdings.filter(function (q) { return q.instrumentId !== ins.id; }); if (x.history && x.history.basis === 'actual') x.edited = true; if (ws.prefs.selectedRow === key) ws.prefs.selectedRow = parts[0]; }, { type: 'edit' });
-          UI.toast(ins.name + ' removed. The category target is unchanged, so the weight is now modelled at index level.', { action: { label: 'Undo', fn: S.undo } });
+          var cat0 = D.categoryById[parts[0]], was = E.categoryTargets(a)[parts[0]];
+          S.update(a.name + ' · ' + ins.name + ' removed', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = x.holdings.filter(function (q) { return q.instrumentId !== ins.id; }); if (x.history && x.history.basis === 'actual') x.edited = true; if (ws.prefs.selectedRow === key) ws.prefs.selectedRow = parts[0]; }, { type: 'edit' });
+          UI.toast(ins.name + ' removed. ' + (cat0 ? cat0.name + ' is now ' + F.num(E.categoryTargets(S.active())[parts[0]]) + '% (was ' + F.num(was) + '%).' : ''), { action: { label: 'Undo', fn: S.undo } });
         } }];
     }
     UI.menu(btn, items, { align: 'end' });

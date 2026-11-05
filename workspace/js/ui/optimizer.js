@@ -72,7 +72,7 @@
       (s.bandOn ? '<div class="op-field"><label for="op-band">Within ±</label><span class="op-in"><input type="text" inputmode="decimal" id="op-band" data-fkey="op-band" value="' + esc(s.band) + '" autocomplete="off"><i>pp</i></span></div>' : '') +
       '<label class="switch"><input type="checkbox" id="op-idx" data-fkey="op-idx"' + (s.useIndices ? ' checked' : '') + '><span class="track"></span><span>Use category indices</span></label>' +
       '<label class="switch"><input type="checkbox" id="op-all" data-fkey="op-all"' + (s.includeAll ? ' checked' : '') + '><span class="track"></span><span>Include categories not held</span></label>' +
-      '<div class="field-hint">' + (s.useIndices ? 'Each held category’s index can take weight from its products.' : 'Products are re-weighted; a category’s index joins only where it already holds weight at index level.') + ' The total stays at ' + F.num(E.allocated(a)) + '%.</div></div>';
+      '<div class="field-hint">' + (s.useIndices ? 'Each held category’s index can take weight from its products.' : 'The holdings are re-weighted; no index is added.') + ' The total stays at ' + F.num(E.allocated(a)) + '%.</div></div>';
     var go = '<div class="op-go"><button type="button" class="btn btn-primary" id="op-run" data-fkey="op-run"' + (s.running || (s.objective === 'active' && !bm) ? ' disabled' : '') + '>' + I.target + '<span>' + (s.running ? 'Optimising…' : 'Optimise') + '</span></button>' + (s.result ? '<button type="button" class="btn btn-ghost btn-sm" id="op-clear" data-fkey="op-clear">Clear result</button>' : '') + '</div>';
     return '<div class="op">' + nowLine + obj + cons + go + '<div id="op-result">' + resultHtml(a, s) + '</div></div>';
   };
@@ -174,15 +174,15 @@
   function apply(a, s) {
     var r = s.result, next = E.applyOptimized(a, r.assets);
     if (!a.leverage && E.allocated(next) > 100.0001) { UI.toast('That takes ' + a.name + ' above 100%.', { kind: 'error' }); return; }
-    S.update(a.name + ' · optimised: ' + describe(r), function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = next.holdings; x.categories = next.categories; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
+    S.update(a.name + ' · optimised: ' + describe(r), function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = next.holdings; if (x.history && x.history.basis === 'actual') x.edited = true; }, { type: 'edit' });
     s.result = null;
     UI.toast(a.name + ' re-weighted: ' + describe(r) + '.', { action: { label: 'Undo', fn: S.undo } });
     U.announce(a.name + ' re-weighted. Analytics updating.');
   }
   function saveAsNew(a, s) {
     var r = s.result, next = E.applyOptimized(a, r.assets);
-    var holdings = next.holdings.filter(function (h) { return Math.abs(h.weight) > 1e-9; }).map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight }; });
-    UI.dialogs.createAllocation({ name: a.name + ' · optimised', benchmarkId: a.benchmarkId, leverage: a.leverage, holdings: holdings, categories: next.categories, origin: 'optimised', note: 'Optimised from ' + a.name + ': ' + describe(r), compare: true });
+    var holdings = next.holdings.filter(function (h) { return Math.abs(h.weight) > 1e-9; }).map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight, categoryId: E.categoryOf(h) }; });
+    UI.dialogs.createAllocation({ name: a.name + ' · optimised', benchmarkId: a.benchmarkId, leverage: a.leverage, holdings: holdings, origin: 'optimised', note: 'Optimised from ' + a.name + ': ' + describe(r), compare: true });
     s.result = null;
   }
 })();

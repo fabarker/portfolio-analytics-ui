@@ -80,7 +80,8 @@
                             calendar:[{year, ret, partial}], stressReturns:[{id, ret, reason}],
                             rolling:{ret12, vol36}, coverage}],
                    correlation:(number|null)[][]}     monthly-return correlations between the allocations
-   BreakdownResponse {categories:[{id,name,color}], series:[{allocationId, allocated, categories:[{id, target, implemented, remainder, over, products:[{instrumentId, name, weight, sleeveRef}]}]}]}
+   BreakdownResponse {categories:[{id,name,color}], series:[{allocationId, allocated, categories:[{id, target, implemented, products:[{instrumentId, name, weight, sleeveRef}]}]}]}
+                    target = implemented = the sum of the category's holdings (remainder 0, over false; kept for older clients)
    ProjectionRequest {allocations, rowKey, scenario, horizon, confidence, basis:'standalone'|'contribution'}
    ProjectionResponse{unit, series:[{allocationId, inScope, years, central, bands:[{level, low, high}], mu, vol, start}]}
    ScenarioRequest {allocations, rowKey, metric, riskUnits, factor, scenarios:Scenario[]}
@@ -165,12 +166,14 @@
   /** The holdings an active or factor-risk request measures: the whole
       allocation (its effective holdings), or one row rescaled to 100. */
   function subjectOf(alloc, rowKey) {
-    if (!rowKey || rowKey === '__total') { var hs = E.effective(alloc); return hs.length ? { holdings: hs.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight }; }), returnsFrom: function (f, t) { var r = E.rowReturns(alloc, '__total', f, t); return r ? r.returns : E.backtest(hs, f, t).returns; } } : null; }
+    if (!rowKey || rowKey === '__total') { var hs = E.effective(alloc); return hs.length ? { holdings: hs.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight, categoryId: h.categoryId }; }), returnsFrom: function (f, t) { var r = E.rowReturns(alloc, '__total', f, t); return r ? r.returns : E.backtest(hs, f, t).returns; } } : null; }
     var list = E.holdingsFor(alloc, rowKey), W = U.sum(list, function (h) { return h.weight; });
     if (!list.length || Math.abs(W) < 1e-9) return null;
-    return { holdings: list.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight / W * 100 }; }) };
+    return { holdings: list.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight / W * 100, categoryId: h.categoryId }; }) };
   }
-  function basketOf(categoryId) { var c = D.categoryById[categoryId], tot = U.sum(c.index, function (p) { return p[1]; }); return c.index.map(function (p) { return { instrumentId: p[0], weight: p[1] / tot * 100 }; }); }
+  function basketOf(categoryId) { var c = D.categoryById[categoryId]; if (!c || !c.index || !c.index.length) return null; var tot = U.sum(c.index, function (p) { return p[1]; }); return c.index.map(function (p) { return { instrumentId: p[0], weight: p[1] / tot * 100 }; }); }
+  /** A category's index basket as a reference, or the reason there is none (a category the user added has no index). */
+  function indexOf(categoryId, note) { var b = basketOf(categoryId), c = D.categoryById[categoryId]; return b ? { holdings: b, label: c.short + ' Index', kind: 'index', note: note } : { label: null, reason: (c ? c.name : 'This category') + ' has no category index' }; }
   function scaled(list) { var W = U.sum(list, function (h) { return h.weight; }); return Math.abs(W) < 1e-9 ? null : list.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight / W * 100 }; }); }
   /**
    * What a subject is measured against. mode 'reference' follows the context
@@ -183,10 +186,10 @@
   function benchmarkFor(alloc, req) {
     var mode = (req.against && req.against.mode) || 'reference', key = req.rowKey && req.rowKey !== '__total' ? req.rowKey : null, parts = key ? key.split('/') : null;
     var ownOfRow = function () {
-      if (parts.length === 1 || parts[1] === '__index') return { holdings: basketOf(parts[0]), label: D.categoryById[parts[0]].short + ' Index', kind: 'index' };
+      if (parts.length === 1) return indexOf(parts[0]);
       var ins = D.instrumentById[parts[1]];
       if (ins.benchmarkId) return { holdings: [{ instrumentId: ins.benchmarkId, weight: 100 }], label: D.instrumentById[ins.benchmarkId].name, kind: 'product benchmark' };
-      return { holdings: basketOf(parts[0]), label: D.categoryById[parts[0]].short + ' Index', kind: 'index', note: ins.name + ' has no stated benchmark; its category index is used' };
+      return indexOf(parts[0], ins.name + ' has no stated benchmark; its category index is used');
     };
     if (mode === 'pick') {
       var ref = (req.against && req.against.ref) || {};
@@ -198,7 +201,7 @@
     }
     if (mode === 'own') {
       if (key) return ownOfRow();
-      if (alloc.kind === 'sleeve' && alloc.sleeve) return { holdings: basketOf(alloc.sleeve.categoryId), label: D.categoryById[alloc.sleeve.categoryId].short + ' Index', kind: 'index', note: 'A sleeve is measured against its category index' };
+      if (alloc.kind === 'sleeve' && alloc.sleeve) return indexOf(alloc.sleeve.categoryId, 'A sleeve is measured against its category index');
       if (!alloc.benchmarkId) return { label: null, reason: 'No benchmark assigned to ' + alloc.name };
       var ob = D.benchmarkById[alloc.benchmarkId]; return ob ? { holdings: ob.holdings, label: ob.name, kind: 'benchmark' } : { label: null, reason: 'Benchmark not found' };
     }
@@ -206,8 +209,8 @@
     var full = r.alloc.kind === 'benchmark' ? r.alloc.holdings : E.effective(r.alloc);
     if (!key) return { holdings: full.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight }; }), label: r.label, kind: r.alloc.kind === 'benchmark' ? 'benchmark' : 'allocation' };
     var cut = scaled(E.holdingsFor(r.alloc.kind === 'benchmark' ? { holdings: r.alloc.holdings } : r.alloc, key));
-    if (cut) return { holdings: cut, label: r.label + ' · ' + (parts.length > 1 && parts[1] !== '__index' ? D.instrumentById[parts[1]].name : D.categoryById[parts[0]].short), kind: 'reference row' };
-    var own = ownOfRow(); own.note = r.label + ' holds nothing in this row; ' + own.label + ' is used'; return own;
+    if (cut) return { holdings: cut, label: r.label + ' · ' + (parts.length > 1 ? D.instrumentById[parts[1]].name : D.categoryById[parts[0]].short), kind: 'reference row' };
+    var own = ownOfRow(); if (own.holdings) own.note = r.label + ' holds nothing in this row; ' + own.label + ' is used'; return own;
   }
   function resolvePeriod(allocations, period) {
     var H = D.history, end = H.end, starts = allocations.map(function (a) { return E.historyBasis(a).start; });
@@ -234,8 +237,8 @@
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); return store; } } } catch (e) { /* storage unavailable */ }
-      store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks);
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
+      store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace);
       return store;
     }
     function fresh() {
@@ -260,7 +263,7 @@
           var now = new Date().toISOString();
           if (!input.currency || !D.currencyByCode[input.currency]) throw { code: 'invalid', message: 'Choose a reporting currency' };
           var ws = { id: U.uid('ws'), name: input.name || 'Untitled workspace', description: input.description || '', currency: input.currency, owner: 'F. Barker', createdAt: now, updatedAt: now,
-            allocations: [], comparison: { members: [], activeId: null, referenceMode: 'shared', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
+            categories: D.defaultCategories(), allocations: [], comparison: { members: [], activeId: null, referenceMode: 'shared', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
             scenarios: [], activeScenarioId: null, cards: U.clone(D.workspaces[0].cards), prefs: U.clone(D.workspaces[0].prefs), activity: [{ at: now, type: 'create', label: 'Workspace created' }] };
           ws.prefs.emphasis = []; ws.prefs.selectedRow = 'public_equity';
           load().workspaces.unshift(ws); persist(); return U.clone(ws);

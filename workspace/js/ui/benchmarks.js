@@ -29,7 +29,7 @@
   BM.baseId = function (id) { var b = id && D.benchmarkById[id]; return b ? (b.source === 'custom' ? b.customId : b.id) : null; };
 
   /* ── the category mix of a holding list ──────────────────────────── */
-  BM.mix = function (holdings) { var w = E.categoryWeights(holdings || []); return D.categories.filter(function (c) { return Math.abs(w[c.id]) > 1e-9; }).map(function (c) { return { id: c.id, short: c.short, color: c.color, weight: w[c.id] }; }); };
+  BM.mix = function (holdings) { var w = E.categoryWeights(holdings || []); return D.taxonomy.filter(function (c) { return Math.abs(w[c.id]) > 1e-9; }).map(function (c) { return { id: c.id, short: c.short, color: c.color, weight: w[c.id] }; }); };
   BM.mixBar = function (holdings, cls) {
     var m = BM.mix(holdings), tot = U.sum(m, function (x) { return Math.max(0, x.weight); }) || 1;
     return '<span class="bm-mix' + (cls ? ' ' + cls : '') + '" role="img" aria-label="' + esc('By category: ' + m.map(function (x) { return x.short + ' ' + F.num(x.weight, 0) + '%'; }).join(', ')) + '">' + m.map(function (x) { return '<i style="flex:' + Math.max(0, x.weight) / tot + ';background:' + x.color + '" data-tip="' + esc(x.short + ' ' + F.num(x.weight, 1) + '%') + '"></i>'; }).join('') + '</span>';

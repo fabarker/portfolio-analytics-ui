@@ -13,7 +13,6 @@
   Dg.createAllocation = function (spec) { return createAllocation(spec); };
   function nextColor() { var used = S.ws.allocations.map(function (a) { return a.color; }); for (var i = 1; i <= 6; i++) if (used.indexOf('cat-' + i) < 0) return 'cat-' + i; return 'cat-' + ((S.ws.allocations.length % 6) + 1); }
   function mkHoldings(pairs) { return pairs.map(function (p) { return { id: U.uid('h'), instrumentId: p[0], weight: p[1] }; }); }
-  function targetsFor(holdings) { var t = {}; holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) t[c] = U.round((t[c] || 0) + h.weight, 4); }); return t; }
   function benchmarkOptions(sel) {
     var opt = function (b) { var v = b.source === 'custom' ? b.customId + '@' + b.version : b.id; return '<option value="' + esc(v) + '"' + (sel === v || sel === b.id ? ' selected' : '') + '>' + esc(b.name) + '</option>'; };
     var cus = D.benchmarks.filter(function (b) { return b.source === 'custom'; });
@@ -22,7 +21,8 @@
 
   function createAllocation(spec) {
     var id = U.uid('al'), ws = S.ws;
-    var a = { id: id, name: spec.name, kind: 'live', color: nextColor(), benchmarkId: spec.benchmarkId || null, leverage: !!spec.leverage, history: { basis: 'backtest', inception: new Date().toISOString().slice(0, 7) }, edited: false, note: spec.note || '', categories: spec.categories || targetsFor(spec.holdings), holdings: spec.holdings };
+    var a = { id: id, name: spec.name, kind: 'live', color: nextColor(), benchmarkId: spec.benchmarkId || null, leverage: !!spec.leverage, history: { basis: 'backtest', inception: new Date().toISOString().slice(0, 7) }, edited: false, note: spec.note || '', holdings: spec.holdings };
+    E.normalizeAllocation(a);
     S.update('Allocation “' + a.name + '” created (' + spec.origin + ')', function (w) { w.allocations.push(a); if (spec.compare && w.comparison.members.length < 6) { w.comparison.members.push(id); if (w.prefs.emphasis.indexOf(id) < 0) w.prefs.emphasis.push(id); } w.comparison.activeId = id; }, { type: 'create', detail: spec.detail || null });
     UI.toast('“' + a.name + '” is open in the builder.' + (spec.compare && ws.comparison.members.length >= 6 && ws.comparison.members.indexOf(id) < 0 ? ' The comparison is full, so it was not added as a column.' : ''));
     return a;
@@ -33,7 +33,7 @@
     var origin = 'blank', importRows = null;
     var body = '<div class="doors" role="group" aria-label="Starting point">' + [['blank', 'Blank', 'Start with empty categories'], ['template', 'Template', 'A strategic starting point'], ['clone', 'Clone existing', 'A working copy of an allocation'], ['import', 'Import weights', 'Paste and map a weight list']].map(function (d) { return '<button type="button" class="door" data-origin="' + d[0] + '" aria-pressed="' + (d[0] === origin) + '"><b>' + d[1] + '</b><span>' + d[2] + '</span></button>'; }).join('') + '</div>' +
       '<div class="dlg-grid"><div class="field"><label for="na-name">Name</label><input type="text" id="na-name" maxlength="60" placeholder="e.g. Growth Tilt v2"></div><div class="field"><label for="na-bm">Benchmark</label><select id="na-bm">' + benchmarkOptions('bm_6040') + '</select></div><div class="wide" id="na-origin"></div><label class="check wide"><input type="checkbox" id="na-compare" checked> Add to the comparison</label></div>';
-    UI.openDialog({ title: 'New allocation', sub: 'Blank, template, clone and import all open in the same workspace. Category targets start equal to the products; raise a target to model the rest at index level.', body: body, wide: true, initialFocus: '#na-name',
+    UI.openDialog({ title: 'New allocation', sub: 'Blank, template, clone and import all open in the same workspace. Each category’s weight is the sum of the products and indices in it.', body: body, wide: true, initialFocus: '#na-name',
       actions: [{ label: 'Cancel', ghost: true }, { label: 'Create allocation', primary: true, onClick: function (c) { return submit(c); }, close: false }],
       onOpen: function (dlg) { U.on(dlg, 'click', '[data-origin]', function (e, b) { origin = b.dataset.origin; U.$$('[data-origin]', dlg).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); renderOrigin(dlg); }); renderOrigin(dlg); } });
     function renderOrigin(dlg) {
@@ -80,7 +80,7 @@
       if (!name) { U.$('#na-name', dlg).setAttribute('aria-invalid', 'true'); U.$('#na-name', dlg).focus(); UI.toast('Give the allocation a name.', { kind: 'error' }); return false; }
       var spec = { name: name, benchmarkId: bm, compare: compare, origin: origin, holdings: [] };
       if (origin === 'template') { var t = D.templates.filter(function (x) { return x.id === U.$('#na-tpl', dlg).value; })[0]; spec.holdings = mkHoldings(t.holdings); spec.detail = 'From template ' + t.name; }
-      if (origin === 'clone') { var v = U.$('#na-src', dlg).value, src = v.indexOf('al:') === 0 ? S.allocation(v.slice(3)) : D.benchmarkById[v.slice(3)]; spec.holdings = src.holdings.map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight, sleeveRef: h.sleeveRef }; }); spec.categories = U.clone(E.categoryTargets(src)); spec.leverage = !!src.leverage; spec.detail = 'Cloned from ' + src.name; if (!bm && src.benchmarkId) spec.benchmarkId = src.benchmarkId; }
+      if (origin === 'clone') { var v = U.$('#na-src', dlg).value, src = v.indexOf('al:') === 0 ? S.allocation(v.slice(3)) : D.benchmarkById[v.slice(3)]; spec.holdings = src.holdings.map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight, categoryId: h.categoryId, sleeveRef: h.sleeveRef }; }); spec.leverage = !!src.leverage; spec.detail = 'Cloned from ' + src.name; if (!bm && src.benchmarkId) spec.benchmarkId = src.benchmarkId; }
       if (origin === 'import') {
         if (!importRows || !importRows.length) { UI.toast('Paste some weights first.', { kind: 'error' }); return false; }
         var bad = importRows.filter(function (r) { return r.error || !r.instrumentId; }); if (bad.length) { UI.toast('Resolve the ' + bad.length + ' unmatched or invalid row' + (bad.length === 1 ? '' : 's') + ' before loading.', { kind: 'error' }); return false; }
@@ -112,7 +112,7 @@
       actions: [{ label: 'Cancel', ghost: true }, { label: 'Create snapshot', primary: true, close: false, onClick: function (c) {
         var name = U.$('#sn-name', c.el).value.trim(); if (!name) { U.$('#sn-name', c.el).setAttribute('aria-invalid', 'true'); return false; }
         var id = U.uid('al'), compare = U.$('#sn-compare', c.el).checked, note = U.$('#sn-note', c.el).value.trim();
-        S.update('Snapshot “' + name + '” created', function (ws) { ws.allocations.push({ id: id, name: name, kind: 'snapshot', color: nextColor(), benchmarkId: alloc.benchmarkId, leverage: alloc.leverage, history: { basis: 'backtest', inception: now.toISOString().slice(0, 7) }, edited: false, sourceId: alloc.id, capturedAt: now.toISOString(), note: note || 'Captured from ' + alloc.name, categories: U.clone(E.categoryTargets(alloc)), holdings: U.clone(alloc.holdings) }); if (compare && ws.comparison.members.length < 6) { ws.comparison.members.push(id); ws.prefs.emphasis.push(id); } }, { type: 'snapshot', detail: 'From ' + alloc.name });
+        S.update('Snapshot “' + name + '” created', function (ws) { ws.allocations.push({ id: id, name: name, kind: 'snapshot', color: nextColor(), benchmarkId: alloc.benchmarkId, leverage: alloc.leverage, history: { basis: 'backtest', inception: now.toISOString().slice(0, 7) }, edited: false, sourceId: alloc.id, capturedAt: now.toISOString(), note: note || 'Captured from ' + alloc.name, holdings: U.clone(alloc.holdings) }); if (compare && ws.comparison.members.length < 6) { ws.comparison.members.push(id); ws.prefs.emphasis.push(id); } }, { type: 'snapshot', detail: 'From ' + alloc.name });
         UI.toast('Snapshot “' + name + '” created. Later edits to ' + alloc.name + ' will not change it.'); c.close(true); return false;
       } }] });
   };
@@ -120,12 +120,12 @@
     var isSleeve = snap.kind === 'sleeve';
     UI.prompt({ title: isSleeve ? 'Make an editable copy' : 'Create draft from snapshot', sub: isSleeve ? 'A new live allocation with the sleeve’s products and weights, tagged with the sleeve and version. The sleeve and its column stay as they are.' : 'A new editable allocation with the snapshot’s weights. The snapshot itself stays fixed.', label: 'Draft name', value: snap.name.replace(/ · .*$/, '') + ' draft', confirmLabel: 'Create draft' }).then(function (name) {
       if (!name) return;
-      createAllocation({ name: name, benchmarkId: snap.benchmarkId, compare: true, origin: 'restored from snapshot', holdings: U.clone(snap.holdings).map(function (h) { h.id = U.uid('h'); return h; }), categories: U.clone(E.categoryTargets(snap)), leverage: snap.leverage, detail: 'From ' + snap.name });
+      createAllocation({ name: name, benchmarkId: snap.benchmarkId, compare: true, origin: 'restored from snapshot', holdings: U.clone(snap.holdings).map(function (h) { h.id = U.uid('h'); return h; }), leverage: snap.leverage, detail: 'From ' + snap.name });
     });
   };
   Dg.benchmarkAsMember = function (bm) {
     var now = new Date(), id = U.uid('al');
-    S.update('Benchmark “' + bm.name + '” added as a fixed column', function (ws) { ws.allocations.push({ id: id, name: bm.name, kind: 'snapshot', color: nextColor(), benchmarkId: null, leverage: false, history: { basis: 'backtest', inception: now.toISOString().slice(0, 7) }, edited: false, sourceId: bm.id, capturedAt: now.toISOString(), note: 'Benchmark composition as published', categories: targetsFor(bm.holdings), holdings: bm.holdings.map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight }; }) }); if (ws.comparison.members.length < 6) { ws.comparison.members.push(id); ws.prefs.emphasis.push(id); } }, { type: 'member' });
+    S.update('Benchmark “' + bm.name + '” added as a fixed column', function (ws) { ws.allocations.push({ id: id, name: bm.name, kind: 'snapshot', color: nextColor(), benchmarkId: null, leverage: false, history: { basis: 'backtest', inception: now.toISOString().slice(0, 7) }, edited: false, sourceId: bm.id, capturedAt: now.toISOString(), note: 'Benchmark composition as published', holdings: bm.holdings.map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight }; }) }); if (ws.comparison.members.length < 6) { ws.comparison.members.push(id); ws.prefs.emphasis.push(id); } }, { type: 'member' });
   };
   Dg.renameAllocation = function (a) { UI.prompt({ title: 'Rename allocation', label: 'Name', value: a.name }).then(function (n) { if (n && n !== a.name) S.update('“' + a.name + '” renamed to “' + n + '”', function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].name = n; }, { type: 'rename' }); }); };
   Dg.assignBenchmark = function (a) { UI.benchmarks.assign(a); };

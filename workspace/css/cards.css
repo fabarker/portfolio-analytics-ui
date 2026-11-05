@@ -393,3 +393,18 @@
 .tbl.hl-m td.lead{font-weight:700}
 .tbl.hl-m td.hl-d{color:var(--ink-2)}
 .tbl.hl-m td.hl-d .pos{color:var(--ink)}
+
+/* Categories: drag to reorder, add a category */
+.tree > li.depth-0{position:relative}
+.tree-row.depth-0 .tdrag{position:absolute;left:-15px;top:50%;transform:translateY(-50%);width:13px;height:22px;display:grid;place-items:center;color:var(--rail-ink-3);cursor:grab;opacity:0;transition:opacity var(--fast)}
+.tree-row.depth-0 .tdrag svg{width:12px;height:12px}
+.tree-row.depth-0:hover .tdrag,.tree-row.depth-0:focus-within .tdrag{opacity:1}
+@media (hover:none){.tree-row.depth-0 .tdrag{opacity:.6}}
+.tree > li.is-dragging{opacity:.45}
+.tree > li.drop-before::before,.tree > li.drop-after::after{content:"";position:absolute;left:0;right:0;height:2px;background:var(--rail-accent);border-radius:1px;z-index:2}
+.tree > li.drop-before::before{top:-1px}
+.tree > li.drop-after::after{bottom:-1px}
+.tree-addcat{display:flex;align-items:center;gap:6px;width:100%;margin-top:8px;padding:7px 8px;border:1px dashed var(--rail-line);border-radius:6px;background:transparent;color:var(--rail-ink-2);font-size:13px;cursor:pointer;text-align:left}
+.tree-addcat svg{width:12px;height:12px}
+.tree-addcat:hover,.tree-addcat:focus-visible{border-color:var(--rail-qa-line,var(--rail-accent));color:var(--rail-accent);background:var(--rail-selected)}
+.tree-addcat:focus-visible{outline:2px solid var(--rail-focus);outline-offset:1px}

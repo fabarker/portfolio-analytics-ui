@@ -21,6 +21,8 @@
 
   var listeners = [];
   S.ws = null;
+  /* the category list every category view reads is the open workspace's */
+  PA.data.categorySource = function () { return S.ws ? S.ws.categories : null; };
   S.session = {
     save: { state: 'idle', at: null, error: null },
     revision: 0,
@@ -70,8 +72,8 @@
   S.card = function (id) { return S.ws ? S.ws.cards.filter(function (c) { return c.id === id; })[0] || null : null; };
 
   /* ── undoable updates ────────────────────────────────────────────── */
-  function undoSnapshot() { var w = S.ws; return JSON.stringify({ allocations: w.allocations, comparison: w.comparison, scenarios: w.scenarios, activeScenarioId: w.activeScenarioId, cards: w.cards, currency: w.currency }); }
-  function applySnapshot(json) { var s = JSON.parse(json); S.ws.allocations = s.allocations; S.ws.comparison = s.comparison; S.ws.scenarios = s.scenarios; S.ws.activeScenarioId = s.activeScenarioId; S.ws.cards = s.cards; if (s.currency) S.ws.currency = s.currency; }
+  function undoSnapshot() { var w = S.ws; return JSON.stringify({ categories: w.categories, allocations: w.allocations, comparison: w.comparison, scenarios: w.scenarios, activeScenarioId: w.activeScenarioId, cards: w.cards, currency: w.currency }); }
+  function applySnapshot(json) { var s = JSON.parse(json); if (s.categories) S.ws.categories = s.categories; S.ws.allocations = s.allocations; S.ws.comparison = s.comparison; S.ws.scenarios = s.scenarios; S.ws.activeScenarioId = s.activeScenarioId; S.ws.cards = s.cards; if (s.currency) S.ws.currency = s.currency; }
   /**
    * Apply a mutation to the workspace. fn receives the live ws object.
    * opts: {type, detail, activity:false (skip the log), history:false (no undo

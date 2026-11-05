@@ -6,13 +6,14 @@
 
    Conventions the UI relies on (a backend must keep them):
    - weights are percentages of the total portfolio; sums need not be 100
-   - a category has a target weight; products implement it; the unimplemented
-     remainder is modelled by the category's index basket ("index level")
+   - a category's weight is the sum of the products and indices in it; each
+     holding records its category (categoryId), defaulting to the instrument's
+     home category
    - unallocated weight earns nothing and carries no risk; it is never
      treated as cash unless a cash instrument is held
    - a null value means "unavailable" and carries a reason; 0 means zero
    - rows are keyed: '<categoryId>', '<categoryId>/<instrumentId>',
-     '<categoryId>/__index', '__residual', '__total'
+     '__residual', '__total'
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -70,70 +71,100 @@
   };
 
   /* ── structure: portfolio → category → product ───────────────────── */
-  E.categoryOf = function (instrumentId) { var c = D.categoryOf(instrumentId); return c ? c.id : null; };
-  E.productsIn = function (allocation, categoryId) { return (allocation.holdings || []).filter(function (h) { return E.categoryOf(h.instrumentId) === categoryId; }); };
+  /** The category of a holding (its categoryId, else its instrument's home category), or of an instrument id. */
+  E.categoryOf = function (x) {
+    if (x && typeof x === 'object') { if (x.categoryId) return x.categoryId; x = x.instrumentId; }
+    var c = D.categoryOf(x); return c ? c.id : null;
+  };
+  E.productsIn = function (allocation, categoryId) { return (allocation.holdings || []).filter(function (h) { return E.categoryOf(h) === categoryId; }); };
 
-  /** Category target weights. Allocations without explicit targets (benchmarks) use their product sums. */
+  /** Category weights: each category is the sum of the holdings in it. */
   E.categoryTargets = function (allocation) {
     var t = {};
-    D.categories.forEach(function (c) {
-      var sum = U.sum(E.productsIn(allocation, c.id), function (h) { return h.weight; });
-      t[c.id] = allocation.categories && allocation.categories[c.id] != null ? allocation.categories[c.id] : U.round(sum, 4);
-    });
+    D.categories.forEach(function (c) { t[c.id] = U.round(U.sum(E.productsIn(allocation, c.id), function (h) { return h.weight; }), 4); });
     return t;
   };
 
   /**
-   * Effective holdings: the products plus, for every category whose target
-   * exceeds its products, virtual holdings of the category's index basket
-   * standing in for the unimplemented remainder.
+   * Rescale holdings in place so their weights sum to `total` (%), pro rata to
+   * their current weights; equally when they currently sum to zero. Two
+   * decimals, with any rounding difference on the largest holding.
    */
+  E.scaleTo = function (holdings, total) {
+    if (!holdings.length) return holdings;
+    var sum = U.sum(holdings, function (h) { return h.weight; });
+    holdings.forEach(function (h) { h.weight = U.round(Math.abs(sum) > 1e-9 ? h.weight * total / sum : total / holdings.length, 2); });
+    var diff = U.round(total - U.sum(holdings, function (h) { return h.weight; }), 2);
+    if (Math.abs(diff) > 1e-9) { var big = holdings.reduce(function (m, h) { return Math.abs(h.weight) > Math.abs(m.weight) ? h : m; }, holdings[0]); big.weight = U.round(big.weight + diff, 2); }
+    return holdings;
+  };
+
+  /** The holdings the analytics measure, each with its category. */
   E.effective = function (allocation) {
-    var out = (allocation.holdings || []).slice(), t = E.categoryTargets(allocation);
-    D.categories.forEach(function (c) {
-      var impl = U.sum(E.productsIn(allocation, c.id), function (h) { return h.weight; });
-      var rem = U.round(t[c.id] - impl, 4);
-      if (rem <= 1e-9) return;
-      var tot = U.sum(c.index, function (p) { return p[1]; });
-      c.index.forEach(function (p) { out.push({ id: '__ix_' + c.id + '_' + p[0], instrumentId: p[0], weight: U.round(rem * p[1] / tot, 4), virtual: true, categoryId: c.id }); });
-    });
-    return out;
+    return (allocation.holdings || []).map(function (h) { return h.categoryId ? h : Object.assign({}, h, { categoryId: E.categoryOf(h) }); });
   };
 
   /** The builder's view of one allocation. */
   E.tree = function (allocation) {
-    var t = E.categoryTargets(allocation);
     return D.categories.map(function (c) {
       var products = E.productsIn(allocation, c.id), impl = U.round(U.sum(products, function (h) { return h.weight; }), 4);
       var refs = products.map(function (h) { return h.sleeveRef ? h.sleeveRef.sleeveId + '@' + h.sleeveRef.version : null; });
       var sleeveRef = products.length && refs.every(function (r) { return r && r === refs[0]; }) ? products[0].sleeveRef : null;
-      return { id: c.id, name: c.name, short: c.short, color: c.color, target: t[c.id], products: products, implemented: impl, remainder: U.round(t[c.id] - impl, 4), over: impl > t[c.id] + 1e-9, sleeveRef: sleeveRef };
+      return { id: c.id, name: c.name, short: c.short, color: c.color, custom: !!c.custom, target: impl, products: products, implemented: impl, remainder: 0, over: false, sleeveRef: sleeveRef };
     });
   };
-  /** Σ over categories of max(target, products): what the portfolio has committed. */
-  E.allocated = function (allocation) { var t = E.categoryTargets(allocation); return U.round(U.sum(D.categories, function (c) { return Math.max(t[c.id], U.sum(E.productsIn(allocation, c.id), function (h) { return h.weight; })); }), 4); };
+  /** What the portfolio has committed: the sum of its weights. */
+  E.allocated = function (allocation) { return U.round(U.sum(allocation.holdings || [], function (h) { return h.weight; }), 4); };
   E.gross = function (allocation) { return U.sum(E.effective(allocation), function (h) { return Math.abs(h.weight); }); };
   E.net = function (allocation) { return U.sum(E.effective(allocation), function (h) { return h.weight; }); };
 
-  /** The union of rows across several allocations, in display order. */
+  /** The union of rows across several allocations, in the workspace's category order. */
   E.rows = function (allocations) {
     var rows = [];
     D.categories.forEach(function (c) {
-      var ids = [], anyIndex = false, any = false;
+      var ids = [], any = false;
       allocations.forEach(function (a) {
-        var t = E.categoryTargets(a)[c.id], ps = E.productsIn(a, c.id);
-        if (t > 1e-9 || ps.length) any = true;
+        var ps = E.productsIn(a, c.id);
+        if (ps.length) any = true;
         ps.forEach(function (h) { if (ids.indexOf(h.instrumentId) < 0) ids.push(h.instrumentId); });
-        if (t - U.sum(ps, function (h) { return h.weight; }) > 1e-9) anyIndex = true;
       });
       if (!any) return;
-      rows.push({ key: c.id, label: c.name, depth: 0, kind: 'category', parent: null, categoryId: c.id, hasChildren: ids.length > 0 || anyIndex });
+      rows.push({ key: c.id, label: c.name, depth: 0, kind: 'category', parent: null, categoryId: c.id, hasChildren: ids.length > 0 });
       ids.forEach(function (iid) { var ins = D.instrumentById[iid]; rows.push({ key: c.id + '/' + iid, label: ins.name, depth: 1, kind: 'holding', parent: c.id, categoryId: c.id, instrumentId: iid, instrument: ins }); });
-      if (anyIndex) rows.push({ key: c.id + '/__index', label: c.short + ' Index', depth: 1, kind: 'index', parent: c.id, categoryId: c.id, note: 'The unimplemented part of the category, modelled by its index basket: ' + c.index.map(function (p) { return D.instrumentById[p[0]].name + ' ' + p[1] + '%'; }).join(', ') });
     });
     rows.push({ key: '__residual', label: 'Unallocated', depth: 0, kind: 'residual', parent: null });
     rows.push({ key: '__total', label: 'Portfolio total', depth: 0, kind: 'total', parent: null });
     return rows;
+  };
+
+  /**
+   * Bring a stored allocation to the current shape: every holding records its
+   * category, and any weight a category held beyond its products (the former
+   * index-level remainder) becomes explicit holdings of the category's index
+   * basket, so the figures are unchanged. Idempotent.
+   */
+  E.normalizeAllocation = function (a) {
+    (a.holdings || []).forEach(function (h) { if (!h.categoryId) h.categoryId = E.categoryOf(h.instrumentId); });
+    if (a.categories) {
+      Object.keys(a.categories).forEach(function (cid) {
+        var c = D.taxonomyById[cid], ps = (a.holdings || []).filter(function (h) { return h.categoryId === cid; });
+        var rem = U.round(a.categories[cid] - U.sum(ps, function (h) { return h.weight; }), 4);
+        if (rem <= 1e-9 || !c || !c.index.length) return;
+        var tot = U.sum(c.index, function (p) { return p[1]; });
+        c.index.forEach(function (p) {
+          var w = U.round(rem * p[1] / tot, 2), ex = a.holdings.filter(function (h) { return h.instrumentId === p[0]; })[0];
+          if (ex) ex.weight = U.round(ex.weight + w, 2); else a.holdings.push({ id: U.uid('h'), instrumentId: p[0], weight: w, categoryId: cid });
+        });
+      });
+      delete a.categories;
+    }
+    return a;
+  };
+  /** A workspace's category list, defaulting to the taxonomy, and its allocations normalised. */
+  E.normalizeWorkspace = function (ws) {
+    if (!ws.categories || !ws.categories.length) ws.categories = D.defaultCategories();
+    (ws.allocations || []).forEach(E.normalizeAllocation);
+    return ws;
   };
 
   /** Effective holdings of an allocation that belong to a row key. */
@@ -142,9 +173,8 @@
     if (key === '__total') return hs;
     if (key === '__residual') return [];
     var p = key.split('/');
-    if (p.length === 1) return hs.filter(function (h) { return (h.virtual ? h.categoryId : E.categoryOf(h.instrumentId)) === p[0]; });
-    if (p[1] === '__index') return hs.filter(function (h) { return h.virtual && h.categoryId === p[0]; });
-    return hs.filter(function (h) { return !h.virtual && h.instrumentId === p[1] && E.categoryOf(h.instrumentId) === p[0]; });
+    if (p.length === 1) return hs.filter(function (h) { return E.categoryOf(h) === p[0]; });
+    return hs.filter(function (h) { return h.instrumentId === p[1] && E.categoryOf(h) === p[0]; });
   };
 
   /* ── sleeves ─────────────────────────────────────────────────────── */
@@ -160,21 +190,18 @@
   /** Categories a product list spans. */
   E.categoriesOf = function (holdings) { var seen = {}; holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) seen[c] = true; }); return Object.keys(seen); };
   /**
-   * Apply a sleeve version to a category. mode 'fill' replaces the category's
-   * products at the category target; 'remainder' adds the sleeve at the
-   * unimplemented remainder and keeps existing products.
+   * Apply a sleeve version to a category at a weight (% of the portfolio).
+   * mode 'replace' replaces the category's holdings with the sleeve; 'add'
+   * adds the sleeve alongside them. Every sleeve product lands in the category.
    */
-  E.applySleeve = function (allocation, categoryId, sleeve, version, mode) {
-    var t = E.categoryTargets(allocation)[categoryId];
-    var existing = E.productsIn(allocation, categoryId);
-    var scale = mode === 'remainder' ? Math.max(0, t - U.sum(existing, function (h) { return h.weight; })) : t;
-    var next = (allocation.holdings || []).filter(function (h) { return mode === 'remainder' || E.categoryOf(h.instrumentId) !== categoryId; });
+  E.applySleeve = function (allocation, categoryId, sleeve, version, mode, weight) {
+    var next = (allocation.holdings || []).filter(function (h) { return mode === 'add' || E.categoryOf(h) !== categoryId; });
     version.holdings.forEach(function (sh) {
-      var w = U.round(sh.weight / 100 * scale, 2);
+      var w = U.round(sh.weight / 100 * weight, 2);
       var ex = next.filter(function (h) { return h.instrumentId === sh.instrumentId; })[0];
       var ref = { sleeveId: sleeve.id, version: version.v, name: sleeve.name };
       if (ex) { ex.weight = U.round(ex.weight + w, 2); ex.sleeveRef = ref; }
-      else next.push({ id: U.uid('h'), instrumentId: sh.instrumentId, weight: w, sleeveRef: ref });
+      else next.push({ id: U.uid('h'), instrumentId: sh.instrumentId, weight: w, categoryId: categoryId, sleeveRef: ref });
     });
     return next;
   };
@@ -222,7 +249,7 @@
         var s = 0; list.forEach(function (h, k) { s += h.weight * loads[k][f.id]; });
         beta[f.id] = row.kind === 'total' ? s / 100 : s / weight;
       });
-      out.rows[row.key] = { weight: weight, ret: ret, riskShare: share, riskVol: rv, beta: beta, modelNote: E.modelNote(model, list), held: list.length > 0, note: row.kind === 'index' && list.length ? 'Index-modelled remainder' : null };
+      out.rows[row.key] = { weight: weight, ret: ret, riskShare: share, riskVol: rv, beta: beta, modelNote: E.modelNote(model, list), held: list.length > 0, note: null };
     });
     return out;
   };
@@ -263,7 +290,7 @@
     var F = model.factors.map(function (f, i) { return model.factors.map(function (g, j) { return model.factorCorrelation[i][j] * model.factorVol[f.id] * model.factorVol[g.id]; }); });
     return (covCache[model.id] = F);
   }
-  /** Sum weights (%) by instrument; virtual index holdings merge with real holdings of the same index. */
+  /** Sum weights (%) by instrument. */
   E.weightsOf = function (holdings) { var w = {}; holdings.forEach(function (h) { w[h.instrumentId] = (w[h.instrumentId] || 0) + h.weight; }); return w; };
   /**
    * Risk of a weight vector {instrumentId: weight %} (weights may be negative:
@@ -283,11 +310,13 @@
 
   /* ── active (versus a benchmark) ─────────────────────────────────── */
   /** Return of a category's index basket under resolved assumptions. */
-  function basketReturn(c, retOf) { var tot = U.sum(c.index, function (p) { return p[1]; }); return U.sum(c.index, function (p) { return p[1] / tot * retOf(p[0]); }); }
-  /** The groups returns and risk can be attributed to: the rail's categories or the finer asset classes. */
-  function groupsFor(by) {
+  function basketReturn(c, retOf) { if (!c.index || !c.index.length) return null; var tot = U.sum(c.index, function (p) { return p[1]; }); return U.sum(c.index, function (p) { return p[1] / tot * retOf(p[0]); }); }
+  /** The groups returns and risk can be attributed to: the rail's categories or the finer asset classes.
+      catMap {instrumentId: categoryId} places an instrument in the category the subject holds it in. */
+  function groupsFor(by, catMap) {
     if (by === 'assetClass') return D.assetClasses.map(function (ac) { var c = D.categoryById[ac.category]; return { id: ac.id, name: ac.name, short: ac.name, color: c.color, of: function (id) { return D.instrumentById[id].assetClass; }, indexReturn: function (retOf) { return retOf(ac.indexId); } }; });
-    return D.categories.map(function (c) { return { id: c.id, name: c.name, short: c.short, color: c.color, of: E.categoryOf, indexReturn: function (retOf) { return basketReturn(c, retOf); } }; });
+    var of = function (id) { return (catMap && catMap[id]) || E.categoryOf(id); };
+    return D.categories.map(function (c) { return { id: c.id, name: c.name, short: c.short, color: c.color, of: of, indexReturn: function (retOf) { return basketReturn(c, retOf); } }; });
   }
   /**
    * Allocation and selection (Brinson) by category or asset class. Weights in
@@ -295,14 +324,15 @@
    * benchmarked by its index. Unallocated weight earns nothing and appears
    * as its own line, so the effects always sum to the active return.
    */
-  E.brinson = function (wP, wB, retOf, by) {
+  E.brinson = function (wP, wB, retOf, by, catMap) {
     var RB = 0; Object.keys(wB).forEach(function (id) { RB += wB[id] / 100 * retOf(id); });
     var rows = [], sumP = 0, sumB = 0, tA = 0, tS = 0;
-    groupsFor(by).forEach(function (g) {
+    groupsFor(by, catMap).forEach(function (g) {
       var inG = function (w) { var W = 0, R = 0; Object.keys(w).forEach(function (id) { if (g.of(id) !== g.id) return; W += w[id] / 100; R += w[id] / 100 * retOf(id); }); return { W: W, R: R }; };
       var p = inG(wP), b = inG(wB); sumP += p.W; sumB += b.W;
       if (Math.abs(p.W) < 1e-9 && Math.abs(b.W) < 1e-9) return;
-      var RBc = Math.abs(b.W) > 1e-9 ? b.R / b.W : g.indexReturn(retOf), RPc = Math.abs(p.W) > 1e-9 ? p.R / p.W : RBc;
+      var RPown = Math.abs(p.W) > 1e-9 ? p.R / p.W : null, ix = Math.abs(b.W) > 1e-9 ? null : g.indexReturn(retOf);
+      var RBc = Math.abs(b.W) > 1e-9 ? b.R / b.W : ix != null ? ix : (RPown != null ? RPown : 0), RPc = RPown != null ? RPown : RBc;
       var alloc = (p.W - b.W) * (RBc - RB), sel = p.W * (RPc - RBc); tA += alloc; tS += sel;
       rows.push({ key: g.id, label: g.name, short: g.short, color: g.color, weight: p.W * 100, benchWeight: b.W * 100, ret: RPc, benchRet: RBc, allocation: alloc, selection: sel, contribution: alloc + sel });
     });
@@ -350,9 +380,9 @@
     rows.push({ key: '__specific', label: 'Specific (selection)', exposure: null, premium: null, contribution: activeReturn - fac, color: '#c3cedb' });
     return { rows: rows, factor: fac, specific: activeReturn - fac };
   };
-  function sources(riskA, decompose, model) {
+  function sources(riskA, decompose, model, catMap) {
     if (decompose === 'category' || decompose === 'assetClass') {
-      var gs = groupsFor(decompose), byG = {}; Object.keys(riskA.byInstrument).forEach(function (id) { var g = gs[0].of(id); byG[g] = (byG[g] || 0) + riskA.byInstrument[id]; });
+      var gs = groupsFor(decompose, catMap), byG = {}; Object.keys(riskA.byInstrument).forEach(function (id) { var g = gs[0].of(id); byG[g] = (byG[g] || 0) + riskA.byInstrument[id]; });
       return gs.filter(function (g) { return byG[g.id] != null; }).map(function (g) { return { key: g.id, label: g.name, color: g.color, contribution: byG[g.id] }; });
     }
     if (decompose === 'product') {
@@ -368,7 +398,8 @@
    * opts: {modelId, basis:'forward'|'historical', R, period:{start,end}, decompose, returnMethod}
    */
   E.active = function (subject, bench, opts) {
-    var model = E.modelOf(opts.modelId), wP = E.weightsOf(subject.holdings), wB = E.weightsOf(bench.holdings), a = {};
+    var model = E.modelOf(opts.modelId), wP = E.weightsOf(subject.holdings), wB = E.weightsOf(bench.holdings), a = {}, catMap = {};
+    subject.holdings.forEach(function (h) { if (h.categoryId) catMap[h.instrumentId] = h.categoryId; });
     Object.keys(wP).concat(Object.keys(wB)).forEach(function (id) { a[id] = (wP[id] || 0) - (wB[id] || 0); });
     var riskP = E.modelRisk(wP, model.id), riskB = E.modelRisk(wB, model.id), riskA = E.modelRisk(a, model.id);
     /* active share on the asset-class mix: products and the indices they track count as the same exposure */
@@ -376,12 +407,12 @@
     var activeShare = U.sum(Object.keys(byAc), function (k) { return Math.abs(byAc[k]); }) / 2;
     var proxied = Object.keys(a).filter(function (id) { return model.coverage(D.instrumentById[id]); }).map(function (id) { return D.instrumentById[id].name; });
     var by = opts.attribute || opts.decompose || 'factor';
-    var geo = opts.returnMethod === 'geometric', out = { model: model.id, attribute: by, activeShare: activeShare, riskSources: sources(riskA, by, model), specific: by === 'factor' ? riskA.specific : null, modelTE: riskA.total, coverage: proxied.length ? 'Proxied by the category index in ' + model.name + ': ' + proxied.join(', ') : null };
+    var geo = opts.returnMethod === 'geometric', out = { model: model.id, attribute: by, activeShare: activeShare, riskSources: sources(riskA, by, model, catMap), specific: by === 'factor' ? riskA.specific : null, modelTE: riskA.total, coverage: proxied.length ? 'Proxied by the category index in ' + model.name + ': ' + proxied.join(', ') : null };
     /* where the active return comes from, by the same grouping as the risk */
     var attribute = function (retOf, excessOf, arithmetic) {
       if (by === 'product') { var pa = E.productAttribution(wP, wB, retOf); out.returnSources = pa.rows; out.returnTotals = { arithmetic: pa.total, attributed: pa.total }; return; }
       if (by === 'factor') { var fa = E.factorAttribution(riskA.exposure, model, E.impliedPremia(model, excessOf), arithmetic); out.returnSources = fa.rows; out.returnTotals = { arithmetic: arithmetic, factor: fa.factor, specific: fa.specific, attributed: arithmetic }; return; }
-      var br = E.brinson(wP, wB, retOf, by); out.returnSources = br.rows; out.returnTotals = { allocation: br.allocation, selection: br.selection, arithmetic: br.allocation + br.selection, attributed: br.allocation + br.selection };
+      var br = E.brinson(wP, wB, retOf, by, catMap); out.returnSources = br.rows; out.returnTotals = { allocation: br.allocation, selection: br.selection, arithmetic: br.allocation + br.selection, attributed: br.allocation + br.selection };
     };
     var diff = function (p, b) { return geo ? ((1 + p / 100) / (1 + b / 100) - 1) * 100 : p - b; };
     if (opts.basis !== 'historical') {
@@ -653,7 +684,7 @@
     var dens = function (z) { return Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI); }, z95 = 1.6449, z99 = 2.3263;
     var H = opts.horizon || 10, target = opts.target != null ? opts.target : rf + 3;
     var stand = U.sum(hs, function (h, i) { return Math.abs(w[i]) * Math.sqrt(S[i][i]); });
-    var byCat = {}; hs.forEach(function (h, i) { var c = E.categoryOf(h.instrumentId); byCat[c] = (byCat[c] || 0) + (vol > 0 ? w[i] * Sw[i] / vol : 0); });
+    var byCat = {}; hs.forEach(function (h, i) { var c = E.categoryOf(h); byCat[c] = (byCat[c] || 0) + (vol > 0 ? w[i] * Sw[i] / vol : 0); });
     var shares = Object.keys(byCat).map(function (c) { return { id: c, share: vol > 0 ? byCat[c] / vol * 100 : 0 }; });
     var hhi = U.sum(shares, function (x) { return Math.pow(x.share / 100, 2); });
     var ex = E.modelRisk(E.weightsOf(hs), E.stressModel).exposure;
@@ -696,7 +727,7 @@
 
   /* ── structure ───────────────────────────────────────────────────── */
   /** Weight by category (% of the total) of a holding list. */
-  E.categoryWeights = function (holdings) { var out = {}; D.categories.forEach(function (c) { out[c.id] = 0; }); holdings.forEach(function (h) { var c = E.categoryOf(h.instrumentId); if (c) out[c] += h.weight; }); return out; };
+  E.categoryWeights = function (holdings) { var out = {}; D.categories.forEach(function (c) { out[c.id] = 0; }); holdings.forEach(function (h) { var c = E.categoryOf(h); if (c) out[c] = (out[c] || 0) + h.weight; }); return out; };
   /** Look-through currency mix (% of the total, unhedged); cash is in the reporting currency. */
   E.currencyMix = function (holdings) {
     var out = {}, rep = D.reporting;

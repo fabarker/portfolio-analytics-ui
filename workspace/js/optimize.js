@@ -1,10 +1,10 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · mean-variance optimisation (mock engine)
-   Re-weights the allocation being edited. The assets are its products and,
-   where a category sits partly at index level, that category's index. With
-   "use category indices" every held category's index joins (so index-level
-   weight can replace products); with "categories not held" the other
-   categories' indices join at zero. Three objectives:
+   Re-weights the allocation being edited. The assets are its holdings
+   (products and indices). With "use category indices" every held standard
+   category's index basket joins as well; with "categories not held" the
+   other standard categories' baskets join at zero. A basket's optimised
+   weight becomes explicit holdings of its indices. Three objectives:
 
      minVol     minimise volatility for a target return
      maxReturn  maximise return for a target volatility
@@ -70,9 +70,9 @@
     var tree = E.tree(allocation), assets = [];
     tree.forEach(function (t) {
       t.products.forEach(function (h) { assets.push({ key: t.id + '/' + h.instrumentId, kind: 'product', categoryId: t.id, instrumentId: h.instrumentId, label: D.instrumentById[h.instrumentId].name, current: h.weight / 100, x: [[h.instrumentId, 1]] }); });
-      /* a category's index joins where the category already sits at index level, or where asked for */
-      var held = t.target > 1e-9 || t.products.length;
-      if (t.remainder > 1e-9 || (held && opts.useIndices) || (!held && opts.includeAll)) { var c = D.categoryById[t.id], tot = U.sum(c.index, function (p) { return p[1]; }); assets.push({ key: t.id + '/__index', kind: 'index', categoryId: t.id, label: t.short + ' Index', current: Math.max(0, t.remainder) / 100, x: c.index.map(function (p) { return [p[0], p[1] / tot]; }) }); }
+      /* a standard category's index basket joins where asked for */
+      var held = t.products.length > 0, c = D.categoryById[t.id];
+      if (c && c.index && c.index.length && ((held && opts.useIndices) || (!held && opts.includeAll))) { var tot = U.sum(c.index, function (p) { return p[1]; }); assets.push({ key: t.id + '/__index', kind: 'index', categoryId: t.id, label: t.short + ' Index', current: 0, x: c.index.map(function (p) { return [p[0], p[1] / tot]; }) }); }
     });
     if (assets.length < 2) return { error: 'Add at least two holdings or categories to optimise.' };
     var T = U.sum(assets, function (a) { return a.current; }); if (T < 1e-6) T = 1;
@@ -163,14 +163,18 @@
     return out;
   };
 
-  /** The allocation an optimisation result describes: products at their weights, category targets to match. */
+  /** The allocation an optimisation result describes: holdings at their weights; a category basket's weight split across its indices. */
   E.applyOptimized = function (allocation, assets) {
-    var holdings = U.clone(allocation.holdings || []), cats = U.clone(E.categoryTargets(allocation));
-    D.categories.forEach(function (c) { cats[c.id] = 0; });
+    var holdings = U.clone(allocation.holdings || []);
     assets.forEach(function (a) {
-      if (a.kind === 'product') { var h = holdings.filter(function (x) { return x.instrumentId === a.instrumentId; })[0]; if (h) h.weight = a.proposed; }
-      cats[a.categoryId] = U.round((cats[a.categoryId] || 0) + a.proposed, 4);
+      if (a.kind === 'product') { var h = holdings.filter(function (x) { return x.instrumentId === a.instrumentId; })[0]; if (h) h.weight = a.proposed; return; }
+      var c = D.categoryById[a.categoryId]; if (!c || !c.index || Math.abs(a.proposed) < 1e-9) return;
+      var tot = U.sum(c.index, function (p) { return p[1]; });
+      c.index.forEach(function (p) {
+        var w = U.round(a.proposed * p[1] / tot, 2), ex = holdings.filter(function (x) { return x.instrumentId === p[0]; })[0];
+        if (ex) ex.weight = U.round(ex.weight + w, 2); else holdings.push({ id: U.uid('h'), instrumentId: p[0], weight: w, categoryId: a.categoryId });
+      });
     });
-    return { holdings: holdings, categories: cats };
+    return { holdings: holdings };
   };
 })();

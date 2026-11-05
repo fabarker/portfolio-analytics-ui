@@ -85,5 +85,13 @@ the user asks for them.
   allocation in full, the others as differences) as the card's second view.
   `design/spec-restructure.html` is the formal, capability-led product
   specification (17 chapters), kept alongside the built spec.
+  2026-11-05 (built directly, no design page): **index-level weight is
+  removed**; a category's weight is always the sum of its holdings (editing a
+  product changes the category; editing a category rescales its holdings pro
+  rata). Categories are **workspace-wide** (`ws.categories`) and can be added,
+  renamed, reordered (drag grip, Alt+↑/↓, menu) and deleted when empty; the
+  seven standard ones stay as the taxonomy (`D.taxonomy`) for asset classes,
+  products, sleeves and scenarios. Holdings carry `categoryId`; stored
+  remainders migrate to explicit index-basket holdings on load.
 - `reference/venn/` — reference screenshots.
 - Remote: https://github.com/fabarker/portfolio-analytics-ui.git (branch main).

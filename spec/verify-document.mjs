@@ -17,9 +17,10 @@ check('No runtime errors on initial render',errors.length===0);
 const audit=await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(el=>el.id);return {duplicates:ids.filter((id,i)=>ids.indexOf(id)!==i),missing:[...document.querySelectorAll('a[href^="#"]')].filter(a=>!document.getElementById(a.hash.slice(1))).map(a=>a.hash),unresolved:/<!-- [A-Z_]+_CONTENT -->|__REFERENCE_|__SHOT_/.test(document.documentElement.innerHTML),navTargets:[...document.querySelectorAll('.doc-nav a')].map(a=>a.hash.slice(1)),sections:[...document.querySelectorAll('section[id]')].map(s=>s.id)};});
 check('All section links resolve',audit.missing.length===0);check('No duplicate IDs',audit.duplicates.length===0);check('No unresolved build markers',!audit.unresolved);
 check('Every section is in the navigation',audit.sections.every(id=>audit.navTargets.includes(id)));
-const vocabulary=await page.evaluate(()=>{const text=document.body.innerText;return {oldSleeves:/Growth sleeve|Defensive sleeve|Diversifiers sleeve/.test(text),book:/\bbook\b/i.test(text),cards:/card repository/i.test(text),index:/index-level/i.test(text),sleeveRepo:/sleeve repository/i.test(text)};});
+const vocabulary=await page.evaluate(()=>{const text=document.body.innerText;return {oldSleeves:/Growth sleeve|Defensive sleeve|Diversifiers sleeve/.test(text),book:/\bbook\b/i.test(text),cards:/card repository/i.test(text),index:/index-level|index remainder|unimplemented|hatched/i.test(text),categories:/Category management/.test(text)&&/sum of its holdings/.test(text),sleeveRepo:/sleeve repository/i.test(text)};});
 check('First-iteration sleeve names are gone',!vocabulary.oldSleeves);
-check('Second-iteration vocabulary present',vocabulary.cards&&vocabulary.index&&vocabulary.sleeveRepo);
+check('Second-iteration vocabulary present',vocabulary.cards&&vocabulary.sleeveRepo);
+check('Categories are workspace-owned, weight is the sum of holdings, and index-level modelling is gone',vocabulary.categories&&!vocabulary.index);
 check('The word “book” does not appear',!vocabulary.book);
 await page.screenshot({path:path.join(base,'document-overview.png'),fullPage:false});
 // The workspace section embeds the mockup and its screenshots.
@@ -31,10 +32,10 @@ const frame=await (async()=>{for(let i=0;i<40;i++){const f=page.frames().find(f=
 check('Mockup loads inside the document',!!frame);
 if(frame){check('Mockup shows the category tree',(await frame.locator('#builder').innerText()).includes('Public Equity'));check('Mockup shows cards',(await frame.locator('#cards .card').count())>0);}
 await ws.scrollIntoViewIfNeeded();await page.waitForTimeout(800);await page.screenshot({path:path.join(base,'document-workspace.png'),fullPage:false});
-// Entry example: category targets.
+// Entry example: category weights.
 const entry=page.locator('#entry-demo');await entry.locator('[data-entry=import]').click();await entry.locator('[data-open-workspace]').click();
 check('Import preview shows the unallocated amount',(await entry.locator('.entry-preview').innerText()).includes('Unallocated 5.0%'));
-check('Import preview lists categories modelled at index level',(await entry.locator('.entry-preview').innerText()).includes('index basket'));
+check('Import preview holds each category weight as its index basket',(await entry.locator('.entry-preview').innerText()).includes('index basket'));
 await entry.locator('textarea').fill('Public Equity,55\nPublic Equity,10\nCash,30');await entry.locator('[data-open-workspace]').click();
 check('Duplicate import rejected',(await entry.locator('.entry-error').innerText()).includes('Duplicate'));
 await entry.locator('textarea').fill('Growth,55');await entry.locator('[data-open-workspace]').click();

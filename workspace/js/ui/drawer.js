@@ -51,7 +51,7 @@
       '<label class="check"><input type="checkbox" id="ov-only"' + (overridesOnly ? ' checked' : '') + (ro ? ' disabled' : '') + '> Overrides only</label><div class="search-wrap">' + I.search + '<input type="search" id="mtx-search" placeholder="Filter…" aria-label="Filter rows" value="' + esc(search) + '" data-fkey="mtx-search"></div></div>';
     var rows = '', matches = function (s) { return !q || s.toLowerCase().indexOf(q) >= 0; };
     if (level === 'assetClass') {
-      D.categories.forEach(function (s) {
+      D.taxonomy.forEach(function (s) {
         var acs = D.assetClasses.filter(function (a) { return a.category === s.id; });
         var body = acs.map(function (ac) {
           var ov = sc && sc.overrides.assetClass[ac.id] || {}, hasOv = ov.return != null || ov.vol != null;

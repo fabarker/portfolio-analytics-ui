@@ -33,13 +33,13 @@
       if (view.filter === 'uploaded' && i.source !== 'uploaded') return false;
       if (D.categoryById[view.filter] && D.categoryOf(i.id).id !== view.filter) return false;
       return !q || (i.name + ' ' + i.identifier + ' ' + (i.manager || '') + ' ' + D.assetClassById[i.assetClass].name).toLowerCase().indexOf(q) >= 0;
-    }).sort(function (a, b) { return D.categories.indexOf(D.categoryOf(a.id)) - D.categories.indexOf(D.categoryOf(b.id)) || (b.source === 'uploaded') - (a.source === 'uploaded') || a.name.localeCompare(b.name); });
+    }).sort(function (a, b) { return D.taxonomy.indexOf(D.taxonomyById[D.categoryOf(a.id).id]) - D.taxonomy.indexOf(D.taxonomyById[D.categoryOf(b.id).id]) || (b.source === 'uploaded') - (a.source === 'uploaded') || a.name.localeCompare(b.name); });
   }
   function render() {
     var cont = el && U.$('#pdir', el); if (!cont) return;
     var all = products(), live = all.filter(function (i) { return !i.archived; }), up = live.filter(function (i) { return i.source === 'uploaded'; }), arch = all.filter(function (i) { return i.archived; });
     var nav = function (key, label, n, color) { return '<button type="button" data-filter="' + key + '" aria-pressed="' + (view.filter === key) + '"><span>' + (color ? '<span class="sw" style="background:' + color + '"></span>' : '') + esc(label) + '</span><span class="count">' + n + '</span></button>'; };
-    U.$('.repo-nav', cont).innerHTML = '<div class="eyebrow" style="padding:0 10px 8px">Products</div>' + nav('all', 'All', live.length) + D.categories.map(function (c) { return nav(c.id, c.short, live.filter(function (i) { return D.categoryOf(i.id).id === c.id; }).length, c.color); }).join('') + '<div class="menu-sep"></div>' + nav('uploaded', 'Uploaded', up.length) + (arch.length ? nav('archived', 'Archived', arch.length) : '') +
+    U.$('.repo-nav', cont).innerHTML = '<div class="eyebrow" style="padding:0 10px 8px">Products</div>' + nav('all', 'All', live.length) + D.taxonomy.map(function (c) { return nav(c.id, c.short, live.filter(function (i) { return D.categoryOf(i.id).id === c.id; }).length, c.color); }).join('') + '<div class="menu-sep"></div>' + nav('uploaded', 'Uploaded', up.length) + (arch.length ? nav('archived', 'Archived', arch.length) : '') +
       '<div class="field-hint" style="padding:14px 10px 0">Platform products come with the analytics service. Uploaded products are added from pasted returns, shared with the team, and modelled from their own history. Paste a range from Excel anywhere in the app to add one.</div>';
     var list = visible();
     if (view.selected && list.every(function (i) { return i.id !== view.selected; }) && list.length && !D.instrumentById[view.selected]) view.selected = list[0].id;

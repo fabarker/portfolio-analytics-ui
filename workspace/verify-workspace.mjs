@@ -60,7 +60,8 @@ await step('open workspace', async () => {
   await page.waitForTimeout(3000);
   check('Seven cards render with data, Headline first and Active risk & return last', await count('.card') === 7 && await page.locator('.card').first().getAttribute('data-card') === 'c0' && await count('[data-card="c6"] .act-tabs') === 1 && await count('.card .tbl.dd') === 1 && await count('.card svg.viz') >= 2);
   check('Rail shows the category → product tree, with no portfolio row', await count('#tree .tree-row.depth-0') === 7 && await count('#tree .tree-row.depth-1') > 8 && await count('#tree .is-root') === 0);
-  check('Hatched index remainder shows for under-implemented categories', await count('[data-card="c2"] rect[fill="url(#hatch)"]') >= 2);
+  check('Allocations draws each category as one solid segment: index level is gone', await count('[data-card="c2"] rect[fill="url(#hatch)"]') === 0 && !/index level/i.test(await text('#rail')));
+  check('A former index-level remainder is now an explicit index row (Growth Tilt’s hedge funds)', await page.evaluate(() => { const g = PA.store.allocation('al_growth'); const hf = g.holdings.filter(h => h.categoryId === 'hedge_funds'); return hf.length === 1 && hf[0].instrumentId === 'idx_hf' && hf[0].weight === 6 && !('categories' in g); }));
 
 
 });
@@ -106,9 +107,14 @@ await step('category target edit', async () => {
   check('Raising a target past 100% allocated is rejected without leverage', /105\.0%/.test(await text('#tree-err')));
   const back = page.locator('input[data-key="public_equity"]'); await back.fill('45'); await back.press('Enter'); await page.waitForTimeout(1200);
   const p = page.locator('input[data-key="public_equity/etf_us_lc"]'); await p.fill('18'); await p.press('Enter'); await page.waitForTimeout(1600);
-  check('Lowering a product leaves the category target and shows the remainder at index level', (await text('#tree')).includes('2.0% at index level'));
+  check('Changing a product changes its category to the sum of its holdings', (await page.locator('input[data-key="public_equity"]').inputValue()) === '43.0' && !/index level/i.test(await text('#tree')));
   check('Undo becomes available', !(await page.locator('#undo-btn').isDisabled()));
-  check('Index row appears in the Drivers & Differences table', await count('.tbl.dd tr.index-row') >= 1);
+  const pe0 = await page.evaluate(() => PA.store.active().holdings.filter(h => h.categoryId === 'public_equity').map(h => h.weight));
+  const cat = page.locator('input[data-key="public_equity"]'); await cat.fill('45'); await cat.press('Enter'); await page.waitForTimeout(1400);
+  const pe1 = await page.evaluate(() => PA.store.active().holdings.filter(h => h.categoryId === 'public_equity').map(h => h.weight));
+  check('Changing a category rescales its holdings pro rata, with nothing left at index level', Math.abs(pe1.reduce((x, y) => x + y, 0) - 45) < 1e-9 && pe1.every((w, i) => Math.abs(w - pe0[i] * 45 / 43) < 0.011) && await count('.tbl.dd tr.index-row') === 0, JSON.stringify([pe0, pe1]));
+  await page.click('#undo-btn'); await page.waitForTimeout(1200);
+  check('Undo restores the holdings and the category', (await page.locator('input[data-key="public_equity"]').inputValue()) === '43.0' && await page.evaluate(() => PA.store.active().holdings.filter(h => h.categoryId === 'public_equity')[0].weight) === 18);
 });
 await step('quick add from a category row', async () => {
   await page.click('[data-quickadd="public_equity"]'); await page.waitForTimeout(600);
@@ -120,13 +126,43 @@ await step('quick add from a category row', async () => {
   await page.click('#qa-all'); await page.waitForTimeout(200); await page.keyboard.type('kestrel'); await page.waitForTimeout(600);
   check('“Search all categories” finds products elsewhere and marks one already held', /Kestrel Multi-Strategy Fund/.test(await text('#qa-list')) && /Held 5\.0%/i.test(await text('#qa-list')));
   await page.click('#qa-all'); await page.waitForTimeout(200); await page.fill('#qa-input', 'alders'); await page.waitForTimeout(600); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
-  check('Choosing a product moves to its weight, prefilled with the category’s index-level remainder', await page.evaluate(() => document.activeElement && document.activeElement.id === 'qa-weight') && (await page.inputValue('#qa-weight')) === '2' && /Aldersgate Europe Equity Fund/.test(await text('li.is-adding')));
+  check('Choosing a product moves to its weight, empty and ready to type', await page.evaluate(() => document.activeElement && document.activeElement.id === 'qa-weight') && (await page.inputValue('#qa-weight')) === '' && /Aldersgate Europe Equity Fund/.test(await text('li.is-adding')));
+  await page.keyboard.type('2'); await page.waitForTimeout(150);
+  await page.mouse.move(900, 600); await page.waitForTimeout(250);
   await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove())); await page.locator('#rail').screenshot({ path: path.join(shots, 'quick-add.png') });
   const rev = await page.evaluate(() => PA.store.session.revision);
   await page.keyboard.press('Enter'); await page.waitForTimeout(1500);
-  check('Enter adds the product in one edit and fills the remainder', (await text('#tree')).includes('Aldersgate Europe Equity Fund') && !(await text('#tree')).includes('2.0% at index level') && await page.evaluate(() => PA.store.session.revision) === rev + 1 && await count('li.is-adding') === 0);
+  check('Enter adds the product in one edit and its category rises by its weight', (await text('#tree')).includes('Aldersgate Europe Equity Fund') && (await page.locator('input[data-key="public_equity"]').inputValue()) === '45.0' && await page.evaluate(() => PA.store.session.revision) === rev + 1 && await count('li.is-adding') === 0);
   await page.keyboard.press('Meta+z'); await page.waitForTimeout(1200);
-  check('Undo takes the product out again', !(await text('#tree')).includes('Aldersgate') && (await text('#tree')).includes('2.0% at index level'));
+  check('Undo takes the product out again', !(await text('#tree')).includes('Aldersgate') && (await page.locator('input[data-key="public_equity"]').inputValue()) === '43.0');
+});
+await step('categories', async () => {
+  await page.evaluate(() => PA.store.setPref('selectedRow', 'public_equity')); await page.waitForTimeout(200);
+  await page.click('#tree-addcat'); await page.waitForTimeout(400);
+  await page.fill('#prompt-in', 'Thematic'); await page.press('#prompt-in', 'Enter'); await page.waitForTimeout(1000);
+  const keys = () => page.$$eval('#tree > li.depth-0 > .tree-row', els => els.map(e => e.dataset.key));
+  const names = () => page.$$eval('#tree > li.depth-0 > .tree-row .tname b', els => els.map(e => e.textContent));
+  const id = await page.evaluate(() => (PA.store.ws.categories.filter(c => c.name === 'Thematic')[0] || {}).id);
+  check('New category adds a named category after the selected one, for every allocation, and opens quick add in it', !!id && (await keys())[1] === id && await page.evaluate(id => PA.store.ws.allocations.every(a => PA.engine.tree(a).some(t => t.id === id && t.target === 0)), id) && await count('#tree li.is-adding') === 1 && /In every category/.test(await text('#tree li.is-adding .qa-foot')));
+  await page.fill('#qa-input', 'gold'); await page.waitForTimeout(700); await page.keyboard.press('Enter'); await page.waitForTimeout(300); await page.keyboard.type('1'); await page.keyboard.press('Enter'); await page.waitForTimeout(1300);
+  check('+ adds a product or index into the new category, whose weight is its sum', (await page.locator('input[data-key="' + id + '"]').inputValue()) === '1.0' && await page.evaluate(id => PA.store.active().holdings.some(h => h.instrumentId === 'etf_gold' && h.categoryId === id), id));
+  const grip = page.locator('.tree-row[data-key="' + id + '"] .tdrag'), first = page.locator('#tree > li.depth-0').first();
+  await page.hover('.tree-row[data-key="' + id + '"]'); await grip.dragTo(first, { targetPosition: { x: 40, y: 4 } }); await page.waitForTimeout(1200);
+  check('Dragging a category by its grip moves it (to the top)', (await keys())[0] === id, JSON.stringify(await keys()));
+  await page.focus('.tree-row[data-key="' + id + '"] .tname'); await page.keyboard.press('Alt+ArrowDown'); await page.waitForTimeout(1000);
+  check('Alt+↓ moves a category down one place and keeps focus on it', (await keys())[1] === id && await page.evaluate(id => document.activeElement && document.activeElement.dataset.select === id, id));
+  await page.click('.tree-row[data-key="' + id + '"] [data-rowmenu]'); await page.waitForTimeout(300);
+  check('A category that holds something cannot be deleted', await page.locator('.menu-item:has-text("Delete category")').isDisabled());
+  await page.click('.menu-item:has-text("Rename category")'); await page.waitForTimeout(300);
+  await page.fill('#prompt-in', 'Thematic Growth'); await page.press('#prompt-in', 'Enter'); await page.waitForTimeout(1800);
+  check('Renaming a category renames it in the rail and in the cards', (await names()).includes('Thematic Growth') && /Thematic Growth/.test(await text('[data-card="c2"]')) && /Thematic Growth/.test(await text('[data-card="c1"]')));
+  await page.click('.tree-row[data-key="' + id + '/etf_gold"] [data-rowmenu]'); await page.waitForTimeout(300); await page.click('.menu-item:has-text("Remove from allocation")'); await page.waitForTimeout(1000);
+  await page.click('.tree-row[data-key="' + id + '"] [data-rowmenu]'); await page.waitForTimeout(300); await page.click('.menu-item:has-text("Delete category")'); await page.waitForTimeout(1200);
+  check('An empty category can be deleted', !(await keys()).includes(id) && await count('#tree .tree-row.depth-0') === 7);
+  await page.evaluate(() => PA.store.undo()); await page.waitForTimeout(900);
+  check('Undo restores a deleted category in place', (await keys())[1] === id);
+  await page.evaluate(() => PA.store.redo()); await page.waitForTimeout(900);
+  check('Categories are back to the seven, in their original order', (await keys()).join() === 'public_equity,ig_fixed_income,other_fixed_income,hedge_funds,private_equity,real_assets,cash');
 });
 await step('sleeve from category', async () => {
   await page.click('.tree-row[data-key="public_equity"] [data-rowmenu]'); await page.waitForTimeout(300);
@@ -171,11 +207,11 @@ await step('tabbed rail', async () => {
   await page.selectOption('#active-pick', 'al_growth'); await page.waitForTimeout(600);
   await page.click('#rail-tab-check'); await page.waitForTimeout(300);
   const badge = Number(await text('#rail-tab-check .rail-badge'));
-  check('Check lists what needs attention and its badge counts it', badge >= 1 && await count('#builder .rail-check.warn') === badge && /Hedge Funds: .*% at index level/.test(await text('#builder')));
+  check('Check lists what needs attention and its badge counts it', badge >= 1 && await count('#builder .rail-check.warn') === badge && /No benchmark assigned/.test(await text('#builder')) && !/index level/i.test(await text('#builder')));
   check('Check holds the weight summary and the leverage switch', await count('#builder .weights-summary') === 1 && await count('#lev-switch') === 1);
   await page.evaluate(() => document.querySelectorAll('#toasts > *').forEach(t => t.remove())); await page.mouse.move(900, 600); await shot('rail-check');
-  await page.click('[data-fkey="issue:find:hedge_funds"]'); await page.waitForTimeout(700);
-  check('“Find products” opens quick add under that category, searching it', await page.getAttribute('#rail-tab-build', 'aria-selected') === 'true' && await count('#tree li.is-adding') === 1 && /Hedge Funds/.test(await page.getAttribute('#qa-input', 'aria-label')) && await count('#qa-list .qa-opt') >= 2);
+  await page.click('#rail-tab-build'); await page.waitForTimeout(300); await page.click('[data-quickadd="hedge_funds"]'); await page.waitForTimeout(700);
+  check('+ on Hedge Funds opens quick add under that category, searching it', await page.getAttribute('#rail-tab-build', 'aria-selected') === 'true' && await count('#tree li.is-adding') === 1 && /Hedge Funds/.test(await page.getAttribute('#qa-input', 'aria-label')) && await count('#qa-list .qa-opt') >= 2);
   await page.fill('#qa-input', 'kestrel'); await page.waitForTimeout(600);
   check('Search within the category narrows the results', await count('#qa-list .qa-opt') >= 1 && (await text('#qa-list')).includes('Kestrel'));
   await page.fill('#qa-input', 'zzzz'); await page.waitForTimeout(500);

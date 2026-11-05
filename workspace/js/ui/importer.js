@@ -205,7 +205,7 @@
         (p.unit !== p.unitDetected ? '' : '<div class="im-note is-quiet">' + I.info + '<span>Values read as ' + (p.unit === 'percent' ? 'percentages' : p.unit === 'decimal' ? 'decimals' : 'prices') + ' from what was pasted.</span></div>') + '</div>';
       var acOptions = function (r) {
         var byId = {}; (r.fits || []).forEach(function (f) { byId[f.assetClassId] = f; });
-        return D.categories.map(function (c) { return '<optgroup label="' + esc(c.name) + '">' + D.assetClasses.filter(function (ac) { return ac.category === c.id; }).map(function (ac) { var f = byId[ac.id]; return '<option value="' + ac.id + '"' + (r.assetClass === ac.id ? ' selected' : '') + '>' + esc(ac.name) + (f ? ' · R² ' + F.num(f.r2, 2) : '') + '</option>'; }).join('') + '</optgroup>'; }).join('');
+        return D.taxonomy.map(function (c) { return '<optgroup label="' + esc(c.name) + '">' + D.assetClasses.filter(function (ac) { return ac.category === c.id; }).map(function (ac) { var f = byId[ac.id]; return '<option value="' + ac.id + '"' + (r.assetClass === ac.id ? ' selected' : '') + '>' + esc(ac.name) + (f ? ' · R² ' + F.num(f.r2, 2) : '') + '</option>'; }).join('') + '</optgroup>'; }).join('');
       };
       var table = '<div class="tblwrap im-tbl"><table class="tbl"><thead><tr><th class="im-c"><span class="sr-only">Add</span></th><th>Product name</th><th class="num">Months</th><th class="num">Return p.a.</th><th class="num">Volatility</th><th class="num">Max drawdown</th><th>Models as</th><th class="im-spark-h">Growth</th></tr></thead><tbody>' +
         st.rows.map(function (r, i) {
@@ -268,7 +268,7 @@
     if (opts.onAdded) opts.onAdded(recs);
     var one = recs.length === 1 ? recs[0] : null, a = S.ws ? S.active() : null, cat = one ? D.categoryOf(one.id) : null;
     var msg = (one ? '“' + one.name + '” is' : recs.length + ' products are') + ' in the product directory' + (one && cat ? ', under ' + cat.short : '') + '.';
-    var action = one && a && a.kind === 'live' ? { label: 'Add to ' + a.name, fn: function () { UI.builder.addProduct(one.id); } } : { label: 'Open directory', fn: function () { UI.shell.go('#/products/' + encodeURIComponent(recs[0].id)); } };
+    var action = one && a && a.kind === 'live' ? { label: 'Add to ' + a.name, fn: function () { UI.builder.addProduct(one.id, opts.addTo); } } : { label: 'Open directory', fn: function () { UI.shell.go('#/products/' + encodeURIComponent(recs[0].id)); } };
     UI.toast(msg, { action: action });
     U.announce(msg);
     if (UI.products && UI.products.refresh) UI.products.refresh(recs[0].id);

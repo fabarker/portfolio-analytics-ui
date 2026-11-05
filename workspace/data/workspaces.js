@@ -6,6 +6,8 @@
    Shapes
    ─────
    Workspace  {id, name, description, currency, owner, createdAt, updatedAt,
+               categories:[{id, name, color}]   the workspace's categories, in
+                                       display order (default: the taxonomy's seven),
                allocations:Allocation[],
                comparison:{members:string[], activeId:string,
                            referenceMode:'shared'|'individual'|'portfolio',
@@ -18,12 +20,14 @@
                edited:boolean          true once a live allocation with actual
                                        history has been changed in this draft
                capturedAt?:ISO, sourceId?:string, note?:string,
-               categories:{[categoryId]:number}   category target weights, % of
-                                       the total portfolio (index-level modelling)
-               holdings:[{id, instrumentId, weight, sleeveRef?}]}
-               weight is a percentage of the total portfolio. Products
-               implement their category; a category's unimplemented remainder
-               (target minus products) is modelled by its index basket.
+               holdings:[{id, instrumentId, weight, categoryId, sleeveRef?}]}
+               weight is a percentage of the total portfolio; categoryId is
+               the workspace category the holding sits in (defaults to the
+               instrument's home category). A category's weight is the sum of
+               its holdings. The samples below still give the former
+               category targets (categories:{id: weight}); on load any target
+               above a category's products becomes explicit holdings of the
+               category's index basket (engine.js, E.normalizeAllocation).
                sleeveRef {sleeveId, version, name} tags products that came
                from a repository sleeve.
                kind 'sleeve' is a repository sleeve version compared as its
@@ -77,7 +81,7 @@
         holdings: H([['etf_us_lc', 15], ['fund_intl', 10], ['fund_em', 5], ['pe_oakhurst', 10], ['fund_tsy', 10], ['etf_govt', 5],
           ['fund_ig', 12], ['fund_hy', 7], ['fund_pc', 6], ['fund_cash', 5], ['hf_kestrel', 5], ['re_harbor', 6], ['infra_grey', 2]]) },
       { id: 'al_growth', name: 'Growth Tilt', kind: 'live', color: 'cat-3', benchmarkId: null, leverage: false,
-        history: { basis: 'backtest', inception: '2026-09' }, edited: false, note: 'Equity-heavy alternative. No mandate benchmark assigned yet; hedge funds held at index level for now.',
+        history: { basis: 'backtest', inception: '2026-09' }, edited: false, note: 'Equity-heavy alternative. No mandate benchmark assigned yet; hedge funds held through the hedge fund index for now.',
         categories: { public_equity: 55, private_equity: 15, ig_fixed_income: 13, other_fixed_income: 3, cash: 2, hedge_funds: 6, real_assets: 6 },
         holdings: H([['etf_us_lc', 25], ['fund_intl', 15], ['fund_em', 10], ['fund_us_sc', 5], ['pe_oakhurst', 8], ['pe_tamar', 4], ['pe_rivermead', 3],
           ['fund_tsy', 8], ['fund_ig', 5], ['fund_hy', 3], ['fund_cash', 2], ['fund_cmd', 3], ['etf_gold', 3]]) },

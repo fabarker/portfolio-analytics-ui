@@ -41,11 +41,14 @@ the rail's jobs so each gets the full height:
 
 - **Build**: the category tree below, with select mode for sleeves. Each
   category sits under a faint silver rule (`--rail-sep`), marked by its colour
-  tile, with its target in bold. Its products are leaves: indented past the
-  category's name and joined to it by elbow guides (`--rail-guide`) that stop
-  at the last leaf. A second
-  line appears only for an exception (*2.0% at index level*, products over
-  target, a sleeve tag) or, when collapsed, the product count. A product is a
+  tile, with its weight in bold. Its products and indices are leaves: indented
+  past the category's name and joined to it by elbow guides (`--rail-guide`)
+  that stop at the last leaf. A category's weight is always the sum of its
+  leaves: changing a leaf changes the category, and typing a category weight
+  rescales its leaves pro rata (equally if they sum to zero). An empty
+  category reads 0% and cannot be typed into until it holds something. A
+  second line appears only for an exception (an empty category, a sleeve tag)
+  or, when collapsed, the product count. A product is a
   line: its name, its share of the category (the full wording in the tooltip)
   and its weight. Type and identifier show when the rail is dragged to 420px
   or wider. Weights read as figures and turn into inputs on hover or focus.
@@ -53,12 +56,19 @@ the rail's jobs so each gets the full height:
   `Enter` applies it (one edit, one recalculation); `Esc` discards it, `↑`/`↓`
   move between weights, and pending values survive leaving the field.
   **Quick add:** the + on every category row (or `+`/`Insert` on a focused
-  category) adds an empty leaf with a search into the product library, limited
-  to that category with *Search all categories* one click away. Choosing a
-  product moves to its weight, prefilled with the category's index-level
-  remainder; `Enter` adds it in one edit (a product from another category is
-  filed there, and a target rises if the products need it), `Esc` removes the
-  row and returns focus to the +.
+  category) adds an empty leaf with a search into the product library: for a
+  standard category it starts limited to the category's asset classes, with
+  *Search all categories* one click away; a category the user added searches
+  everything. Products and indices are added the same way. Choosing one moves
+  to its weight; `Enter` adds it in one edit, always into the category whose +
+  opened the row, `Esc` removes the row and returns focus to the +.
+  **Categories** belong to the workspace, so every allocation in it shares
+  the same list and comparisons stay aligned: *New category* under the tree
+  (or in the header menu) adds one with any name after the selected category
+  and opens quick add in it; the category menu renames it, moves it up or
+  down, or deletes it when it is empty in every allocation. Drag the grip that
+  appears at the left of a category row, or press `Alt`+`↑`/`↓` on it, to move
+  it anywhere in the tree. All of these are undoable.
   `/` opens quick add under the selected row's category, searching every
   category. With no match, quick add offers *Add it from its returns*.
 - **Optimize**: mean-variance optimisation of the allocation being edited
@@ -68,12 +78,10 @@ the rail's jobs so each gets the full height:
   column) and a link to the repository screen. Tags show where a sleeve is
   applied or compared.
 - **Check**: what needs attention, each with its fix: unallocated weight,
-  categories at index level (*Find products*, *Apply a sleeve*), products over
-  target, limited histories, a missing benchmark. The count is the tab's
+  limited histories, products a factor model proxies, a missing benchmark. The count is the tab's
   badge. The weight summary and the shorts & leverage switch live here too.
 
-A footer under every tab keeps the category bar (solid in products, hatched at
-index level) and the allocated total in view, with the unallocated or borrowed
+A footer under every tab keeps the category bar and the allocated total in view, with the unallocated or borrowed
 amount when there is one. Collapsed, the rail keeps the
 four tab icons (with the badge); each opens the rail on its tab. On a phone the
 rail is an overlay with the same tabs.
@@ -94,10 +102,11 @@ Targets start at today's figures, so the first run answers "the same, but
 better"; under the target the tab shows what the constraints can reach.
 Constraints: the total stays where it is; long only unless the allocation
 allows shorts; a maximum per holding (30%); optionally every category within
-±5 pp of today. The assets are the products held plus a category's index where
-the category already sits partly at index level; *Use category indices* lets
-every held category's index take weight from its products, and *Include
-categories not held* adds the rest.
+±5 pp of today. The assets are the holdings (products and indices); *Use
+category indices* lets each held standard category's index basket take weight
+from its holdings, and *Include categories not held* adds the other standard
+categories' baskets at zero. A basket's optimised weight becomes explicit
+holdings of its indices.
 
 The result draws the efficient frontier (return against volatility or
 tracking error) with *Now* and *Optimised*, the figures before and after
@@ -270,14 +279,16 @@ unhedged look-through mix.
 
 ## The three ideas
 
-**The builder is a tree: category → product.** Categories are
-modelled at index level: each has its own target weight; products implement
-part or all of it; whatever is unimplemented shows as an *index* leaf and is
-modelled by the category's index basket. Raising a target above its products
-puts the difference at index level; lowering a product does the same. The
-categories are the Proposal Tool's (Public Equity, Investment Grade Fixed
-Income, Other Fixed Income, Hedge Funds, Private Equity & Other Private
-Assets, Real Assets, Cash).
+**The builder is a tree: category → product.** A category's weight is the
+sum of the products and indices in it; there is no hidden remainder, and an
+index is added like any product. Each workspace has its own ordered category
+list (`ws.categories`): it starts with the Proposal Tool's seven (Public
+Equity, Investment Grade Fixed Income, Other Fixed Income, Hedge Funds,
+Private Equity & Other Private Assets, Real Assets, Cash) and the user can
+add, rename, reorder and delete categories. The seven remain the taxonomy:
+every instrument's home category through its asset class, used by the
+product directory, the importer, scenarios, benchmarks and the sleeve
+repository. A holding records the category it sits in (`categoryId`).
 
 **Sleeves are saved subsets of a portfolio.** From a category's menu, *Create
 sleeve from category* takes its products and rescales their weights to 100.
@@ -286,8 +297,9 @@ products, again pro rata to 100; the user files it under a category, and a
 selection that spans categories is marked *mixed*. Sleeves live in a shared,
 versioned repository (`#/sleeves`): browse by category, inspect versions,
 edit weights as a new version, rename, re-file, archive. *Apply a sleeve* on a
-category copies a version's products in at the category target (or only into
-the index remainder) and tags them with the sleeve and version. Sleeves are
+category copies a version's products into it at a weight the user gives,
+replacing the category's holdings or alongside them, and tags them with the
+sleeve and version. Sleeves are
 copies, not links: editing a sleeve never changes an allocation.
 
 **A sleeve can also be compared on its own.** *Save & compare* on the
@@ -417,7 +429,7 @@ two adapters:
 | `factorTable({allocations, basis, period, scenario, factorModel, reference})` | `POST /analytics/factor-table` | per allocation and its reference: exposure, risk by factor + specific (= volatility), return by factor + cash + specific (= return) |
 | `factorHistory({allocations, period, factorModel})` | `POST /analytics/factor-history` | per allocation, each calendar year: exposure, risk and return contribution by factor |
 | `historyPack(PackRequest)` | `POST /analytics/history-pack` | `PackResponse` (returns, growth, drawdowns, stats, calendar years, stress periods, rolling series, correlations) |
-| `breakdown({allocations})` | `POST /analytics/breakdown` | `BreakdownResponse` (targets, products, index remainders by category) |
+| `breakdown({allocations})` | `POST /analytics/breakdown` | `BreakdownResponse` (category weights and their holdings, in the workspace's category order) |
 | `projection(ProjectionRequest)` | `POST /analytics/projection` | `ProjectionResponse` |
 | `scenarioComparison(ScenarioRequest)` | `POST /analytics/scenarios` | `ScenarioResponse` |
 | `summaries(allocations)` | `POST /analytics/summaries` | `{[allocationId]: {ret, vol, sharpe}}` |
@@ -435,10 +447,11 @@ two adapters:
 
 Every shape is documented at the top of the file that owns it:
 
-- `data/workspaces.js` — `Workspace`, `Allocation` (with `categories` targets
-  and `sleeveRef` tags), `Card`, `Scenario`, `Prefs`, `Activity`.
+- `data/workspaces.js` — `Workspace` (with its `categories` list),
+  `Allocation` (holdings with `categoryId` and `sleeveRef` tags), `Card`,
+  `Scenario`, `Prefs`, `Activity`.
 - `data/sleeves.js` — `Sleeve`, `SleeveVersion`, `SavedCard`.
-- `data/universe.js` — `Category` (with its index basket), `AssetClass`,
+- `data/universe.js` — the category taxonomy (with index baskets), `AssetClass`,
   `Factor`, `Instrument`, reporting currencies. `data/benchmarks.js` —
   `Benchmark`, `CustomBenchmark`, constituent rows.
 - `data/assumptions.js` — `Assumptions`. `data/history.js` — `History`.
@@ -448,16 +461,15 @@ Every shape is documented at the top of the file that owns it:
 
 Conventions a service must keep (the UI relies on them):
 
-- Weights are percentages of the total portfolio. A category's target may
-  exceed its products; the difference is modelled by the category's index
-  basket. Unallocated weight (100 minus the sum of targets) earns nothing and
-  carries no risk; it is never treated as cash unless a cash instrument is
+- Weights are percentages of the total portfolio. A category's weight is the
+  sum of its holdings; each holding carries its `categoryId`, and categories
+  are grouped and ordered by the workspace's list. Unallocated weight (100
+  minus the sum of weights) earns nothing and carries no risk; it is never treated as cash unless a cash instrument is
   held.
 - A cell value of `null` means *unavailable* and always carries a `reason`;
   `0` means an observed or calculated zero.
 - Rows are keyed by the category grouping: `<categoryId>`,
-  `<categoryId>/<instrumentId>`, `<categoryId>/__index`, `__residual`,
-  `__total`.
+  `<categoryId>/<instrumentId>`, `__residual`, `__total`.
 - Every analytics response echoes the `revision` of the request. The store
   discards responses whose revision is not the latest, so a slow, older
   answer never replaces a newer one.
@@ -471,13 +483,17 @@ Conventions a service must keep (the UI relies on them):
 
 - **Categories, not sleeves, are the branches.** The word *sleeve* now means
   a saved, reusable bundle of products; the rail's branches are categories.
-  The category list is fixed (the Proposal Tool's); users do not create or
-  rename categories.
-- **Index-level modelling.** A category target is authoritative. Products
-  implement it; the remainder is held in the category's index basket
-  (documented per category in `data/universe.js`). Products exceeding the
-  target are allowed and flagged *over*; *Set target to products* and *Raise
-  the category target* exist as quick repairs.
+  Categories are workspace-wide (decided 2026-11-05): one list per workspace,
+  shared by every allocation, so a new category appears at 0% in the others.
+  A category can be deleted only when it is empty in every allocation.
+- **No index-level weight** (decided 2026-11-05). A category is the sum of its
+  holdings. Stored allocations from before are migrated on load: a former
+  remainder becomes explicit holdings of the category's index basket (e.g.
+  Growth Tilt's 6% Hedge Funds is now a Hedge Fund Composite Index row), so
+  the figures are unchanged. A category the user added has no index basket,
+  so where a category index would stand in (a category row's own benchmark,
+  attribution against a reference that does not hold it) it is unavailable
+  or has no selection effect.
 - **Editable weight.** Total-portfolio weight is the editable number at every
   level; the share of the category is shown read-only.
 - **History after an edit.** An allocation with actual history switches to a
@@ -504,8 +520,8 @@ Conventions a service must keep (the UI relies on them):
   Stress tests use the Axioma model, which holds every shocked factor.
   A saved card stores type, settings and name, never data.
 - **Optimisation.** Long only by default, 30% per holding, the total kept. The
-  optimiser re-weights what is held; index-level weight and categories not held
-  join only when asked. Return and volatility use the platform assumptions and
+  optimiser re-weights what is held; category index baskets join only when
+  asked. Return and volatility use the platform assumptions and
   tracking error the factor model, matching the cards.
 - **Uploaded products.** Fitted to one asset class; no alpha is assumed in
   their expected return. Returns are taken as given in the workspace's

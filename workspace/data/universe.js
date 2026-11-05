@@ -4,16 +4,19 @@
    to real products. A backend replaces this module through PA.api (see
    js/api.js); nothing in the UI reads PA.data directly.
 
-   The rail is a tree: portfolio → category → product. Categories are
-   modelled at index level: a category has its own target weight; products
-   implement part or all of it and any unimplemented remainder is modelled
-   by the category's index basket (see engine.js, E.effective).
+   The rail is a tree: portfolio → category → product. A category's weight
+   is the sum of the products and indices in it. Every instrument has a home
+   category in the taxonomy below (through its asset class); a workspace has
+   its own ordered category list (ws.categories): the taxonomy's categories,
+   renamed or reordered as the user chooses, plus any it adds. A holding
+   records the category it sits in (holding.categoryId).
 
    Shapes
    ─────
    Category    {id, name, short, color, assetClasses:string[],
-                index:[[instrumentId, weight]]}   the basket that models the
-                                                  unimplemented remainder
+                index:[[instrumentId, weight]]}   the category's index basket,
+                                                  offered by the optimiser
+   Workspace category {id, name, color}           ws.categories, in display order
    AssetClass  {id, name, category, indexId}
                indexId names the index used as a proxy when a holding lacks
                history.
@@ -31,9 +34,9 @@
   var PA = window.PA = window.PA || {};
   var D = PA.data = PA.data || {};
 
-  /* The category taxonomy every allocation is aligned on, in display order.
+  /* The category taxonomy: every instrument's home category, in default order.
      A colour slot belongs to a category by name, never by position. */
-  D.categories = [
+  D.taxonomy = [
     { id: 'public_equity',      name: 'Public Equity',                          short: 'Public Equity',    color: '#2a78d6', assetClasses: ['us_eq', 'intl_eq', 'em_eq'], index: [['idx_us_eq', 62], ['idx_dev_eq', 27], ['idx_em_eq', 11]] },
     { id: 'ig_fixed_income',    name: 'Investment Grade Fixed Income',          short: 'IG Fixed Income',  color: '#1baf7a', assetClasses: ['govt', 'ig'],               index: [['idx_govt', 62], ['idx_ig', 38]] },
     { id: 'other_fixed_income', name: 'Other Fixed Income',                     short: 'Other FI',         color: '#8bd0b0', assetClasses: ['hy'],                       index: [['idx_hy', 100]] },
@@ -151,8 +154,28 @@
   ];
 
   /* lookups */
-  D.categoryById = {};
-  D.categories.forEach(function (c) { D.categoryById[c.id] = c; });
+  D.taxonomyById = {};
+  D.taxonomy.forEach(function (c) { D.taxonomyById[c.id] = c; });
+  /* Colours offered to categories a user adds, after the taxonomy's own. */
+  D.extraCategoryColors = ['#0f8b8d', '#c2410c', '#7c3aed', '#be185d', '#4d7c0f', '#0369a1', '#a16207', '#57534e', '#db2777', '#0d9488'];
+  D.defaultCategories = function () { return D.taxonomy.map(function (c) { return { id: c.id, name: c.name, color: c.color }; }); };
+  /* D.categories and D.categoryById follow the open workspace's category list
+     (D.categorySource, set by the store) and fall back to the taxonomy. A
+     standard category keeps its asset classes and index basket when renamed;
+     an added one has neither. categoryById also holds every taxonomy entry,
+     so an instrument's home category always resolves. */
+  var resolved = { sig: null, list: D.taxonomy, byId: D.taxonomyById };
+  function resolveCategories() {
+    var src = D.categorySource ? D.categorySource() : null;
+    if (!src || !src.length) return { list: D.taxonomy, byId: D.taxonomyById };
+    var sig = src.map(function (c) { return c.id + '\u0001' + c.name + '\u0001' + (c.color || ''); }).join('\u0002');
+    if (sig === resolved.sig) return resolved;
+    var list = src.map(function (c) { var t = D.taxonomyById[c.id]; return { id: c.id, name: c.name, short: t && t.name === c.name ? t.short : c.name, color: c.color || (t && t.color) || '#7a8899', assetClasses: t ? t.assetClasses : [], index: t ? t.index : [], custom: !t }; });
+    var byId = {}; D.taxonomy.forEach(function (t) { byId[t.id] = t; }); list.forEach(function (c) { byId[c.id] = c; });
+    resolved = { sig: sig, list: list, byId: byId }; return resolved;
+  }
+  Object.defineProperty(D, 'categories', { get: function () { return resolveCategories().list; }, configurable: true });
+  Object.defineProperty(D, 'categoryById', { get: function () { return resolveCategories().byId; }, configurable: true });
   D.assetClassById = {};
   D.assetClasses.forEach(function (a) { D.assetClassById[a.id] = a; });
   D.instrumentById = {};
@@ -195,6 +218,6 @@
     (D.factorModels || []).forEach(function (m) { m.factors.forEach(function (f) { if (f.id === 'fx') { f.name = mfx; f.description = 'Unhedged foreign currency against ' + c.code + ', the reporting currency.'; } }); });
   };
 
-  /** Category of an instrument, through its asset class. */
+  /** An instrument's home category, through its asset class (as named in the open workspace). */
   D.categoryOf = function (instrumentId) { var i = D.instrumentById[instrumentId]; return i ? D.categoryById[D.assetClassById[i.assetClass].category] : null; };
 })();

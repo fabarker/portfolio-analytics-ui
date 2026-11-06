@@ -27,7 +27,10 @@
   }
   function pickLabel(v) { var o = pickOptions().filter(function (x) { return x[0] === v; })[0]; return o ? o[1].replace(/^[^·]+· /, '') : 'a picked benchmark'; }
   /** The request's against: the picked allocation or sleeve travels with the request. */
+  var STEPS = [['saa', 'Policy → SAA (S1)'], ['mapping', 'SAA → Product benchmarks (S2)'], ['selection', 'Product benchmarks → Portfolio (S3)'], ['policyToPortfolio', 'Policy → Portfolio']];
+  var STEP_UPPER = { saa: 'the policy benchmark', mapping: 'the SAA', selection: 'the product benchmarks', policyToPortfolio: 'the policy benchmark' }, STEP_CODE = { saa: 'S1', mapping: 'S2', selection: 'S3', policyToPortfolio: 'policy → portfolio' };
   function against(s) {
+    if (s.against === 'step') return Promise.resolve({ mode: 'step', step: s.step || 'selection' });
     if (s.against !== 'pick') return Promise.resolve({ mode: s.against });
     var p = String(s.pick || '').split(':'), kind = p[0], id = p[1];
     if (kind === 'allocation') { var a = S.allocation(id); return Promise.resolve(a ? { mode: 'pick', ref: { kind: 'allocation', id: id, label: a.name, allocation: U.clone(a) } } : { mode: 'pick', ref: {} }); }
@@ -38,10 +41,12 @@
     return Promise.resolve({ mode: 'pick', ref: { kind: kind, id: id } });
   }
   function againstLabel(ctx, s) {
+    if (s.against === 'step') { var st = s.step || 'selection'; return STEP_UPPER[st] + ' (chain step ' + STEP_CODE[st] + ')'; }
     if (s.against === 'own') return 'each subject’s own benchmark';
     if (s.against === 'pick') return pickLabel(s.pick);
     var c = ctx.ws.comparison;
     if (c.referenceMode === 'individual') return 'each allocation’s benchmark';
+    if (c.referenceMode === 'policy') return 'each allocation’s policy benchmark';
     if (c.referenceMode === 'portfolio') { var a = S.allocation(c.referencePortfolioId); return a ? a.name : 'a compared portfolio'; }
     var b = D.benchmarkById[c.sharedBenchmarkId]; return b ? b.name : 'the shared benchmark';
   }
@@ -64,7 +69,7 @@
     var passive = s.showPassive !== false, focus = focusOf(card, ctx), notes = [];
     var head = '<tr><th>Allocation</th><th>Measured against</th><th class="num">Return</th>' + (passive ? '<th class="num">Passive</th>' : '') + '<th class="num">Active</th><th class="num">Risk</th>' + (passive ? '<th class="num">Passive</th>' : '') + '<th class="num">Tracking error</th><th class="num">Info. ratio</th><th class="num" data-tip="Half the sum of absolute differences in the asset-class mix">Active share</th></tr>';
     var rows = ctx.members.map(function (a) {
-      var x = seriesOf(data, a), name = '<td><span class="dot" style="background:' + H.colorOf(a) + '"></span> ' + esc(a.name) + '</td>';
+      var x = seriesOf(data, a), name = '<td><span class="dot" style="background:' + H.colorOf(a) + '"></span> ' + esc(x && x.subject ? x.subject.label : a.name) + '</td>';
       if (!x) return '';
       if (x.reason) return '<tr>' + name + '<td>' + esc(x.benchmark && x.benchmark.label || '—') + '</td><td colspan="' + (passive ? 8 : 6) + '" class="faint">— ' + esc(x.reason) + '</td></tr>';
       if (x.benchmark.note) notes.push(a.name + ': ' + x.benchmark.note + '.');
@@ -78,7 +83,7 @@
     }
     data.series.forEach(function (x) { if (x.coverage) notes.push(x.coverage + '.'); });
     var method = data.basis === 'forward' ? 'Return from the platform assumptions' + (ctx.scenario ? ' (scenario where applied)' : '') + '; risk from the ' + D.factorModelById[data.factorModel].name + ' factor model' + (ctx.scenario ? ', which the scenario does not change' : '') + '.' : 'Realised over ' + (data.period ? data.period.label : 'the period') + ': tracking error is the volatility of monthly active returns, annualised.';
-    return '<div class="tblwrap act-tbl"><table class="tbl"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' + H.foot(uniq(notes).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('')) + C.notes(card, [eq, esc(method), 'Active share is half the sum of absolute differences in the asset-class mix.']);
+    return '<div class="tblwrap act-tbl"><table class="tbl"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' + H.foot(uniq(notes).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('')) + C.notes(card, [eq, esc(method), 'Active share is half the sum of absolute differences in the asset-class mix.', s.against === 'step' ? 'Chain step: each allocation with a decision chain is shown as the step’s lower level, measured against its upper level. The Decision chain card shows every step together.' : null]);
   }
   function uniq(a) { var seen = {}; return a.filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }); }
 
@@ -89,18 +94,22 @@
   function bySwitch(s) { var by = byOf(s); return '<div class="act-by" role="group" aria-label="Attribute by"><span>By</span>' + BY.map(function (b) { return '<button type="button" data-act-by="' + b[0] + '" aria-pressed="' + (b[0] === by) + '">' + b[1] + '</button>'; }).join('') + '</div>'; }
   function head(ctx, focus, s) { return '<div class="act-head">' + chips(ctx, focus) + bySwitch(s) + '</div>'; }
 
+  function unitsOf(s) { return s.riskUnits === 'var99' ? { k: 2.3263, name: '99% value at risk, 1 year (parametric)', col: 'VaR part', short: '99% VaR' } : s.riskUnits === 'es99' ? { k: 2.6652, name: '99% expected shortfall, 1 year (parametric)', col: 'ES part', short: '99% ES' } : { k: 1, name: 'Tracking error', col: 'Contribution', short: 'Tracking error' }; }
   function riskView(data, ctx, s, card) {
     var focus = focusOf(card, ctx), a = S.allocation(focus), x = a && seriesOf(data, a);
     if (!x || x.reason) return head(ctx, focus, s) + '<div class="chart-empty">' + esc(x && x.reason || 'Nothing to attribute') + '</div>';
     var src = x.riskSources.slice(), mode = byOf(s);
     if (mode === 'factor') src.push({ key: '__specific', label: 'Specific', contribution: x.specific, color: '#c3cedb' });
-    var max = Math.max.apply(null, src.map(function (r) { return Math.abs(r.contribution); }).concat([0.01])), te = x.modelTE;
+    /* risk units: tracking error, or parametric 99% value at risk or expected shortfall of the active return (each source's contribution scaled, the expected active return subtracted once) */
+    var ru = unitsOf(s), k = ru.k, unitName = ru.name;
+    var max = Math.max.apply(null, src.map(function (r) { return Math.abs(r.contribution * k); }).concat([0.01])), te = x.modelTE;
     var pos = src.filter(function (r) { return r.contribution > 0; }), posSum = U.sum(pos, function (r) { return r.contribution; });
     var colorFor = function (r, i) { return r.color || PAL[i % PAL.length]; };
     var stack = '<div class="act-stack" role="img" aria-label="Tracking error by source">' + src.map(function (r, i) { return r.contribution > 0 ? '<i style="width:' + (r.contribution / posSum * 100) + '%;background:' + colorFor(r, i) + '" data-tip="' + esc(r.label + ' ' + F.num(r.contribution, 2)) + '"></i>' : ''; }).join('') + '</div>';
-    var list = '<table class="tbl act-src"><thead><tr><th>' + (mode === 'factor' ? 'Factor · ' + esc(D.factorModelById[data.factorModel].name) : mode === 'category' ? 'Category' : mode === 'assetClass' ? 'Asset class' : 'Product') + '</th><th class="num">Contribution</th><th class="bar-col"></th><th class="num">Share</th></tr></thead><tbody>' +
-      src.map(function (r, i) { return '<tr><td><span class="sw" style="background:' + colorFor(r, i) + '"></span>' + esc(r.label) + '</td><td class="num">' + F.signed(r.contribution, 2) + '</td><td class="bar-col">' + dbar(r.contribution, max, colorFor(r, i)) + '</td><td class="num">' + (te > 0 ? F.num(r.contribution / te * 100, 0) + '%' : '—') + '</td></tr>'; }).join('') +
-      '<tr class="total"><td>Tracking error</td><td class="num">' + F.num(te, 2) + '</td><td></td><td class="num">100%</td></tr></tbody></table>';
+    var list = '<table class="tbl act-src"><thead><tr><th>' + (mode === 'factor' ? 'Factor · ' + esc(D.factorModelById[data.factorModel].name) : mode === 'category' ? 'Category' : mode === 'assetClass' ? 'Asset class' : 'Product') + '</th><th class="num">' + esc(ru.col) + '</th><th class="bar-col"></th><th class="num" data-tip="Share of the tracking error">Share</th></tr></thead><tbody>' +
+      src.map(function (r, i) { return '<tr><td><span class="sw" style="background:' + colorFor(r, i) + '"></span>' + esc(r.label) + '</td><td class="num">' + F.signed(r.contribution * k, 2) + '</td><td class="bar-col">' + dbar(r.contribution * k, max, colorFor(r, i)) + '</td><td class="num">' + (te > 0 ? F.num(r.contribution / te * 100, 0) + '%' : '—') + '</td></tr>'; }).join('') +
+      (k !== 1 ? '<tr><td>Less the expected active return</td><td class="num">' + F.signed(-x.activeReturn, 2) + '</td><td></td><td></td></tr>' : '') +
+      '<tr class="total"><td>' + esc(unitName) + '</td><td class="num">' + F.num(k !== 1 ? te * k - x.activeReturn : te, 2) + '</td><td></td><td class="num">100%</td></tr></tbody></table>';
     var eq = mode === 'factor' ? '<div class="act-eq">Tracking error ' + F.num(te, 2) + ' = factors ' + F.num(te - x.specific, 2) + ' + specific ' + F.num(x.specific, 2) + ' (contributions, % a year)</div>' : '<div class="act-eq">Contributions by ' + byName[mode] + ' sum to the tracking error of ' + F.num(te, 2) + '% a year; each includes its specific risk.</div>';
     if (s.sources === 'waterfall') return head(ctx, focus, s) + '<div class="viz-host" data-wf-draw="risk"></div>' + H.foot(x.coverage ? '<span>' + esc(x.coverage) + '.</span>' : '') + C.notes(card, [eq, x.riskSourcesNote ? esc(x.riskSourcesNote) : null, 'A negative step offsets risk from the others.']);
     return head(ctx, focus, s) + stack + '<div class="tblwrap">' + list + '</div>' + H.foot(x.coverage ? '<span>' + esc(x.coverage) + '.</span>' : '') + C.notes(card, [eq, x.riskSourcesNote ? esc(x.riskSourcesNote) : null, 'Negative contributions offset others (hedges); the bar draws only the positive ones.']);
@@ -156,12 +165,14 @@
   C.register({ id: 'active-risk', title: 'Active risk & return', description: 'Return and risk split into passive (the benchmark) and active, with tracking error, information ratio, active share, and where the active risk and return come from.', group: 'Forward-looking', size: { w: 12, h: 8 }, min: { w: 6, h: 5 }, basis: 'either', supportsRow: true, factorModel: true,
     entries: [{ settings: { basis: 'forward' } }, { title: 'Realised active risk & return', description: 'Realised tracking error, active return and information ratio over the period, with where they came from.', group: 'Historical', settings: { basis: 'historical' } }],
     settings: [
-      { key: 'against', label: 'Active against', type: 'select', options: [['reference', 'Follow the Reference (context bar)'], ['own', 'Each subject’s own benchmark'], ['pick', 'Pick one…']], default: 'reference' },
+      { key: 'against', label: 'Active against', type: 'select', options: [['reference', 'Follow the Reference (context bar)'], ['own', 'Each subject’s own benchmark'], ['pick', 'Pick one…'], ['step', 'A chain step…']], default: 'reference' },
+      { key: 'step', label: 'Chain step', type: 'select', options: STEPS, default: 'selection', when: function (s) { return s.against === 'step'; }, hint: 'The step’s lower level is measured against its upper level, for each allocation with a decision chain.' },
       { key: 'pick', label: 'Benchmark, product, allocation or sleeve', type: 'select', options: function () { return pickOptions(); }, default: 'benchmark:bm_6040', when: function (s) { return s.against === 'pick'; } },
       { key: 'decompose', label: 'Attribute risk and return by', type: 'select', options: [['factor', 'Factor (the factor model)'], ['category', 'Category'], ['assetClass', 'Asset class'], ['product', 'Product']], default: 'factor' },
       { key: 'returnMethod', label: 'Active return', type: 'select', options: [['arithmetic', 'Arithmetic difference'], ['geometric', 'Geometric']], default: 'arithmetic' },
       { key: 'showPassive', label: 'Show passive figures', type: 'toggle', default: true },
-      { key: 'sources', label: 'Risk and return sources', type: 'select', options: [['table', 'Table with bars'], ['waterfall', 'Waterfall']], default: 'waterfall' }],
+      { key: 'sources', label: 'Risk and return sources', type: 'select', options: [['table', 'Table with bars'], ['waterfall', 'Waterfall']], default: 'waterfall' },
+      { key: 'riskUnits', label: 'Risk units', type: 'select', options: [['te', 'Tracking error'], ['var99', '99% VaR, 1 year (parametric)'], ['es99', '99% expected shortfall, 1 year (parametric)']], default: 'te' }],
     subtitle: function (ctx, s, card) { return 'vs ' + againstLabel(ctx, s) + H.rowSuffix(ctx, card) + C.modelDeparture(card) + ' · % a year'; },
     data: function (ctx, s, card) {
       return against(s).then(function (ag) {
@@ -179,7 +190,7 @@
       else timeView(body, data, ctx);
       var wfh = host.querySelector('[data-wf-draw]');
       if (wfh) { var fa = S.allocation(focusOf(card, ctx)), fx = fa && seriesOf(data, fa);
-        if (wfh.dataset.wfDraw === 'risk') { var srcs = fx.riskSources.slice(); if (byOf(s) === 'factor') srcs.push({ key: '__specific', label: 'Specific', contribution: fx.specific, color: H.SPECIFIC_INK }); V.waterfall(wfh, { height: Math.max(170, body.clientHeight - 110), steps: srcs.map(function (r) { return { label: r.label, value: r.contribution, color: r.color || H.FACTOR_INK }; }), total: { label: 'Tracking error', color: UI.colorOf(fa) }, unit: 'pp', dp: 2, aria: 'Waterfall of ' + fa.name + '’s tracking error by source' }); }
+        if (wfh.dataset.wfDraw === 'risk') { var srcs = fx.riskSources.slice(); if (byOf(s) === 'factor') srcs.push({ key: '__specific', label: 'Specific', contribution: fx.specific, color: H.SPECIFIC_INK }); var ru = unitsOf(s), wsteps = srcs.map(function (r) { return { label: r.label, value: r.contribution * ru.k, color: r.color || H.FACTOR_INK }; }); if (ru.k !== 1) wsteps.push({ label: 'Less expected active return', value: -fx.activeReturn, color: H.SPECIFIC_INK }); V.waterfall(wfh, { height: Math.max(170, body.clientHeight - 110), steps: wsteps, total: { label: ru.short, color: UI.colorOf(fa) }, unit: 'pp', dp: 2, aria: 'Waterfall of ' + fa.name + '’s ' + ru.short.toLowerCase() + ' by source' }); }
         else { var bm = byOf(s); V.waterfall(wfh, { height: Math.max(170, body.clientHeight - 110), start: { label: 'Benchmark · ' + fx.benchmark.label, value: fx.passiveReturn, color: 'var(--ink-3)' }, steps: fx.returnSources.map(function (r, i) { return { label: r.short || r.label, value: r.contribution, color: r.color || (bm === 'factor' ? H.FACTOR_INK : '#c3cedb'), tip: (r.short || r.label) + (r.allocation != null ? ' (allocation ' + F.signed(r.allocation, 2) + ', selection ' + F.signed(r.selection, 2) + ')' : r.exposure != null ? ' (active β ' + F.signed(r.exposure, 2) + ' × premium ' + F.num(r.premium, 2) + ')' : '') }; }), total: { label: fa.name + ' · attributed', color: UI.colorOf(fa) }, unit: '%', dp: 2, aria: 'Waterfall from the benchmark return to ' + fa.name + '’s return, by ' + byName[bm] }); } }
       var setView = function (v, focusTab) { var c = S.card(card.id), p = U.clone(c.settings || {}); p.view = v; S.updateCard(c.id, { settings: p }); if (focusTab) setTimeout(function () { var el = document.querySelector('[data-card="' + CSS.escape(card.id) + '"] [data-act-view="' + v + '"]'); if (el) el.focus(); }, 0); };
       U.on(body, 'click', '[data-act-view]', function (e, b) { setView(b.dataset.actView); });

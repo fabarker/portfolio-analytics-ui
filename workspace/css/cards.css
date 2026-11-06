@@ -408,3 +408,59 @@
 .tree-addcat svg{width:12px;height:12px}
 .tree-addcat:hover,.tree-addcat:focus-visible{border-color:var(--rail-qa-line,var(--rail-accent));color:var(--rail-accent);background:var(--rail-selected)}
 .tree-addcat:focus-visible{outline:2px solid var(--rail-focus);outline-offset:1px}
+
+/* Weights side by side: categories with their products beneath, one column per allocation */
+.tbl.wt-m th.wt-name{text-align:left}
+.tbl.wt-m thead th .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.tbl.wt-m thead th.is-active{box-shadow:inset 0 -2px 0 var(--accent)}
+.tbl.wt-m tr.wt-cat th,.tbl.wt-m tr.wt-cat td{font-weight:600;background:var(--bg-soft,#f7f9fb)}
+.tbl.wt-m tr.wt-cat th .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:0}
+.tbl.wt-m tr.wt-cat.is-empty th{color:var(--ink-3);font-weight:500}
+.tbl.wt-m tr.wt-prod th{padding-left:28px;font-weight:400;color:var(--ink-2)}
+.tbl.wt-m td.num{font-variant-numeric:tabular-nums}
+.tbl.wt-m{width:100%}
+.tbl.wt-m thead th.num{white-space:normal;min-width:64px;vertical-align:bottom;line-height:1.3}
+.tbl.wt-m tbody th{white-space:normal;min-width:140px}
+
+/* ── Decision chain card ─────────────────────────────────────────────── */
+.ch-tabs{margin-bottom:8px}
+.ch-tools{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 8px}
+.ch-tools .act-by{margin:0}
+.ch-bridge{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.ch-bridge.is-two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media (max-width:900px){.ch-bridge.is-two{grid-template-columns:minmax(0,1fr)}}
+.ch-col{min-width:0;display:flex;flex-direction:column;gap:4px}
+.ch-col-head{font-size:12px;font-weight:700;color:var(--ink-2);border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:4px}
+.ch-col .act-sub b{color:var(--ink)}
+.ch-risk-tbl{margin-top:6px}
+.viz.wf rect.bar.is-link{cursor:pointer}
+.viz.wf rect.bar.is-link:hover{filter:brightness(1.12)}
+.ch-code{display:inline-block;font-family:var(--f-num);font-size:10.5px;font-weight:600;color:var(--ink-3);background:var(--surface-2);border-radius:3px;padding:0 4px;vertical-align:1px}
+.ch-sub{display:block;font-size:11px;font-weight:400;color:var(--ink-3);white-space:normal;line-height:1.3;margin-top:1px}
+.ch-levels-tbl th[scope=colgroup]{min-width:112px;white-space:normal;vertical-align:bottom}
+.ch-levels-tbl th.is-focus{box-shadow:inset 0 -2px 0 var(--ink)}
+.ch-step-title{margin:2px 0 6px;color:var(--ink-2)}
+.ch-step-title b{color:var(--ink)}
+.ch-tie{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:8px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--surface-2);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.ch-tie b{color:var(--ink)}
+.ch-tie svg{width:13px;height:13px;vertical-align:-2px;color:var(--ok)}
+.ch-tie.is-off{background:var(--warn-bg);box-shadow:inset 0 0 0 1px var(--warn-line)}
+.ch-risk-title{margin-top:12px}
+.ch-drift td{color:var(--ink-3)}
+.ch-factor tr.is-fx td:first-child{font-weight:600}
+.ch-matrix th[scope=row]{white-space:nowrap}
+.ch-matrix .sw,.ch-asset .sw,.ch-factor .sw,.ch-ot .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px}
+.ch-ledger th[scope=row]{font-weight:500;white-space:normal;min-width:240px}
+.ch-ledger tr.is-risk th[scope=row]{color:var(--ink-2)}
+.ch-ok{display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-weight:600;font-size:12px}
+.ch-ok svg{width:13px;height:13px}
+.ch-ledger-note{margin:8px 0 0}
+.ch-spread{margin:8px 0 0;font-size:12px}
+.ch-spread summary{cursor:pointer;color:var(--ink-2)}
+.ch-spread table{margin-top:6px;max-width:360px}
+.ch-ot tr.ch-ot-sub th{padding-left:24px;font-weight:400;color:var(--ink-2)}
+.ch-ot tr.ch-ot-head th{padding-top:9px}
+.ch-switch{font-size:12.5px}
+.ch-leg{display:inline-flex;align-items:center;gap:6px;margin-right:12px;font-size:12px;color:var(--ink-2)}
+.ch-leg .sw{display:inline-block;width:8px;height:8px;border-radius:2px}
+.ch-empty{padding:22px 10px}

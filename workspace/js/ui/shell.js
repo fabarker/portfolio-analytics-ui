@@ -112,6 +112,7 @@
         { label: 'Add card', icon: I.table, onClick: function () { S.setSession('addCardOpen', true); } },
         { label: 'Versions & activity', icon: I.history, onClick: function () { UI.dialogs.history(); } },
         { label: 'Reporting currency… (' + S.ws.currency + ')', icon: I.reset, onClick: function () { UI.dialogs.changeCurrency(); } },
+        { label: 'Attribution conventions…' + (UI.chain.departures(S.ws).length ? ' (' + UI.chain.departures(S.ws).length + ' changed)' : ''), icon: I.sliders, onClick: function () { UI.chain.conventions(); } },
         { label: 'Export', icon: I.export, onClick: function () { UI.dialogs.exportDialog(); } },
         { sep: true }, { head: 'Layout' },
         { label: 'Pack cards into a tidy layout', icon: I.reset, onClick: function () { PA.cards.resetLayout(); } },
@@ -152,12 +153,23 @@
     var members = S.members(), active = w.comparison.activeId;
     els.compare.innerHTML = '<span class="eyebrow">Comparing</span>' + members.map(function (a) {
       return '<div class="member' + (a.id === active ? ' is-active' : '') + '" data-id="' + esc(a.id) + '" draggable="true" tabindex="0" role="button" aria-label="' + esc(a.name) + (a.id === active ? ', editing' : ', press to edit') + '"><span class="dot" style="background:' + UI.colorOf(a) + '"></span><b>' + esc(a.name) + '</b>' + UI.kindTag(a) + '<button type="button" class="mbtn" aria-label="Options for ' + esc(a.name) + '" aria-haspopup="menu" aria-expanded="false" data-menu="' + esc(a.id) + '">' + I.more + '</button></div>';
-    }).join('') + '<button type="button" class="btn btn-sm add-member" id="add-member"' + (members.length >= 6 ? ' disabled data-tip="A comparison holds up to six allocations"' : '') + '>' + I.plus + '<span>Add</span></button>' + (members.length >= 6 ? '<span class="compare-note">6 of 6 · remove one to add another</span>' : '') + (members.length ? '' : '<span class="faint small">Nothing in the comparison yet.</span>');
+    }).join('') + standaloneChip() + levelChips() + '<button type="button" class="btn btn-sm add-member" id="add-member"' + (members.length >= 6 ? ' disabled data-tip="A comparison holds up to six allocations"' : '') + '>' + I.plus + '<span>Add</span></button>' + (members.length >= 6 ? '<span class="compare-note">6 of 6 · remove one to add another</span>' : '') + (members.length ? '' : '<span class="faint small">Nothing in the comparison yet.</span>');
     var am = U.$('#add-member'); if (am) am.onclick = function () { addMemberMenu(am); };
   }
+  /** The temporary stand-alone category: shown after the comparison, closed with its own button. */
+  function standaloneChip() {
+    var x = S.standalone(); if (!x) return '';
+    return '<div class="member is-temp" data-standalone tabindex="-1"><span class="dot" style="background:' + UI.colorOf(x) + '"></span><b>' + esc(x.name) + '</b>' + UI.kindTag(x) + '<button type="button" class="mbtn" data-standalone-close aria-label="Stop showing ' + esc(x.name) + ' on its own" data-tip="Stop showing this category on its own (Esc in the rail)">' + I.close + '</button></div>';
+  }
+  /** Derived chain levels: shown after the comparison while levels are on; one close button turns them all off. */
+  function levelChips() {
+    return S.levels().map(function (x) { return '<div class="member is-temp is-level" data-level="' + esc(x.id) + '" tabindex="-1"><span class="dot" style="background:' + UI.colorOf(x) + '"></span><b>' + esc(x.name) + '</b>' + UI.kindTag(x) + '<button type="button" class="mbtn" data-level-close aria-label="Stop showing chain levels" data-tip="Stop showing chain levels in the comparison">' + I.close + '</button></div>'; }).join('');
+  }
   function wireCompare() {
+    U.on(els.compare, 'click', '[data-standalone-close]', function () { S.setStandalone(null); var n = document.querySelector('#tree .tree-row.is-selected .tname'); if (n) n.focus(); });
+    U.on(els.compare, 'click', '[data-level-close]', function () { S.setPref('showLevels', 'off'); U.announce('Chain levels hidden'); var b = els.compare.querySelector('.member.is-active'); if (b) b.focus(); });
     U.on(els.compare, 'click', '[data-menu]', function (e, b) { memberMenu(b, b.dataset.menu); });
-    U.on(els.compare, 'click', '.member', function (e, m) { if (e.target.closest('[data-menu]')) return; setActive(m.dataset.id); });
+    U.on(els.compare, 'click', '.member', function (e, m) { if (e.target.closest('[data-menu]') || m.hasAttribute('data-standalone') || m.hasAttribute('data-level')) return; setActive(m.dataset.id); });
     U.on(els.compare, 'keydown', '.member', function (e, m) { if ((e.key === 'Enter' || e.key === ' ') && e.target === m) { e.preventDefault(); setActive(m.dataset.id); } });
     var dragId = null;
     U.on(els.compare, 'dragstart', '.member', function (e, m) { dragId = m.dataset.id; m.classList.add('is-dragging'); e.dataTransfer.effectAllowed = 'move'; });
@@ -171,7 +183,9 @@
   function memberMenu(btn, id) {
     var a = S.allocation(id), members = S.ws.comparison.members, i = members.indexOf(id);
     if (a.kind === 'sleeve') return UI.sleeves.refresh().then(function () { sleeveMenu(btn, a, members, i); });
-    UI.menu(btn, [{ head: a.name }, { label: 'Edit in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { sep: true },
+    var lv = S.ws.prefs.showLevels || 'off', shown = lv === 'all' || (lv === 'active' && a.id === S.ws.comparison.activeId);
+    UI.menu(btn, [{ head: a.name }, { label: 'Edit in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: 'Decision chain…', icon: I.chart, disabled: a.kind === 'sleeve', onClick: function () { UI.chain.open(a); } },
+      { label: shown ? 'Hide chain levels' : 'Show chain levels', icon: I.layers, disabled: !a.chain, onClick: function () { if (shown) S.setPref('showLevels', 'off'); else { if (a.id !== S.ws.comparison.activeId && lv !== 'all') S.setPref('showLevels', 'all'); else S.setPref('showLevels', lv === 'all' ? 'all' : 'active'); } } }, { sep: true },
       { label: 'Move left', icon: I.chevronLeft, disabled: i <= 0, onClick: function () { moveMember(id, members[i - 1]); } }, { label: 'Move right', icon: I.chevron, disabled: i >= members.length - 1, onClick: function () { moveMember(id, members[i + 2] || null); } }, { sep: true },
       a.kind === 'snapshot' ? { label: 'Create draft from snapshot', icon: I.copy, onClick: function () { UI.dialogs.draftFromSnapshot(a); } } : { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } },
       { label: 'Remove from comparison', icon: I.close, onClick: function () { removeMember(id); } }, { label: 'Delete allocation…', icon: I.trash, onClick: function () { deleteAllocation(a); } }], { align: 'end' });
@@ -240,7 +254,9 @@
       if (type === 'update' || type === 'undo' || type === 'redo') { renderHeader(); renderCompare(); }
       if (type === 'save') renderSaveStatus();
       if (type === 'session' && extra.key === 'railOpen') applyLayout();
+      if (type === 'session' && extra.key === 'standalone') { renderCompare(); var t = els.compare.querySelector('[data-standalone]'); if (t) els.compare.scrollLeft = Math.max(0, t.offsetLeft + t.offsetWidth - els.compare.clientWidth + 120); }
       if (type === 'pref' && extra.key === 'railCollapsed') applyLayout();
+      if (type === 'pref' && extra.key === 'showLevels') renderCompare();
     });
     route();
   };

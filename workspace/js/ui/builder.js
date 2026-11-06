@@ -77,17 +77,18 @@
     return '<label class="rh-eyebrow" for="active-pick">' + (a ? '<span class="dot" style="background:' + UI.colorOf(a) + '" aria-hidden="true"></span>' : '') + 'Editing</label>' +
       '<div class="rh-name"><select id="active-pick" data-fkey="active-pick"' + (w.allocations.length ? '' : ' disabled') + '>' + (inC.length ? '<optgroup label="In the comparison">' + inC.map(opt).join('') + '</optgroup>' : '') + (out.length ? '<optgroup label="Not compared">' + out.map(opt).join('') + '</optgroup>' : '') + (w.allocations.length ? '' : '<option>No allocations yet</option>') + '</select>' +
       (a ? '<button type="button" class="rail-toggle rh-menu" id="rail-menu" data-fkey="rail-menu" aria-label="Options for ' + esc(a.name) + '" aria-haspopup="menu" aria-expanded="false" data-tip="Select products, expand or collapse, rename, benchmark, snapshot">' + I.more + '</button>' : '') + '</div>' +
-      (a ? '<div class="active-meta">' + [UI.kindTag(a), hb.basis === 'actual' ? '' : '<span data-tip="' + esc(hb.label + ': ' + hb.detail) + '">' + (hb.basis === 'edited' ? 'Edited' : 'Backtest') + '</span>', bm ? '<span>vs ' + esc(bm.name) + '</span>' : (a.kind === 'sleeve' ? '' : '<span class="tag tag-warn" data-tip="Differences against “each allocation’s own benchmark” are unavailable until one is assigned.">No benchmark</span>')].filter(Boolean).join('<span class="sep" aria-hidden="true">·</span>') + '</div>' : '');
+      (a ? '<div class="active-meta">' + [UI.kindTag(a), hb.basis === 'actual' ? '' : '<span data-tip="' + esc(hb.label + ': ' + hb.detail) + '">' + (hb.basis === 'edited' ? 'Edited' : 'Backtest') + '</span>', bm ? '<span>vs ' + esc(bm.name) + '</span>' : (a.kind === 'sleeve' ? '' : '<span class="tag tag-warn" data-tip="Differences against “each allocation’s own benchmark” are unavailable until one is assigned.">No benchmark</span>'), a.chain ? '<button type="button" class="rh-chain" data-chain-open data-tip="' + esc(chainTip(a)) + '">Chain set</button>' : ''].filter(Boolean).join('<span class="sep" aria-hidden="true">·</span>') + '</div>' : '');
   }
+  function chainTip(a) { var p = PA.chain.policyOf(a), s = PA.chain.saaOf(a, S.ws.allocations); return 'Decision chain: policy ' + (p.label || p.reason) + ' · SAA ' + (s.label || s.reason) + '. Open the decision chain.'; }
   function badge(n) { return n ? '<span class="rail-badge" aria-hidden="true">' + n + '</span>' : ''; }
   function renderTabs(tab, iss) {
     return TABS.map(function (t) {
-      var on = t.id === tab, n = t.id === 'check' ? iss.length : 0;
+      var on = t.id === tab, n = t.id === 'check' ? warnCount(iss) : 0;
       return '<button type="button" class="rail-tab" role="tab" id="rail-tab-' + t.id + '" data-tab="' + t.id + '" data-fkey="tab:' + t.id + '" aria-selected="' + on + '" aria-controls="builder" tabindex="' + (on ? 0 : -1) + '" title="' + esc(t.title) + '"' + (n ? ' aria-label="' + t.label + ', ' + n + ' item' + (n === 1 ? '' : 's') + ' to check"' : '') + '>' + I[t.icon] + '<span>' + t.label + '</span>' + badge(n) + '</button>';
     }).join('');
   }
   function renderStrip(tab, iss) {
-    return TABS.map(function (t) { var n = t.id === 'check' ? iss.length : 0; return '<button type="button" class="btn btn-icon btn-ghost" data-strip="' + t.id + '" aria-label="Open the builder on ' + t.label + (n ? ', ' + n + ' to check' : '') + '" title="' + esc(t.title) + '">' + I[t.icon] + badge(n) + '</button>'; }).join('');
+    return TABS.map(function (t) { var n = t.id === 'check' ? warnCount(iss) : 0; return '<button type="button" class="btn btn-icon btn-ghost" data-strip="' + t.id + '" aria-label="Open the builder on ' + t.label + (n ? ', ' + n + ' to check' : '') + '" title="' + esc(t.title) + '">' + I[t.icon] + badge(n) + '</button>'; }).join('');
   }
 
   /* ── Build ───────────────────────────────────────────────────────── */
@@ -138,13 +139,26 @@
     var fm = D.factorModelById[(S.ws.prefs.factorModel) || 'isg'], prox = a.holdings.filter(function (h) { return fm.coverage(D.instrumentById[h.instrumentId]); });
     if (prox.length) out.push({ t: fm.name + ': ' + prox.length + ' product' + (prox.length === 1 ? '' : 's') + ' proxied by the category index', s: prox.map(function (h) { return D.instrumentById[h.instrumentId].identifier; }).join(', ') + ' are not covered by the ' + fm.name + ' factor model, so factor exposures and factor risk use the category index in their place.', acts: [['show', E.categoryOf(prox[0]) + '/' + prox[0].instrumentId, 'Show in Build'], ['model', fm.id, 'About ' + fm.name]] });
     if (!a.benchmarkId && a.kind !== 'sleeve') out.push({ t: 'No benchmark assigned', s: 'Differences against “each allocation’s benchmark” are unavailable until one is set.', acts: live ? [['bench', '', 'Assign benchmark']] : [] });
+    /* the decision chain: what is missing warns; the category-index fallback and a missing chain are information */
+    if (a.kind !== 'sleeve') {
+      if (!a.chain) out.push({ level: 'info', t: 'No decision chain', s: 'Name a policy benchmark, an SAA and the product benchmarks to decompose return and risk step by step.', acts: [['chain', '', 'Set up decision chain']] });
+      else {
+        var pol = PA.chain.policyOf(a), saa = PA.chain.saaOf(a, S.ws.allocations), mp = PA.chain.mappingOf(a), fb = mp.filter(function (m) { return m.source === 'categoryIndex' || m.source === 'none'; });
+        if (!pol.holdings) out.push({ t: 'No policy benchmark', s: 'The decision chain has no first level, so its steps start at the SAA. Pick a policy benchmark or use the assigned one.', acts: [['chain', 'policy', 'Decision chain…']] });
+        if (!saa.holdings) out.push({ t: saa.reason === 'No SAA' ? 'No SAA' : saa.reason, s: 'Without an SAA, the SAA and product benchmark decisions are shown as one step.', acts: [['chain', 'saa', 'Decision chain…']] });
+        if (fb.length) out.push({ level: 'info', t: fb.length + ' product' + (fb.length === 1 ? '' : 's') + ' without a stated benchmark (category index used)', s: fb.map(function (m) { return D.instrumentById[m.instrumentId].identifier; }).join(', ') + ' are measured against their category index in the chain. Override any of them in the mapping.', acts: [['chain', 'mapping', 'Review mapping']] });
+      }
+    }
     return out;
   }
+  function warnCount(iss) { return iss.filter(function (x) { return x.level !== 'info'; }).length; }
   function renderCheck(a, iss) {
-    var items = iss.length ? iss.map(function (x, i) { return '<div class="rail-check warn">' + I.warn + '<div class="txt"><b>' + esc(x.t) + '</b><small>' + esc(x.s) + '</small>' + (x.acts.length ? '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:5px">' + x.acts.map(function (c, j) { return '<button type="button" class="btn btn-xs" data-issue="' + i + ':' + j + '" data-fkey="issue:' + esc(c[0] + ':' + c[1]) + '">' + esc(c[2]) + '</button>'; }).join('') + '</div>' : '') + '</div></div>'; }).join('')
-      : '<div class="rail-check ok">' + I.ok + '<div class="txt"><b>Nothing needs attention</b><small>Fully allocated, complete histories and a benchmark.</small></div></div>';
-    return '<div class="rail-sec"><div class="rail-sec-head"><span class="rail-eyebrow">To check · ' + iss.length + '</span></div>' + items + '</div>' + renderSummary(a) + (a.kind === 'sleeve' ? '' : renderLeverage(a)) + '<div class="field-err" id="check-err" role="alert" style="color:var(--rail-bad)"></div>';
+    var warns = iss.filter(function (x) { return x.level !== 'info'; }), infos = iss.filter(function (x) { return x.level === 'info'; });
+    var item = function (x) { var i = iss.indexOf(x), info = x.level === 'info'; return '<div class="rail-check ' + (info ? 'info' : 'warn') + '">' + (info ? I.info : I.warn) + '<div class="txt"><b>' + esc(x.t) + '</b><small>' + esc(x.s) + '</small>' + (x.acts.length ? '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:5px">' + x.acts.map(function (c, j) { return '<button type="button" class="btn btn-xs" data-issue="' + i + ':' + j + '" data-fkey="issue:' + esc(c[0] + ':' + c[1]) + '">' + esc(c[2]) + '</button>'; }).join('') + '</div>' : '') + '</div></div>'; };
+    var html = (warns.length ? warns.map(item).join('') : '<div class="rail-check ok">' + I.ok + '<div class="txt"><b>Nothing needs attention</b><small>Fully allocated, complete histories and a benchmark.</small></div></div>') + (infos.length ? '<div class="rail-sec-head" style="margin-top:10px"><span class="rail-eyebrow">For information</span></div>' + infos.map(item).join('') : '');
+    return '<div class="rail-sec"><div class="rail-sec-head"><span class="rail-eyebrow">To check · ' + warns.length + '</span></div>' + html + '</div>' + renderSummary(a) + (a.kind === 'sleeve' ? '' : renderLeverage(a)) + '<div class="field-err" id="check-err" role="alert" style="color:var(--rail-bad)"></div>';
   }
+
 
   function renderTree(a) {
     var tree = E.tree(a), col = collapsed[a.id] || {}, ro = a.kind !== 'live', pend = pendingOf(a), sel = S.ws.prefs.selectedRow, selMode = S.session.selectMode, selection = S.session.selection;
@@ -309,6 +323,7 @@
     var fs = U.$('#sl-from-sel'); if (fs) fs.onclick = function () { S.session.railTab = 'build'; S.setSelectMode(true); UI.toast('Tick products in the tree, then Save as sleeve or Save & compare.'); };
     var or = U.$('#sl-open-repo'); if (or) or.onclick = function () { UI.shell.go('#/sleeves'); };
     var rm = U.$('#rail-menu'); if (rm) rm.onclick = function () { rowMenu(rm, a, 'root'); };
+    var cho = U.$('#rail-head [data-chain-open]'); if (cho) cho.onclick = function () { UI.chain.open(a); };
     var pick = U.$('#active-pick'); if (pick) pick.onchange = function () { var id = pick.value; S.update('Editing switched to ' + S.allocation(id).name, function (ws) { ws.comparison.activeId = id; }, { refresh: false, activity: false, force: true }); };
     var nb = U.$('#rail-new'); if (nb) nb.onclick = function () { UI.dialogs.newAllocation(); };
     var dr = U.$('#rail-draft'); if (dr) dr.onclick = function () { UI.dialogs.draftFromSnapshot(a); };
@@ -319,7 +334,7 @@
     if (tree) {
       U.$$('.tsel[data-ind]', tree).forEach(function (cb) { cb.indeterminate = true; });
       U.on(tree, 'click', '[data-toggle]', function (e, b) { var key = b.dataset.toggle, c = collapsed[a.id] = collapsed[a.id] || {}; if (c[key]) delete c[key]; else c[key] = true; B.render(); });
-      U.on(tree, 'click', '[data-select]', function (e, b) { if (e.metaKey || e.ctrlKey) { var h = holdingForKey(a, b.dataset.select); if (h) { S.toggleSelected(h.id); return; } } S.setPref('selectedRow', b.dataset.select); ensureTableExpanded(b.dataset.select); });
+      U.on(tree, 'click', '[data-select]', function (e, b) { if (e.metaKey || e.ctrlKey) { var h = holdingForKey(a, b.dataset.select); if (h) { S.toggleSelected(h.id); return; } } var key = b.dataset.select; S.setPref('selectedRow', key); ensureTableExpanded(key); if (key !== '__total' && key.indexOf('/') < 0) S.setStandalone(a.id, key); });
       U.on(tree, 'change', '.tsel', function (e, cb) {
         var id = cb.dataset.sel;
         if (id.indexOf('cat:') === 0) { var ps = E.productsIn(a, id.slice(4)), all = ps.every(function (h) { return S.session.selection.indexOf(h.id) >= 0; }); ps.forEach(function (h) { var on = S.session.selection.indexOf(h.id) >= 0; if (all ? on : !on) S.toggleSelected(h.id); }); }
@@ -367,6 +382,7 @@
         else if (e.key === 'ArrowLeft') { e.preventDefault(); if (cur.closest('.tree-row').querySelector('[data-toggle]') && !c[key]) { c[key] = true; B.render(); } }
         else if (e.key === 'Enter') { e.preventDefault(); var w = cur.closest('.tree-row').querySelector('input[data-key]'); if (w && !w.disabled) { w.focus(); w.select(); } }
         else if (e.key === ' ' && S.session.selectMode) { var h = holdingForKey(a, key); if (h) { e.preventDefault(); S.toggleSelected(h.id); } }
+        else if (e.key === 'Escape' && S.session.standalone) { e.preventDefault(); S.setStandalone(null); }
         else if ((e.key === '+' || e.key === 'Insert') && key.indexOf('/') < 0 && a.kind === 'live') { e.preventDefault(); openQuick(a, key); }
       });
       var ac = U.$('#tree-addcat'); if (ac) ac.onclick = function () { B.newCategory(); };
@@ -387,6 +403,17 @@
       var on = lev.checked; S.update(a.name + ': shorts & leverage ' + (on ? 'enabled' : 'disabled'), function (ws) { ws.allocations.filter(function (y) { return y.id === a.id; })[0].leverage = on; }, { refresh: false, type: 'edit' });
     };
   }
+  var renderRail = B.render; B.render = function () { renderRail(); if (root && S.ws) markStandalone(); };
+  /** Mark the category shown on its own in the analysis. */
+  function markStandalone() {
+    var x = S.standalone(), id = x ? x.standalone.categoryId : null;
+    U.$$('#tree .tree-row.depth-0', root).forEach(function (r) {
+      var on = r.dataset.key === id, t = r.querySelector('.t-alone');
+      r.classList.toggle('is-alone', on);
+      if (on && !t) { var n = r.querySelector('.tname'); if (n) n.insertAdjacentHTML('beforeend', '<small class="t-alone">On its own · 100%</small>'); }
+      if (!on && t) t.remove();
+    });
+  }
   /** Go to a row in the Build tab: expand its category, select it, bring it into view. */
   function showRow(a, key) {
     S.session.railTab = 'build';
@@ -400,6 +427,7 @@
     else if (kind === 'apply') UI.sleeves.apply(a, key);
     else if (kind === 'bench') UI.dialogs.assignBenchmark(a);
     else if (kind === 'model') PA.cards.aboutModel(key);
+    else if (kind === 'chain') UI.chain.open(a, { focus: key });
   }
   function holdingForKey(a, key) { var p = key.split('/'); if (p.length !== 2 || p[1] === '__index') return null; return a.holdings.filter(function (h) { return h.instrumentId === p[1]; })[0] || null; }
   function ensureTableExpanded(key) { var parts = key.split('/'), ex = S.ws.prefs.expanded.slice(); if (parts.length > 1 && ex.indexOf(parts[0]) < 0) { ex.push(parts[0]); S.setPref('expanded', ex); } }
@@ -483,7 +511,7 @@
       { label: 'Expand every category', onClick: function () { allTo(false); } },
       { label: 'Collapse every category', onClick: function () { allTo(true); } },
       { sep: true }, { label: 'New category…', icon: I.plus, onClick: function () { B.newCategory(); } }, { label: 'Find a product to add', icon: I.search, disabled: ro, kbd: '/', onClick: function () { B.findProduct(); } }, { label: 'Add products from returns…', icon: I.paste, onClick: function () { UI.importer.open({ text: '' }); } },
-      { sep: true }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } }, { label: 'Show portfolio total in table', icon: I.table, onClick: function () { S.setPref('selectedRow', '__total'); } }];
+      { sep: true }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: a.chain ? 'Decision chain…' : 'Set up decision chain…', icon: I.chart, disabled: a.kind === 'sleeve', onClick: function () { UI.chain.open(a); } }, { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } }, { label: 'Show portfolio total in table', icon: I.table, onClick: function () { S.setPref('selectedRow', '__total'); } }];
     else if (kind === 'category') {
       var t = E.tree(a).filter(function (x) { return x.id === key; })[0], ci = D.categories.map(function (c) { return c.id; }).indexOf(key), n = D.categories.length, usedBy = categoryUsers(key);
       items = [{ head: t.name },
@@ -504,13 +532,13 @@
       items = [{ head: ins.name },
         { label: on ? 'Deselect' : 'Select for a sleeve', icon: I.check, disabled: ro, onClick: function () { S.toggleSelected(h.id); } },
         { label: 'Inspect', icon: I.info, onClick: function () { UI.dialogs.inspectInstrument(ins); } },
-        { label: 'Show in table', icon: I.table, onClick: function () { S.setPref('selectedRow', key); ensureTableExpanded(key); } },
+        { label: 'Show in table', icon: I.table, onClick: function () { S.setPref('selectedRow', key); ensureTableExpanded(key); } }].concat(a.chain ? [{ label: 'Show against its benchmark', icon: I.chart, onClick: function () { UI.chain.showAgainstBenchmark(a, key); } }] : []).concat([
         { sep: true },
         { label: 'Remove from allocation', icon: I.trash, disabled: ro, onClick: function () {
           var cat0 = D.categoryById[parts[0]], was = E.categoryTargets(a)[parts[0]];
           S.update(a.name + ' · ' + ins.name + ' removed', function (ws) { var x = ws.allocations.filter(function (y) { return y.id === a.id; })[0]; x.holdings = x.holdings.filter(function (q) { return q.instrumentId !== ins.id; }); if (x.history && x.history.basis === 'actual') x.edited = true; if (ws.prefs.selectedRow === key) ws.prefs.selectedRow = parts[0]; }, { type: 'edit' });
           UI.toast(ins.name + ' removed. ' + (cat0 ? cat0.name + ' is now ' + F.num(E.categoryTargets(S.active())[parts[0]]) + '% (was ' + F.num(was) + '%).' : ''), { action: { label: 'Undo', fn: S.undo } });
-        } }];
+        } }]);
     }
     UI.menu(btn, items, { align: 'end' });
   }
@@ -549,6 +577,7 @@
       if (type === 'session' && extra.key === 'selection') B.render();
       if (type === 'pref' && extra.key === 'factorModel') B.render();
       if (type === 'pref' && extra.key === 'selectedRow') U.$$('.tree-row', root).forEach(function (r) { r.classList.toggle('is-selected', r.dataset.key === S.ws.prefs.selectedRow); });
+      if (type === 'session' && extra.key === 'standalone') markStandalone();
     });
   };
 })();

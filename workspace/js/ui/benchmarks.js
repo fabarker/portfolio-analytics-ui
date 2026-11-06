@@ -87,7 +87,8 @@
     items.push({ head: 'Presets' }); D.benchmarks.filter(function (b) { return b.source !== 'custom'; }).forEach(function (b) { items.push(bmItem(b)); });
     var cus = D.benchmarks.filter(function (b) { return b.source === 'custom'; });
     if (cus.length) { items.push({ sep: true }, { head: 'Custom' }); cus.forEach(function (b) { items.push(bmItem(b)); }); }
-    items.push({ sep: true }, { head: 'Per allocation' }, { label: 'Each allocation’s own benchmark', icon: check(c.referenceMode === 'individual'), onClick: function () { set({ referenceMode: 'individual' }, 'each allocation’s own benchmark'); } });
+    items.push({ sep: true }, { head: 'Per allocation' }, { label: 'Each allocation’s own benchmark', icon: check(c.referenceMode === 'individual'), onClick: function () { set({ referenceMode: 'individual' }, 'each allocation’s own benchmark'); } },
+      { label: 'Each allocation’s policy benchmark', icon: check(c.referenceMode === 'policy'), onClick: function () { set({ referenceMode: 'policy' }, 'each allocation’s policy benchmark'); } });
     var mem = S.members(); if (mem.length) { items.push({ sep: true }, { head: 'A compared portfolio' }); mem.forEach(function (a) { items.push({ label: a.name, icon: check(c.referenceMode === 'portfolio' && c.referencePortfolioId === a.id), onClick: function () { set({ referenceMode: 'portfolio', referencePortfolioId: a.id }, a.name); } }); }); }
     items.push({ sep: true }, { label: 'Create custom benchmark…', icon: I.plus, onClick: function () { BM.builder({ useAsReference: true }); } }, { label: 'Benchmark library', icon: I.folder, onClick: function () { UI.shell.go('#/benchmarks'); } });
     UI.menu(btn, items, { align: 'start', cls: 'ref-menu' });

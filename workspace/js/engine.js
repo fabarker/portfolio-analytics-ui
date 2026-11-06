@@ -47,7 +47,8 @@
     D.instruments.forEach(function (ins) {
       var o = ov && ov.holding[ins.id];
       var acr = acReturn[ins.assetClass], acv = acVol[ins.assetClass];
-      var alphaAdj = (ins.type === 'Index' ? 0 : -(ins.fee || 0) / 100) + (ins.spread || 0);
+      /* returns are net of each product's stated fee unless the workspace's fee basis is gross */
+      var alphaAdj = (ins.type === 'Index' || D.feeBasis === 'gross' ? 0 : -(ins.fee || 0) / 100) + (ins.spread || 0);
       if (ins.fit) {
         /* an uploaded product: its beta to its asset class carries the class's
            excess return; its own realised volatility, scaled with the class's */
@@ -458,8 +459,15 @@
   var Hx = function () { return D.history; };
   E.monthIndex = function (ym) { return U.ym.diff(Hx().start, ym); };
 
+  /* the history is net of stated fees; on a gross fee basis each month's fee is added back */
+  var grossCache = {};
+  function feeBasisOf(ins, own) {
+    if (D.feeBasis !== 'gross' || !ins.fee || ins.type === 'Index') return own;
+    var k = ins.id; if (grossCache[k] && grossCache[k].src === own) return grossCache[k].s;
+    var add = ins.fee / 10000 / 12, s = own.map(function (v) { return v == null ? null : v + add; }); grossCache[k] = { src: own, s: s }; return s;
+  }
   E.holdingSeries = function (instrumentId) {
-    var ins = D.instrumentById[instrumentId], H = Hx(), own = H.instrument[instrumentId] || [];
+    var ins = D.instrumentById[instrumentId], H = Hx(), own = feeBasisOf(ins, H.instrument[instrumentId] || []);
     if (ins.coverage === 'none') return { series: H.months.map(function () { return null; }), coverage: 'none', note: ins.proxyNote || 'No return history' };
     if (ins.coverage !== 'proxy') return { series: own, coverage: 'full', note: null };
     var ac = D.assetClassById[ins.assetClass], proxy = H.instrument[ac.indexId] || [];

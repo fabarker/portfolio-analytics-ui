@@ -39,13 +39,25 @@
   /* ── shared data fetch with a per-revision cache ─────────────────── */
   C.fetch = function (name, req) {
     if (cacheRev !== S.session.revision) { cache = {}; cacheRev = S.session.revision; }
+    /* a decision chain whose SAA is another allocation sends that allocation along, as edited */
+    var pool = C.chainPool(req.allocations || (req.allocation ? [req.allocation] : []));
+    if (pool.length) req.chainAllocations = pool;
     var key = name + ':' + JSON.stringify(req);
     if (!cache[key]) { cache[key] = PA.api[name](req); cache[key].catch(function () { if (cache[key]) delete cache[key]; }); }
     return cache[key];
   };
+  /** The allocations the members' chains name as their SAA (and the parents of derived levels), so the service can resolve the levels. */
+  C.chainPool = function (list) {
+    if (!S.ws) return [];
+    var ids = {}; (list || []).forEach(function (a) { var ch = a && a.chain; if (ch && ch.saa && ch.saa.kind === 'allocation') ids[ch.saa.id] = 1; if (a && a.level) ids[a.level.parentId] = 1; });
+    (list || []).forEach(function (a) { if (a) delete ids[a.id]; });
+    return S.ws.allocations.filter(function (a) { return ids[a.id]; }).map(function (a) { return U.clone(a); });
+  };
   C.ctx = function (card) {
-    var w = S.ws, p = w.prefs, ids = w.comparison.members, em = p.emphasis.filter(function (id) { return ids.indexOf(id) >= 0; });
-    return { ws: w, members: S.members(), emphasized: em.length ? em : ids.slice(), prefs: p, scenario: S.activeScenario(), row: p.selectedRow, rowLabel: C.rowLabel(p.selectedRow), revision: S.session.revision, basis: card ? C.basisOf(card) : null };
+    var w = S.ws, p = w.prefs, members = S.analysed(), ids = members.map(function (a) { return a.id; }), em = p.emphasis.filter(function (id) { return ids.indexOf(id) >= 0; });
+    if (em.length && ids.indexOf(S.STANDALONE_ID) >= 0 && em.indexOf(S.STANDALONE_ID) < 0) em.push(S.STANDALONE_ID);
+    if (em.length) members.forEach(function (a) { if (a.kind === 'level' && em.indexOf(a.level.parentId) >= 0 && em.indexOf(a.id) < 0) em.push(a.id); });
+    return { ws: w, members: members, emphasized: em.length ? em : ids.slice(), prefs: p, scenario: S.activeScenario(), row: p.selectedRow, rowLabel: C.rowLabel(p.selectedRow), revision: S.session.revision, basis: card ? C.basisOf(card) : null };
   };
   /* ── basis: a card's own, fixed when it is added ─────────────────── */
   /** 'forward' | 'historical' for a card that reads one basis; null for structure and for Headline (both). */
@@ -118,7 +130,7 @@
   };
   C.setFactors = function (card, key, modelId, ids) { var c = S.card(card.id), p = U.clone(c.settings || {}), v = p[key], obj = Array.isArray(v) ? { isg: v } : (v ? U.clone(v) : {}); obj[modelId] = ids; p[key] = obj; S.updateCard(c.id, { settings: p }); };
   C.aboutModel = function (modelId) {
-    var D = PA.data, m = D.factorModelById[modelId], members = S.members();
+    var D = PA.data, m = D.factorModelById[modelId], members = S.analysed();
     var cov = members.map(function (a) { var n = PA.engine.modelNote(m, PA.engine.effective(a)); return n ? '<li><b>' + esc(a.name) + '</b>: ' + esc(n.replace(/^Proxied by the category index in [^:]+: /, '')) + '</li>' : ''; }).join('');
     UI.openDialog({ title: m.long, sub: 'As of ' + U.fmt.date(m.asOf) + '. ' + esc(m.note), wide: true,
       body: PA.ui.viz.table([{ label: 'Factor' }, { label: 'What it measures' }, { label: (modelId === 'isg' ? 'Axioma' : 'ISG') + ' counterpart' }], m.factors.map(function (f) { var o = D.factorModelById[modelId === 'isg' ? 'axioma' : 'isg']; return { cells: [esc(f.name), esc(f.description), f.mapsTo && o.factorById[f.mapsTo] ? esc(o.factorById[f.mapsTo].name) + (f.signFlip ? ' <span class="tag tag-warn">opposite sign</span>' : '') : '<span class="faint">none</span>'] }; }), { maxHeight: '260px' }) +
@@ -222,7 +234,8 @@
       if (s.when && !s.when(settings, card)) return;
       var opts = typeof s.options === 'function' ? s.options(card) : s.options;
       if (s.type === 'factors') { var m = C.modelOf(card), cur = C.factorsFor(settings[s.key], m.id).ids; html += '<div class="field"><span class="label">' + esc(s.label) + ' · ' + esc(m.name) + '</span><div class="factor-pick">' + m.factors.map(function (f) { return '<button type="button" class="fchip" data-factor="' + s.key + '" data-val="' + esc(f.id) + '" aria-pressed="' + (cur.indexOf(f.id) >= 0) + '" data-tip="' + esc(f.description) + '">' + esc(f.name) + '</button>'; }).join('') + '</div><span class="field-hint">Each factor model keeps its own selection.</span></div>'; return; }
-      if (s.type === 'select') html += '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
+      /* an option may carry a reason it is unavailable (o[2]): listed, but disabled */
+      if (s.type === 'select') html += '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + (o[2] ? ' disabled' : '') + '>' + esc(o[1] + (o[2] ? ' — ' + o[2] : '')) + '</option>'; }).join('') + '</select>' + (s.hint ? '<span class="field-hint">' + esc(typeof s.hint === 'function' ? s.hint(settings, card) : s.hint) + '</span>' : '') + '</div>';
       else if (s.type === 'multi') html += '<div class="field"><span class="label">' + esc(s.label) + '</span><div class="factor-pick">' + opts.map(function (o) { return '<button type="button" class="fchip" data-multi="' + s.key + '" data-val="' + esc(o[0]) + '" aria-pressed="' + ((settings[s.key] || []).indexOf(o[0]) >= 0) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
       else if (s.type === 'toggle') html += '<label class="switch"><input type="checkbox" data-set="' + s.key + '"' + (settings[s.key] ? ' checked' : '') + '><span class="track"></span><span>' + esc(s.label) + '</span></label>';
     });
@@ -350,6 +363,9 @@
     U.on(sheetEl, 'click', '[data-add-saved]', function (e, b) { var s = savedCards.filter(function (x) { return x.id === b.dataset.addSaved; })[0], t = C.types[s.type]; if (!t) return; var card = { id: U.uid('c'), type: s.type, name: s.name, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: U.clone(s.settings || {}), followRow: !!s.followRow }; S.addCard(card); UI.toast('“' + s.name + '” added.'); scrollToCard(card.id); });
     U.on(sheetEl, 'click', '[data-del-saved]', function (e, b) { var s = savedCards.filter(function (x) { return x.id === b.dataset.delSaved; })[0]; UI.confirm({ title: 'Delete “' + s.name + '” from the repository?', sub: 'Cards already placed in workspaces are kept.', confirmLabel: 'Delete', danger: true }).then(function (ok) { if (ok) PA.api.deleteSavedCard(s.id).then(function () { savedCards = savedCards.filter(function (x) { return x.id !== s.id; }); renderSheet(); }); }); });
   }
+  /** Add a card of a type at the bottom of the canvas and bring it into view. */
+  C.addCardOfType = function (type, settings, followRow) { var t = C.types[type]; if (!t) return null; var card = { id: U.uid('c'), type: type, x: 0, y: bottom(), w: t.size.w, h: t.size.h, settings: U.clone(settings || {}), followRow: !!followRow }; S.addCard(card); scrollToCard(card.id); return card; };
+  C.scrollToCard = function (id) { scrollToCard(id); };
   function scrollToCard(id) { setTimeout(function () { var el = grid.querySelector('[data-card="' + CSS.escape(id) + '"]'); if (el) { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); el.focus(); } }, 50); }
   var untrap = null, sheetTrigger = null;
   function toggleSheet() {

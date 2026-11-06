@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision chain attribution</title>
+<meta name="description" content="Product and UX specification for layered return and risk attribution (policy benchmark → SAA → product benchmarks → products) in the Portfolio Analytics Workspace, written against product specification v3.0.">
+<style>
+:root{--bg:#f6f7f9;--surface:#ffffff;--surface-2:#eef1f5;--ink:#1b2430;--ink-2:#3f4e60;--ink-3:#6b7a8c;--line:#dfe4ea;--line-strong:#c3cedb;--accent:#1d4ed8;--accent-soft:#e3ebfb;--ok:#0f766e;--ok-soft:#d9f0ec;--delta:#9a5b00;--delta-soft:#fff1d6;--new:#7c2d8f;--new-soft:#f3e3f8;--warn:#b42318;--warn-soft:#fde3e1;--radius:8px;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#121619;--surface:#1a2026;--surface-2:#222a32;--ink:#e8edf2;--ink-2:#c3ccd6;--ink-3:#8e9bab;--line:#2d3640;--line-strong:#3d4854;--accent:#7ea2f5;--accent-soft:#1f2c47;--ok:#5fd0c3;--ok-soft:#153633;--delta:#f0b45a;--delta-soft:#3a2a10;--new:#d79cf0;--new-soft:#33193d;--warn:#f58b80;--warn-soft:#3d1a17}}
+:root[data-theme="dark"]{--bg:#121619;--surface:#1a2026;--surface-2:#222a32;--ink:#e8edf2;--ink-2:#c3ccd6;--ink-3:#8e9bab;--line:#2d3640;--line-strong:#3d4854;--accent:#7ea2f5;--accent-soft:#1f2c47;--ok:#5fd0c3;--ok-soft:#153633;--delta:#f0b45a;--delta-soft:#3a2a10;--new:#d79cf0;--new-soft:#33193d;--warn:#f58b80;--warn-soft:#3d1a17}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.page{display:grid;grid-template-columns:280px minmax(0,1fr);gap:32px;max-width:1380px;margin:0 auto;padding:0 16px}
+nav.toc{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:24px 0 24px;font-size:13px;border-right:1px solid var(--line)}
+nav.toc .brand{font-weight:700;font-size:14px;margin:0 0 4px}
+nav.toc .sub{color:var(--ink-3);margin:0 0 14px}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc li{margin:0}
+nav.toc a{display:block;padding:4px 10px 4px 8px;color:var(--ink-2);border-left:2px solid transparent;border-radius:0 4px 4px 0}
+nav.toc a:hover{background:var(--surface-2);text-decoration:none}
+nav.toc ol ol a{padding-left:22px;font-size:12.5px;color:var(--ink-3)}
+nav.toc .n{display:inline-block;min-width:26px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+main{padding:24px 0 80px;min-width:0}
+header.doc{padding:8px 0 24px;border-bottom:1px solid var(--line);margin-bottom:28px}
+header.doc h1{font-size:30px;line-height:1.15;margin:0 0 8px;letter-spacing:-.01em}
+header.doc .lede{font-size:17px;color:var(--ink-2);max-width:60em;margin:0 0 14px}
+header.doc dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;font-size:13px;margin:0}
+header.doc dt{color:var(--ink-3)}header.doc dd{margin:0}
+section{margin:0 0 44px}
+h2{font-size:23px;margin:36px 0 12px;padding-top:8px;letter-spacing:-.01em}
+h2 .n,h3 .n{color:var(--ink-3);font-weight:600;margin-right:8px;font-variant-numeric:tabular-nums}
+h3{font-size:17.5px;margin:28px 0 8px}
+h4{font-size:15px;margin:18px 0 6px}
+p{margin:0 0 10px;max-width:72em}
+ul,ol{margin:0 0 12px;padding-left:22px;max-width:72em}
+li{margin:0 0 4px}
+code,kbd{font-family:var(--mono);font-size:.9em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+kbd{border:1px solid var(--line-strong)}
+table{border-collapse:collapse;width:100%;margin:8px 0 18px;font-size:13.5px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+th{background:var(--surface-2);font-weight:600;font-size:12.5px;letter-spacing:.02em;color:var(--ink-2)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tblwrap{overflow-x:auto;margin:0 -2px}
+.st{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:999px;white-space:nowrap;vertical-align:1px}
+.st.exists{background:var(--ok-soft);color:var(--ok)}
+.st.delta{background:var(--delta-soft);color:var(--delta)}
+.st.new{background:var(--new-soft);color:var(--new)}
+.st.gap{background:var(--warn-soft);color:var(--warn)}
+.st.assume{background:var(--accent-soft);color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:0 0 14px}
+.card h4{margin-top:0}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:10px 14px;border-radius:0 var(--radius) var(--radius) 0;margin:0 0 14px;max-width:72em}
+.callout.assume{border-color:var(--accent)}
+.callout.warn{border-color:var(--warn);background:var(--warn-soft)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:0 0 16px}
+.opt{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;font-size:13.5px}
+.opt h5{margin:0 0 6px;font-size:14px}
+.opt .k{color:var(--ink-3);font-weight:600;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;margin:8px 0 2px}
+.opt.rec{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.opt .rec-tag{float:right;font-size:10.5px;font-weight:700;color:var(--accent);letter-spacing:.06em;text-transform:uppercase}
+.chain{display:grid;grid-template-columns:repeat(4,1fr);gap:0;align-items:stretch;margin:14px 0 18px;font-size:13px}
+.chain .lvl{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);padding:10px 12px;position:relative}
+.chain .lvl b{display:block;font-size:14px}
+.chain .lvl small{display:block;color:var(--ink-3);margin-top:2px}
+.chain .lvl .spec{display:block;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+.chain .step{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ink-2);padding:0 6px;font-size:12px}
+.chain .step b{font-size:12.5px;color:var(--ink)}
+.chain .step .arrow{font-size:22px;line-height:1;color:var(--ink-3)}
+.chain.steps{grid-template-columns:1fr auto 1fr auto 1fr auto 1fr}
+.flow{counter-reset:f;margin:0 0 16px;padding:0;list-style:none;max-width:76em}
+.flow li{position:relative;padding:8px 0 8px 40px;border-left:1px solid var(--line);margin:0}
+.flow li::before{counter-increment:f;content:counter(f);position:absolute;left:-13px;top:7px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
+.flow li b.where{display:block;color:var(--ink-3);font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.mock{background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre;overflow-x:auto;margin:8px 0 16px;color:var(--ink-2)}
+.mock b{color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.two>div{min-width:0}
+.small{font-size:13px;color:var(--ink-3)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:13px;margin:8px 0 18px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+footer{border-top:1px solid var(--line);margin-top:40px;padding-top:12px;font-size:12.5px;color:var(--ink-3)}
+.top{position:fixed;right:18px;bottom:18px;background:var(--surface);border:1px solid var(--line-strong);border-radius:999px;padding:6px 12px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+@media (max-width:1000px){table{display:block;overflow-x:auto;max-width:100%}.page{grid-template-columns:1fr;gap:0}nav.toc{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line);margin-bottom:12px}nav.toc ol ol{display:none}.chain,.chain.steps{grid-template-columns:1fr}.chain .step .arrow{transform:rotate(90deg)}.two{grid-template-columns:1fr}.top{display:none}}
+@media print{nav.toc,.top{display:none}.page{grid-template-columns:1fr}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="page">
+<nav class="toc" aria-label="Contents">
+  <p class="brand">Decision chain attribution</p>
+  <p class="sub">Product &amp; UX spec against spec v3.0</p>
+  <ol>
+    <li><a href="#s0"><span class="n">0</span>How to read this</a></li>
+    <li><a href="#s1"><span class="n">1</span>Summary and decisions</a></li>
+    <li><a href="#s2"><span class="n">2</span>The framework in the spec's vocabulary</a></li>
+    <li><a href="#s3"><span class="n">3</span>What the spec already supports</a>
+      <ol><li><a href="#s3-1">3.1 Audit by element</a></li><li><a href="#s3-2">3.2 Coverage by level and lens</a></li><li><a href="#s3-3">3.3 Gaps</a></li></ol></li>
+    <li><a href="#s4"><span class="n">4</span>Recommended product shape</a>
+      <ol><li><a href="#s4-1">4.1 Defining the chain</a></li><li><a href="#s4-2">4.2 Deriving the levels</a></li><li><a href="#s4-3">4.3 The Decision chain card</a></li><li><a href="#s4-4">4.4 Changes to existing cards</a></li><li><a href="#s4-5">4.5 Comparison strip and rail</a></li><li><a href="#s4-6">4.6 Context bar</a></li><li><a href="#s4-7">4.7 User flows</a></li></ol></li>
+    <li><a href="#s5"><span class="n">5</span>Modelling and analytics options</a>
+      <ol><li><a href="#s5-1">5.1 Return attribution method</a></li><li><a href="#s5-2">5.2 Risk attribution method</a></li><li><a href="#s5-3">5.3 Factor model handling</a></li><li><a href="#s5-4">5.4 Chain-level definition</a></li><li><a href="#s5-5">5.5 Reconciliation and tie-out</a></li><li><a href="#s5-6">5.6 Presentation and interaction</a></li></ol></li>
+    <li><a href="#s6"><span class="n">6</span>Controls, knobs and switches</a></li>
+    <li><a href="#s7"><span class="n">7</span>Data objects and service contract</a></li>
+    <li><a href="#s8"><span class="n">8</span>Assumptions to validate</a></li>
+    <li><a href="#s9"><span class="n">9</span>Phasing</a></li>
+    <li><a href="#s10"><span class="n">10</span>Open questions for §17</a></li>
+    <li><a href="#sa"><span class="n">A</span>Worked example and tie-out</a></li>
+    <li><a href="#sb"><span class="n">B</span>Vocabulary map</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <h1>Decision chain attribution in the Portfolio Analytics Workspace</h1>
+  <p class="lede">How the workspace should be extended so that an analyst can decompose a portfolio's return and risk along the chain <strong>policy benchmark → strategic asset allocation → product benchmarks → products</strong>, in asset space and in factor space, with every part reconciling to the whole. Written against <em>Portfolio Analytics Workspace, product specification v3.0 draft (3 November 2026)</em>; chapter numbers refer to it.</p>
+  <dl>
+    <dt>Status</dt><dd>Design options for review. Built in the workspace mockup on 6 November 2026 with the recommended defaults; the separate currency effect is listed but disabled until local-currency returns exist (A9).</dd>
+    <dt>Host</dt><dd>Poros. Front end only; the analytics service is assumed behind the defined interface (spec §2, "Independent of the calculation source").</dd>
+    <dt>Audience</dt><dd>Product owner, portfolio managers and analysts reviewing the attribution capability.</dd>
+    <dt>Date</dt><dd>5 November 2026</dd>
+  </dl>
+</header>
+
+<section id="s0">
+  <h2><span class="n">0</span>How to read this</h2>
+  <p>Every recommendation is anchored to a named element of the specification: a chapter, a screen, a card, a control, a data object or a request shape. Where the specification already covers something, the existing element is cited and only the delta is described. Each item carries one of these marks:</p>
+  <div class="legend">
+    <span><span class="st exists">Exists</span> already in spec v3.0; reused unchanged</span>
+    <span><span class="st delta">Delta</span> an existing element gains an option, state or field</span>
+    <span><span class="st new">New</span> a new element, placed in the existing information architecture</span>
+    <span><span class="st gap">Gap</span> the spec lacks the concept, or names it differently</span>
+    <span><span class="st assume">Assumption</span> data or calculation the spec does not confirm; listed in §8 for validation</span>
+  </div>
+  <p>Spec vocabulary is used throughout: <em>allocation</em>, <em>category</em>, <em>holding</em>, <em>reference</em>, <em>basis</em> (forward-looking or historical), <em>member</em> (of the comparison set), <em>card</em>, <em>context bar</em>, <em>rail</em>, <em>factor model</em> (ISG or Axioma), <em>scenario</em>, <em>sleeve</em>, <em>snapshot</em>, <em>benchmark library</em>. Where the framework uses a word the spec does not (manager, SAA, policy benchmark, decision level), §2 says which spec term it maps to and Appendix B lists every mapping. Request and response shapes are named as in the data access layer (<code>TableRequest</code>, <code>ActiveRequest</code>, <code>ActiveResponse</code>, <code>Allocation</code>, <code>Benchmark</code>).</p>
+  <p>Options are laid out for every major decision, with trade-offs and prerequisites. Where one option is recommended it is marked, but the choice is yours. Figures in examples are fictional.</p>
+</section>
+
+<section id="s1">
+  <h2><span class="n">1</span>Summary and decisions</h2>
+  <p>The specification already contains the two building blocks of a single attribution step: <strong>Active risk &amp; return</strong> (§9) attributes one allocation's active return and tracking error against one reference by factor, category, asset class or product, on both bases; and the <strong>Reference</strong> control (§5) plus each product's <em>own benchmark</em> (§9, "Each subject's own benchmark") supply the two ends of a step. What it lacks is the <em>chain</em>: the system knows one portfolio and one reference at a time, has no way to name a policy benchmark, an SAA and a product-benchmark portfolio for the same allocation, and cannot show three steps that add up to the whole, nor the same steps re-expressed through the factor model with a tie-out.</p>
+  <p>The recommended shape is small in surface area and reuses the spec's patterns:</p>
+  <ol>
+    <li><strong>A decision chain on the allocation</strong> <span class="st new">New</span>: three references per allocation (policy benchmark, SAA, product-benchmark mapping), set from the rail header menu beside <em>Assign benchmark…</em> and reported by the Check tab when missing (§4.1). The chain lives in the <code>Allocation</code> object next to <code>benchmarkId</code>.</li>
+    <li><strong>Derived levels as temporary members</strong> <span class="st delta">Delta</span>: the SAA and the product-benchmark portfolio appear in the comparison strip and in every card exactly as "A category on its own" does today (§4, dashed member, tag, outside the six-member limit), switched on from the chain card (§4.5).</li>
+    <li><strong>One new card, Decision chain</strong> <span class="st new">New</span>, in the Summary group beside Headline: levels as columns, steps as a waterfall or table, a Lens switch (asset / factor / both) and a Reconcile view in which totals tie at every step (§4.3). It is built on an extended <code>ActiveRequest</code> rather than a new engine.</li>
+    <li><strong>A Step option on existing cards</strong> <span class="st delta">Delta</span>: Active risk &amp; return, Drivers &amp; Differences, Return attribution, Rolling active return &amp; tracking error, Factor exposures and Factors over time gain "a chain step" as a reference choice, so every existing analysis can be run on any one step without new chart types (§4.4).</li>
+    <li><strong>Method settings where the spec already puts conventions</strong> <span class="st delta">Delta</span>: attribution model, interaction, linking, currency and cash treatment are card settings with workspace defaults under the header menu (§6), answering the §17 open question on metric conventions.</li>
+  </ol>
+  <h3>Decisions this document asks you to make</h3>
+  <table>
+    <tr><th>Decision</th><th>Options (detail in §)</th><th>Recommendation</th></tr>
+    <tr><td>Where the SAA comes from</td><td>An explicit allocation of indices; derived from the portfolio's category weights into index baskets; a custom benchmark from the library (§4.2, §5.4)</td><td>Explicit allocation, with a one-click "Create SAA from…" helper; derived SAA offered as a fallback that is labelled</td></tr>
+    <tr><td>How products map to their benchmarks</td><td>Stated benchmark; category index basket; custom per holding; mixed with fallback (§5.4)</td><td>Stated benchmark with category-index fallback (the spec's existing rule), overridable per holding</td></tr>
+    <tr><td>Return attribution model</td><td>Brinson–Fachler (current engine); Brinson–Hood–Beebower; interaction shown separately (§5.1)</td><td>Brinson–Fachler with interaction folded into selection, as today; BHB and separate interaction as settings</td></tr>
+    <tr><td>Multi-period linking</td><td>None (annualised, as today); Cariño; Menchero; GRAP; Frongello; geometric (§5.1)</td><td>Cariño as default for historical; geometric when Active return is set to Geometric</td></tr>
+    <tr><td>Risk across steps</td><td>Stand-alone tracking error per step; Euler contribution of each step to total tracking error; both with the cross term (§5.2)</td><td>Both, with the cross term shown as its own row</td></tr>
+    <tr><td>Chain order</td><td>Fixed sequential; parallel (each level vs policy); order-averaged (§5.4)</td><td>Fixed sequential, with an Order control for sensitivity</td></tr>
+    <tr><td>Currency effect</td><td>None (FX inside selection); FX factor row only; separate currency effect (Karnosky–Singer) (§5.1)</td><td>FX factor row in the factor lens now; separate effect later if local returns are available</td></tr>
+  </table>
+</section>
+
+<section id="s2">
+  <h2><span class="n">2</span>The framework in the spec's vocabulary</h2>
+  <p>The chain has four levels and three steps. Each level is a portfolio the service can evaluate with the existing shapes (holdings with <code>instrumentId</code> and <code>weight</code>); each step is an active comparison of two adjacent levels, which is exactly what <code>ActiveRequest</code> computes today for the pair (allocation, reference).</p>
+  <div class="chain steps">
+    <div class="lvl"><b>L0 · Policy benchmark</b><small>e.g. 50% Global Agg / 50% ACWI</small><span class="spec">Benchmark (library) · Allocation.chain.policyBenchmarkId</span></div>
+    <div class="step"><span class="arrow">→</span><b>S1 · SAA decision</b>deviation of the SAA from policy</div>
+    <div class="lvl"><b>L1 · SAA</b><small>a diversified mix of indices</small><span class="spec">Allocation (indices only), role 'saa'</span></div>
+    <div class="step"><span class="arrow">→</span><b>S2 · Product benchmark decision</b>from SAA indices to the benchmarks of the products assigned</div>
+    <div class="lvl"><b>L2 · Product benchmarks</b><small>each holding replaced by its benchmark at the holding's weight</small><span class="spec">Derived level (new): Instrument.benchmarkId, else category index basket</span></div>
+    <div class="step"><span class="arrow">→</span><b>S3 · Product / manager decision</b>each product against its own benchmark</div>
+    <div class="lvl"><b>L3 · Portfolio</b><small>the products actually held</small><span class="spec">Allocation (live or snapshot)</span></div>
+  </div>
+  <table>
+    <tr><th>Framework concept</th><th>Spec element</th><th>Status</th><th>Note</th></tr>
+    <tr><td>Policy benchmark</td><td><strong>Benchmark</strong> in the benchmark library (§5): a preset such as Global 60/40 or a custom benchmark such as "Strategic Core Policy", with constituents, rebalancing rule and version. Today it reaches analytics as the <em>Reference</em> (vs control, Shared benchmark mode) or as the allocation's assigned benchmark (<code>Allocation.benchmarkId</code>).</td><td><span class="st delta">Delta</span></td><td>The object exists; the chain needs a dedicated slot for it, because the allocation's assigned benchmark may be the SAA rather than the policy.</td></tr>
+    <tr><td>Strategic asset allocation (SAA)</td><td>An <strong>Allocation</strong> whose holdings are indices (§4 "an allocation can be expressed in broad terms, with one index per category"). Indices are instruments (<code>idx_*</code>) and category index baskets exist for every standard category.</td><td><span class="st gap">Gap</span></td><td>The spec has no SAA role. An allocation of indices is representable but nothing marks it as the SAA of another allocation. §4.1 adds the link; §5.4 lists derivation options.</td></tr>
+    <tr><td>Product / manager benchmark</td><td>Each product's <strong>stated benchmark</strong> (<code>Instrument.benchmarkId</code>, the <em>product benchmark</em> that Active risk &amp; return uses in "Each subject's own benchmark" mode, §9), falling back to the <strong>category index basket</strong> (the reference implementation's rule: a product without a stated benchmark uses its category index). The product directory (§13) shows the index each product is fitted to.</td><td><span class="st exists">Exists</span></td><td>The rule exists per product row. The chain needs it applied to every holding at once to form a portfolio-level L2.</td></tr>
+    <tr><td>Product / manager</td><td><strong>Holding</strong> (product, ETF, fund, uploaded return series) in a category of the allocation (§4).</td><td><span class="st exists">Exists</span></td><td>"Manager" is not a spec term; the instrument's <code>manager</code> attribute exists in the product library and can label rows.</td></tr>
+    <tr><td>Decision level / step</td><td>Closest existing idea: the pair (allocation, reference) evaluated by <strong>Active risk &amp; return</strong>; passive and active parts in <strong>Headline</strong>.</td><td><span class="st gap">Gap</span></td><td>No concept of an ordered set of references. §4 introduces <em>level</em> and <em>step</em>.</td></tr>
+    <tr><td>Asset-and-allocation space</td><td>Active risk &amp; return attributed <em>by category</em>, <em>by asset class</em> (allocation and selection effects) or <em>by product</em> (§9); the historical <strong>Return attribution</strong> card (Appendix A); <strong>Active weights vs reference</strong> (Structure).</td><td><span class="st exists">Exists</span></td><td>One step at a time, against one reference.</td></tr>
+    <tr><td>Factor space</td><td>Active risk &amp; return attributed <em>by factor</em> ("active exposure multiplied by the factor premium implied from asset-class returns, plus specific", §9); <strong>Drivers &amp; Differences</strong> by factor; <strong>Factor exposures</strong>, <strong>Risk by factor</strong>, <strong>Factors over time</strong>.</td><td><span class="st exists">Exists</span></td><td>Exposures and premia exist under both models. The split "factor-explained versus specific" is already the convention (§9 "factor contributions plus specific risk equal total risk").</td></tr>
+    <tr><td>Reconciliation</td><td>Principle "Parts that reconcile" (§2) and the reconciliation notes of Active risk &amp; return ("return equals passive plus active; risk squared equals passive squared plus tracking error squared plus the correlation term").</td><td><span class="st delta">Delta</span></td><td>A convention, not a view. §4.3 gives it a view and §5.5 the rules.</td></tr>
+    <tr><td>Multi-period attribution</td><td><strong>Period</strong> in the context bar (§10); historical attribution reported in percentage points a year.</td><td><span class="st gap">Gap</span></td><td>No linking method and no time series of attribution. §5.1 and §5.6.</td></tr>
+  </table>
+</section>
+
+<section id="s3">
+  <h2><span class="n">3</span>What the spec already supports</h2>
+  <h3 id="s3-1"><span class="n">3.1</span>Audit by element</h3>
+  <table>
+    <tr><th>Spec element</th><th>What it gives the framework</th><th>Short of the framework in</th></tr>
+    <tr><td><strong>Headline</strong> (§7): passive and active excess return, passive and active risk, tracking error, information ratio, on both bases; Table and Focus views</td><td>The top-level split of return and risk into the reference and the departure from it, for every member; the two-basis convention; the Focus view pattern (one column in full, the others as signed differences) that the chain card reuses for levels.</td><td>One reference per member (the context bar's); no levels between reference and portfolio.</td></tr>
+    <tr><td><strong>Active risk &amp; return</strong> (§9): <em>Active against</em> (Follow the Reference / Each subject's own benchmark / Pick one…), <em>Attribute risk and return by</em> (Factor / Category / Asset class / Product), <em>Active return</em> (Arithmetic / Geometric), <em>Show passive figures</em>, <em>Risk and return sources</em> (Table with bars / Waterfall), follows the selected row</td><td>A complete single-step attribution engine: Brinson allocation and selection by category or asset class, product-level active weight × relative return, factor-level active exposure × premium plus specific; Euler risk contributions that sum to tracking error; arithmetic or geometric active return; the row-level variant through "follow the selected row".</td><td>Only one step: portfolio versus one reference. No product-benchmark portfolio, no chain order, no cross-step interaction, no multi-period linking, no reconciliation between its "by factor" and "by category" results.</td></tr>
+    <tr><td><strong>Return attribution</strong> card (Appendix A, Historical): allocation and selection by category versus the reference, as chart, table or one-allocation waterfall</td><td>The historical asset-space step, reported in pp a year.</td><td>Annualised single figures; no linking method stated; no step choice; no interaction row.</td></tr>
+    <tr><td><strong>Drivers &amp; Differences</strong> (§8): by product (weight, return contribution, risk contribution) or by factor (exposure, return contribution, risk contribution); Table or Focus; values, differences from the reference, or differences from a focus allocation; row selection; scenario columns</td><td>The drill-down hierarchy (category → product, factor rows) and the "difference from a focus" mechanism, which is what a step is when the focus is the lower level and the other column is the upper level.</td><td>Its columns are members; levels would need to be members (§4.5 makes them so).</td></tr>
+    <tr><td><strong>Factor exposures</strong>, <strong>Risk by factor</strong>, <strong>Factors over time</strong> (§9)</td><td>Exposures per member on both bases; factor and specific risk summing to volatility; per-year exposure, risk and return contributions by factor (which implies realised factor returns exist, §8 A2).</td><td>No "difference between two levels" exposure view except through Drivers &amp; Differences Focus.</td></tr>
+    <tr><td><strong>Reference</strong> control (§5): Shared benchmark / Individual benchmarks / Compared portfolio</td><td>Three ways to pick the upper end of a step, including another member.</td><td>One reference for all cards; cannot express three ordered references.</td></tr>
+    <tr><td><strong>Benchmark library</strong> (§5): presets and custom benchmarks from indices, products, other benchmarks and one fixed rate; rebalancing rule; versions</td><td>A first-class policy benchmark object, with constituents the service can evaluate as holdings.</td><td>Nothing marks a benchmark as "policy"; benchmarks of benchmarks (nesting) exist, which S1 can exploit.</td></tr>
+    <tr><td><strong>Product directory</strong> (§13) and <strong>stated benchmarks</strong> (§9)</td><td>Every product's own benchmark or fitted index; model treatment per product; factor exposures per product.</td><td>No portfolio-level "replace each product by its benchmark" operation.</td></tr>
+    <tr><td><strong>A category on its own</strong> (§4)</td><td>The pattern for a temporary, derived member: dashed chip in the comparison strip, tag, outside the six-member limit, analysed by every card, never saved.</td><td>Only for a category; §4.5 generalises it to derived levels.</td></tr>
+    <tr><td><strong>Snapshots</strong> and <strong>sleeve columns</strong> (§5, §12, §14)</td><td>Read-only members with fixed weights, which is what a materialised SAA or L2 would be.</td><td>No derivation; a snapshot copies an allocation, it does not transform it.</td></tr>
+    <tr><td><strong>Scenarios</strong> (§11)</td><td>What-if on forward-looking figures: expected returns, volatilities, correlations and factor premia, with scope per member.</td><td>Scope is per member; derived levels must inherit scope from their parent (as "A category on its own" already does).</td></tr>
+    <tr><td><strong>Context bar</strong> (§3, §7): factor model switch, pinned cards, Compare with the other model; period presets; reporting currency</td><td>Model selection and side-by-side comparison of models; period; currency, with the FX factor stated against the reporting currency.</td><td>No multi-period linking setting; no "attribution conventions" group.</td></tr>
+    <tr><td><strong>Chart conventions</strong> (§7): waterfalls for contributions, horizontal bars for exposures, heat maps for change over time, Emphasis</td><td>Every chart form the chain needs already exists in the catalogue.</td><td>—</td></tr>
+    <tr><td><strong>Check tab</strong> (§4)</td><td>The place to report a missing policy benchmark, SAA or product benchmark with a link to the repair.</td><td>—</td></tr>
+    <tr><td><strong>Optimize</strong> (§6): tracking error to the allocation's benchmark</td><td>Tracking error objectives relative to the assigned benchmark.</td><td>No choice of which level the tracking error is to (policy or SAA).</td></tr>
+  </table>
+
+  <h3 id="s3-2"><span class="n">3.2</span>Coverage by level and lens</h3>
+  <div class="tblwrap"><table>
+    <tr><th>Step</th><th>Return · asset space</th><th>Return · factor space</th><th>Risk · ex-ante</th><th>Risk · ex-post</th><th>Multi-period</th></tr>
+    <tr><td>S1 Policy → SAA</td><td><span class="st exists">Exists</span> if the SAA is a member and the policy is the Reference: Active risk &amp; return by category / asset class</td><td><span class="st exists">Exists</span> by factor, same card</td><td><span class="st exists">Exists</span> Euler sources, same card</td><td><span class="st delta">Delta</span> only realised tracking error (Rolling active return &amp; TE); no decomposition</td><td><span class="st gap">Gap</span></td></tr>
+    <tr><td>S2 SAA → Product benchmarks</td><td><span class="st gap">Gap</span> L2 does not exist as a portfolio</td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td></tr>
+    <tr><td>S3 Product benchmarks → Portfolio</td><td><span class="st delta">Delta</span> per product row via "Each subject's own benchmark" with a selected row; not as one portfolio-level step</td><td><span class="st delta">Delta</span> same</td><td><span class="st delta">Delta</span> same</td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td></tr>
+    <tr><td>Whole chain, tie-out</td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td><td><span class="st gap">Gap</span></td></tr>
+  </table></div>
+
+  <h3 id="s3-3"><span class="n">3.3</span>Gaps, in one list</h3>
+  <ol>
+    <li>No place to record an allocation's policy benchmark, SAA and product-benchmark mapping together (§17 already lists "Benchmark inheritance" as open).</li>
+    <li>No derived product-benchmark portfolio (L2), and no way to show a derived level in cards.</li>
+    <li>No ordered decomposition across steps, no cross-step interaction, no order sensitivity.</li>
+    <li>No reconciliation view between the asset-space and factor-space attributions of the same step, nor across steps to the whole.</li>
+    <li>No multi-period linking method, and no attribution over time (by month or year).</li>
+    <li>No ex-post risk attribution beyond realised tracking error; no VaR or expected-shortfall attribution by step.</li>
+    <li>No currency effect in asset space (the FX factor exists only in factor space); cash treatment is an open question (§17 "Residual treatment").</li>
+    <li>Method conventions (Brinson variant, interaction, linking, fee basis) are an open question (§17 "Metric conventions") rather than controls.</li>
+  </ol>
+</section>
+
+<section id="s4">
+  <h2><span class="n">4</span>Recommended product shape</h2>
+  <p>Five pieces, each placed in an existing part of the layout (§3 Layout: header, comparison strip, allocation rail, context bar, card canvas). Together they let an analyst define the chain once per allocation, see the levels as members, run the decomposition in one card, and run any existing card on any one step.</p>
+
+  <h3 id="s4-1"><span class="n">4.1</span>Defining the chain <span class="st new">New</span></h3>
+  <p>The chain is a property of an allocation, like its assigned benchmark. It is stored on the <code>Allocation</code> (§7 data) as <code>chain</code> and is copied by Snapshot and Clone, so a snapshot's attribution is reproducible.</p>
+  <h4>Where it is set: options</h4>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Recommended</span><h5>A. Rail header menu, "Decision chain…"</h5><p>Beside <em>Assign benchmark…</em> in the rail header's menu (§3 item 3; the menu that already holds select products, expand/collapse, rename, assign benchmark, snapshot). Opens a dialog with three rows: Policy benchmark, SAA, Product benchmarks.</p><div class="k">Fits</div><p>The allocation being edited is the subject; the chain is as much a property of it as the benchmark is.</p><div class="k">Trade-off</div><p>Three settings in one dialog; the comparison strip member menu (§5) should offer the same item for members not being edited.</p></div>
+    <div class="opt"><h5>B. Extend "Assign benchmark…"</h5><p>The existing dialog grows from one picker to a stepped list: Policy, SAA, Assigned benchmark (the one Headline uses), Product benchmarks.</p><div class="k">Fits</div><p>One place for every reference of the allocation.</p><div class="k">Trade-off</div><p>Conflates the assigned benchmark (used by every card) with the chain; a user who only wants a benchmark sees four rows.</p></div>
+    <div class="opt"><h5>C. A fifth rail tab, "Chain"</h5><p>Build, Optimize, Sleeves, Check, Chain: the tab lists the levels with their weights and a preview of the step totals.</p><div class="k">Fits</div><p>Gives the chain a permanent home with room for the SAA tree.</p><div class="k">Trade-off</div><p>A rail tab is a workspace-level commitment to the feature; the rail below 1100 px already collapses (§15). Better once the SAA itself is edited in place (§5.4 option "derived SAA").</p></div>
+    <div class="opt"><h5>D. Chain card empty state only</h5><p>The Decision chain card (§4.3) opens with "No decision chain for Strategic Core" and the three pickers inline; nothing in the rail.</p><div class="k">Fits</div><p>Detail on request (§2 principle).</p><div class="k">Trade-off</div><p>The Check tab cannot report the missing chain unless the card is on the canvas; the setting is hard to find later.</p></div>
+  </div>
+  <p>Whichever option is chosen, the <strong>Check tab</strong> (§4) gains three items, each linking to the dialog: "No policy benchmark", "No SAA", and "n products without a stated benchmark (category index used)". The third is informational, not a warning, because the fallback is the spec's existing rule.</p>
+  <h4>The Decision chain dialog</h4>
+  <div class="mock"><b>Decision chain · Strategic Core</b>
+
+Policy benchmark   [ Strategic Core Policy  v2 ▾ ]   benchmark library picker (presets, custom; version shown; "newer version exists" as in §5)
+                   ○ Use the assigned benchmark (Global 60/40)
+
+SAA                [ Strategic Core SAA  (allocation) ▾ ]
+                   ○ An allocation in this workspace   ○ A benchmark from the library   ○ Derive from this allocation's category weights
+                   [ Create SAA from policy… ]  [ Create SAA from this allocation… ]
+
+Product benchmarks ● Stated benchmark, else category index   ○ Category index for every holding   ○ Custom per holding ▸
+                   24 of 27 holdings have a stated benchmark · 3 use the category index  [ Review mapping ]
+
+Step order         ● Policy → SAA → Product benchmarks → Portfolio   ○ Custom order ▸    (§5.4)
+
+                                                        [ Cancel ]  [ Save chain ]</div>
+  <ul>
+    <li><strong>Policy benchmark</strong> reuses the benchmark picker from §5 (the same component as <em>Assign benchmark…</em>), including version pinning and the newer-version indicator.</li>
+    <li><strong>SAA</strong> reuses the Compared-portfolio picker (vs control, "Compared portfolio" mode lists members) widened to every allocation in the workspace, plus the benchmark picker. "Create SAA from policy…" clones the policy benchmark's constituents into a new allocation of indices (the §4 New allocation flow, origin "clone"); "Create SAA from this allocation…" writes each category's weight into that category's index basket (the operation Optimize already performs when an index basket's weight "becomes explicit holdings of its indices", §6).</li>
+    <li><strong>Product benchmarks</strong>: the default is the spec's rule (§9). "Review mapping" opens a table of holdings with the benchmark each resolves to and a per-holding override picker (benchmark, index or product, as in Active risk &amp; return's "Pick one…"). Overrides are saved in <code>chain.productBenchmarks</code>.</li>
+    <li>Saving is one undoable edit (§14) and recalculates the chain card and any card set to a step.</li>
+  </ul>
+
+  <h3 id="s4-2"><span class="n">4.2</span>Deriving the levels</h3>
+  <p>Each level must be a portfolio the service can evaluate with the holdings shape it already accepts. How each is obtained:</p>
+  <table>
+    <tr><th>Level</th><th>Derivation</th><th>Status</th><th>Edge cases the UI must state</th></tr>
+    <tr><td>L0 Policy benchmark</td><td>The benchmark's constituents at its weights, rebalanced per its rule (§5). A fixed-rate constituent (cash plus margin) evaluates as the Cash index plus margin, as the library already does.</td><td><span class="st exists">Exists</span></td><td>A benchmark of benchmarks is flattened to indices for factor exposures; the card notes it.</td></tr>
+    <tr><td>L1 SAA</td><td>An allocation (indices only), or a benchmark, or derived from category weights (§5.4). If the SAA allocation holds products, the card warns "SAA holds products; S2 will include their benchmark mapping" and continues.</td><td><span class="st delta">Delta</span></td><td>Categories added to the workspace that the SAA does not hold appear in S2 as "not in SAA" rows (weight from zero).</td></tr>
+    <tr><td>L2 Product benchmarks</td><td>For every holding of L3: the holding's weight assigned to its resolved benchmark (stated benchmark; else category index basket; else override). Weights are unchanged, so S2 isolates the change of instrument, not of weight, except where a benchmark is itself a basket.</td><td><span class="st new">New</span> derived kind</td><td>Uploaded products (§13) resolve to the index they were fitted to. A holding whose benchmark is another product is allowed (product-as-benchmark exists in "Pick one…"). Unallocated weight stays unallocated at every level (§4 rule) unless the cash setting says otherwise (§5.1).</td></tr>
+    <tr><td>L3 Portfolio</td><td>The allocation itself (live, snapshot or sleeve column).</td><td><span class="st exists">Exists</span></td><td>Leverage flags (§4) carry to the derived levels.</td></tr>
+  </table>
+  <div class="callout assume"><strong>Assumption A7 (critical).</strong> §17 leaves open "the source of the engine that evaluates arbitrary weights". Every derived level is an arbitrary portfolio; if the service can only evaluate stored allocations, L2 must be materialised server-side from <code>chain</code> before analytics run. The request shape in §7 passes the chain, not the derived holdings, so either implementation works.</div>
+
+  <h3 id="s4-3"><span class="n">4.3</span>The Decision chain card <span class="st new">New</span></h3>
+  <p><strong>Catalogue entry:</strong> Summary group, beside Headline and Drivers &amp; Differences. Basis: <em>Both</em> (two columns per level, → Fwd and ◷ Hist, exactly as Headline), or fixed to one basis by a setting. Default size 12 × 10. Uses the factor model and can be pinned or compared with the other model (§9). Follows the selected row optionally (the chain of the selected category only, with the levels cut to that category and rescaled, which is the "A category on its own" rule applied at every level).</p>
+  <p><strong>Subtitle</strong> (§7 card structure): "→ Forward-looking · Policy → SAA → Product benchmarks → Portfolio · Strategic Core · % a year · ISG" or "◷ Historical · Jan 2019 – Oct 2026 · linked (Cariño) · …". A step order other than the default is stated here, as is a method that departs from the workspace defaults.</p>
+  <h4>Views (a View switch at the top of the card, like Headline's Table / Focus)</h4>
+  <table>
+    <tr><th>View</th><th>Content</th><th>Reuses</th></tr>
+    <tr><td><strong>Bridge</strong> (default)</td><td>A horizontal waterfall from the policy benchmark's return to the portfolio's return, one bar per step (S1, S2, S3), the cross-step interaction bar when the order or linking makes it non-zero, and the total beneath a rule. A second waterfall beneath does the same for risk: policy risk → portfolio risk, with each step's contribution to tracking error and the cross term, or stand-alone step tracking errors (§5.2). One allocation at a time, chosen by tabs above the chart.</td><td>Waterfall convention and allocation tabs (§7 "Waterfalls for contributions", Figure 6).</td></tr>
+    <tr><td><strong>Levels</strong></td><td>A table with the four levels as columns (Fwd / Hist under each) and the Headline measure rows (total return, excess return, risk, tracking error to the previous level, Sharpe, information ratio of the step, 99% VaR). A Focus choice makes one level the focus and shows the others as differences, as in Headline's Focus view. "Show levels in comparison" (§4.5) is a toggle here.</td><td>Headline Table and Focus views; <code>headline</code> request per level.</td></tr>
+    <tr><td><strong>Steps</strong></td><td>One step at a time (a Step selector: S1, S2, S3, or Policy → Portfolio in one), attributed by the grouping chosen in <em>Attribute by</em> (Factor / Category / Asset class / Product), as a table with bars or a waterfall. Columns: weight at the upper level, weight at the lower level, return at each, allocation, selection, interaction (if separate), currency (if separate), total; or for the factor lens: exposure at each level, active exposure, premium or realised factor return, contribution, with a specific row and a cash row.</td><td>Active risk &amp; return's sources table and waterfall; its "Attribute risk and return by" control; Drivers &amp; Differences factor rows with diverging bars.</td></tr>
+    <tr><td><strong>Lens</strong></td><td>The same step side by side in both spaces: left, asset space by the chosen grouping; right, factor space by factor plus specific; a tie line at the foot showing both totals and the difference (zero by construction when the service reconciles; otherwise shown with the reason, §5.5). A <em>Matrix</em> alternative crosses groups (rows) with factors (columns) for the step: each cell is the part of that group's effect explained by that factor, the last column is specific, the last row is the total; row and column sums tie to the asset-space and factor-space attributions respectively.</td><td>Two Drivers &amp; Differences-style tables; the heat-map convention for the matrix (§7).</td></tr>
+    <tr><td><strong>Reconcile</strong></td><td>A short ledger: policy return + S1 + S2 + S3 + interaction = portfolio return; for each step, asset-space total = factor-space total = factor-explained + specific; for risk, policy risk, step contributions, cross term and portfolio risk; tracking error to policy versus the quadrature of step tracking errors with the cross term. Every line shows the two sides and the difference, with the rounding tolerance stated.</td><td>Active risk &amp; return's reconciliation notes, promoted to a view.</td></tr>
+    <tr><td><strong>Over time</strong> (historical basis only)</td><td>A heat map with steps (and optionally groups or factors within the selected step) as rows and calendar years or months as columns; each cell is the step's linked contribution in that period; the row total equals the linked period total. A line alternative draws cumulative step contributions over the period.</td><td>Factors over time (heat map) and Rolling active return &amp; tracking error (line).</td></tr>
+  </table>
+  <h4>Card settings (menu → settings, persisted with the card and with saved cards)</h4>
+  <table>
+    <tr><th>Setting</th><th>Options</th><th>Default</th><th>Status</th></tr>
+    <tr><td>Basis</td><td>Both · Forward-looking · Historical</td><td>Both</td><td><span class="st exists">Exists</span> pattern (Headline is dual, others either)</td></tr>
+    <tr><td>Lens</td><td>Asset &amp; allocation · Factor · Both side by side · Matrix</td><td>Asset &amp; allocation</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Attribute by</td><td>Category · Asset class · Product · Factor (the Lens sets Factor automatically)</td><td>Category</td><td><span class="st exists">Exists</span> (Active risk &amp; return)</td></tr>
+    <tr><td>Step</td><td>All steps · S1 · S2 · S3 · Policy → Portfolio</td><td>All steps</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Step order</td><td>Default · Custom (drag the three steps) · Order-averaged</td><td>Default</td><td><span class="st new">New</span> (§5.4)</td></tr>
+    <tr><td>Attribution model</td><td>Brinson–Fachler · Brinson–Hood–Beebower</td><td>Workspace default (Brinson–Fachler)</td><td><span class="st new">New</span> (§5.1)</td></tr>
+    <tr><td>Interaction</td><td>In selection · In allocation · Separate row</td><td>In selection (as the engine does today)</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Active return</td><td>Arithmetic difference · Geometric</td><td>Arithmetic</td><td><span class="st exists">Exists</span> (Active risk &amp; return)</td></tr>
+    <tr><td>Linking (historical)</td><td>None, annualised · Cariño · Menchero · GRAP · Frongello · Geometric</td><td>Workspace default (Cariño)</td><td><span class="st new">New</span> (§5.1)</td></tr>
+    <tr><td>Currency</td><td>In selection (none) · FX factor row (factor lens) · Separate currency effect</td><td>In selection</td><td><span class="st new">New</span> (§5.1); the third requires A9</td></tr>
+    <tr><td>Unallocated weight</td><td>Zero return, as the spec (§4) · Treat as cash</td><td>Zero return</td><td><span class="st new">New</span> (§17 open question)</td></tr>
+    <tr><td>Risk basis</td><td>Ex-ante (factor model) · Ex-post (realised over the period)</td><td>Ex-ante on the forward basis, ex-post on the historical basis</td><td><span class="st new">New</span> (§5.2)</td></tr>
+    <tr><td>Risk units</td><td>Tracking error · Share of tracking error · 99% VaR 1y · 99% expected shortfall</td><td>Tracking error</td><td><span class="st delta">Delta</span> (extends <code>riskUnits</code>)</td></tr>
+    <tr><td>Step risk</td><td>Contribution to total tracking error (Euler) · Stand-alone per step · Both with cross term</td><td>Both</td><td><span class="st new">New</span> (§5.2)</td></tr>
+    <tr><td>Show levels in comparison</td><td>On · Off</td><td>Off</td><td><span class="st new">New</span> (§4.5)</td></tr>
+    <tr><td>Factor model</td><td>Follow the context bar · Pinned ISG · Pinned Axioma; Compare with the other model</td><td>Follow</td><td><span class="st exists">Exists</span> (§9)</td></tr>
+  </table>
+  <p>The card's <em>About these figures</em> (§7) states the model, interaction treatment, linking, currency and cash rules, the resolved product benchmarks (count by source), the order, and the factor-model note, so that any figure in the card can be reproduced.</p>
+
+  <h3 id="s4-4"><span class="n">4.4</span>Changes to existing cards <span class="st delta">Delta</span></h3>
+  <table>
+    <tr><th>Card</th><th>Delta</th><th>Effect</th></tr>
+    <tr><td>Active risk &amp; return (§9)</td><td><em>Active against</em> gains a fourth option, <strong>A chain step…</strong>, with a sub-select: Policy → SAA, SAA → Product benchmarks, Product benchmarks → Portfolio, Policy → Portfolio. "Each subject's own benchmark" is unchanged (it is S3 at product-row level).</td><td>Every existing attribution and risk-source view runs on any step with no new chart. The subtitle reads "vs SAA (chain step S2)".</td></tr>
+    <tr><td>Drivers &amp; Differences (§8)</td><td>Focus view's focus list and the Table view's difference reference include the chain levels of the allocation being edited when "Show levels in comparison" is on; a <em>Differences from</em> option "the previous chain level".</td><td>Category → product drill-down of a step's weights, return and risk contributions, and factor exposures, in the principal table.</td></tr>
+    <tr><td>Return attribution (Appendix A)</td><td>Gains <em>Step</em> (as above), <em>Attribution model</em>, <em>Interaction</em> and <em>Linking</em>; its subtitle states the linking method instead of "pp a year" alone.</td><td>The historical asset-space step by category, with the conventions visible.</td></tr>
+    <tr><td>Rolling active return &amp; tracking error (Appendix A)</td><td>Gains <em>Step</em>.</td><td>Rolling 36-month tracking error and cumulative active return of any step.</td></tr>
+    <tr><td>Factor exposures (§9)</td><td>Gains <em>Show</em>: Levels (a bar per level for the allocation being edited) · Active exposure of a step (one diverging bar per factor).</td><td>The factor-space view of a step's positioning without a table.</td></tr>
+    <tr><td>Factors over time (§9)</td><td>Gains <em>Step</em>, so each year's cells are the step's active exposure, risk or return contribution by factor.</td><td>Factor-space attribution through time, reusing the heat map.</td></tr>
+    <tr><td>Headline (§7)</td><td>No change to measures. When "Show levels in comparison" is on, levels appear as columns like any member. Optional setting <em>Passive and active against</em>: the context reference (default) · the policy benchmark of each allocation.</td><td>Top-level passive/active split against the policy without changing the context bar.</td></tr>
+    <tr><td>Active weights vs reference (Structure)</td><td>Gains <em>Step</em>: over- and underweights between two adjacent levels by category.</td><td>The weight side of S1 and S2 at a glance.</td></tr>
+    <tr><td>Optimize (§6)</td><td>The tracking-error objectives gain <em>to</em>: the assigned benchmark (today) · the policy benchmark · the SAA.</td><td>Optimise S1 or S2+S3 tracking error explicitly.</td></tr>
+    <tr><td>Scenario comparison (Appendix A)</td><td>No change: scenarios apply to derived levels when they apply to the parent (§4.5).</td><td>What-if on any step.</td></tr>
+  </table>
+
+  <h3 id="s4-5"><span class="n">4.5</span>Comparison strip and rail <span class="st delta">Delta</span></h3>
+  <p>Derived levels become members using the rule the spec already has for <strong>A category on its own</strong> (§4): shown after the compared allocations with a dashed outline, a tag, a close button, outside the six-member limit, analysed by every card, inheriting the parent's scenario scope, never saved. Differences: they are switched on by the chain card ("Show levels in comparison") or from the member menu ("Show chain levels"), they persist while the workspace is open (a display preference, not undoable, §14), and their tag reads <em>Level · SAA</em> or <em>Level · Product benchmarks</em>. The policy benchmark can already be a member (§5, "A member is … a benchmark"), so L0 is added as an ordinary member when needed.</p>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Recommended</span><h5>Temporary members</h5><p>As above. Colour: the parent's colour with a lighter tint per level (the spec fixes member colours; tints keep the parent identifiable).</p><div class="k">Trade-off</div><p>Up to three extra columns per allocation; Headline and Drivers &amp; Differences get wide. Mitigated by showing levels for the allocation being edited only.</p></div>
+    <div class="opt"><h5>Materialise as snapshots</h5><p>"Save levels as snapshots" writes L1 and L2 as Snapshot allocations with a note "derived from Strategic Core on 5 Nov 2026".</p><div class="k">When better</div><p>For sign-off and version history (§14): a snapshot fixes the level as the attribution was reported.</p><div class="k">Trade-off</div><p>Stale once the portfolio changes; counts towards the six.</p></div>
+    <div class="opt"><h5>Card-only levels</h5><p>Levels exist only inside the Decision chain card; no members.</p><div class="k">When better</div><p>If the strip must stay uncluttered.</p><div class="k">Trade-off</div><p>Loses the whole catalogue for levels; contradicts "every member appears in every card".</p></div>
+  </div>
+  <p><strong>Rail:</strong> in the Build tab, a holding's sub-line already shows its share of its category; with the chain set, a product's row menu gains "Show against its benchmark" (selects the row and sets Active risk &amp; return to Each subject's own benchmark, which is S3 for that product). The rail header's sub-line (which "says only what is not the default", §3) adds "chain set" only when a chain exists, and the Check tab reports when it does not.</p>
+
+  <h3 id="s4-6"><span class="n">4.6</span>Context bar <span class="st delta">Delta</span></h3>
+  <p>Two deltas, both following the rule that a control appears only when a card uses it (§3 item 4):</p>
+  <ul>
+    <li><strong>Reference (vs)</strong> gains a fourth mode, <strong>Policy benchmark</strong>: each allocation is measured against its chain's policy benchmark. It behaves like Individual benchmarks (an allocation without a chain shows "No policy benchmark" and no differences). This lets Headline, Drivers &amp; Differences and every active card measure against the policy without being set to a step.</li>
+    <li><strong>Attribution conventions</strong> live in the header menu (§3 item 1, the menu that holds snapshots, versions, layout and reporting currency), not in the context bar: model, interaction, linking, currency, unallocated-weight treatment, and fee basis. They are workspace defaults; a card may depart from them and then states the departure in its subtitle, as the factor model does today (§7 "A factor model or scenario is named only where the card departs from the context bar").</li>
+  </ul>
+  <p>Not recommended: a "Chain" switch in the context bar. The chain is per allocation, so a bar-level switch would have no single meaning across members.</p>
+
+  <h3 id="s4-7"><span class="n">4.7</span>User flows</h3>
+  <h4>Flow A · Set up the chain for an allocation</h4>
+  <ol class="flow">
+    <li><b class="where">Rail header menu</b>Choose <em>Decision chain…</em> for Strategic Core. The dialog opens with the assigned benchmark proposed as the policy benchmark.</li>
+    <li><b class="where">Dialog · Policy benchmark</b>Pick "Strategic Core Policy v2" from the benchmark library picker (or keep the assigned Global 60/40).</li>
+    <li><b class="where">Dialog · SAA</b>Pick the "Strategic Core SAA" allocation, or press <em>Create SAA from policy…</em> to clone the policy's constituents as an index allocation and adjust its weights in the rail afterwards.</li>
+    <li><b class="where">Dialog · Product benchmarks</b>Keep "Stated benchmark, else category index"; open <em>Review mapping</em> to override, say, a multi-strategy hedge fund to the Cash + 3% custom benchmark.</li>
+    <li><b class="where">Dialog</b><em>Save chain</em>. One undoable step; the Check tab badge drops by the items resolved.</li>
+    <li><b class="where">Card repository</b>Add <em>Decision chain</em>. It opens in Bridge view on the forward and historical bases for Strategic Core.</li>
+  </ol>
+  <h4>Flow B · Return attribution in asset and allocation space</h4>
+  <ol class="flow">
+    <li><b class="where">Decision chain card · Bridge</b>Read policy return → S1 → S2 → S3 → portfolio on each basis. Click the S2 bar.</li>
+    <li><b class="where">Steps view</b>The card switches to Steps with S2 selected, attributed by Category: for each category, SAA weight and index return against the product-benchmark weight and benchmark return, allocation and selection effects.</li>
+    <li><b class="where">Attribute by</b>Switch to Product to see which product's benchmark differs most from the SAA index it implements.</li>
+    <li><b class="where">Settings</b>Change Interaction to "Separate row" to see the allocation–selection cross term, or Attribution model to BHB to compare conventions; the subtitle states the departure from the workspace default.</li>
+    <li><b class="where">Drivers &amp; Differences</b>With "Show levels in comparison" on, set Focus to the SAA level and read the same step as category → product differences in the principal table.</li>
+  </ol>
+  <h4>Flow C · Switch to factor space and reconcile</h4>
+  <ol class="flow">
+    <li><b class="where">Context bar · Factor model</b>Confirm ISG; or pin the card to Axioma and choose <em>Compare with the other model</em> to get a second copy of the card.</li>
+    <li><b class="where">Decision chain card · Lens</b>Set Lens to "Both side by side". For the selected step, the left table shows allocation and selection by category; the right shows active exposure × premium (forward) or × realised factor return (historical) by factor, plus specific and cash.</li>
+    <li><b class="where">Tie line</b>Both totals and their difference are shown at the foot. With a reconciling service the difference is zero; otherwise the reason is given (§5.5).</li>
+    <li><b class="where">Matrix</b>Switch Lens to Matrix to see which factors explain each category's effect; the specific column is what the model does not explain.</li>
+    <li><b class="where">Reconcile view</b>Open Reconcile to read the ledger across all steps on both bases.</li>
+  </ol>
+  <h4>Flow D · Risk attribution</h4>
+  <ol class="flow">
+    <li><b class="where">Decision chain card · Bridge</b>The lower waterfall shows policy risk → portfolio risk with each step's contribution to tracking error (Euler) and the cross term; toggle Step risk to "Stand-alone per step" to see each step's own tracking error.</li>
+    <li><b class="where">Steps view · Attribute by Factor</b>The tracking error of the step by factor plus specific, summing to the step's tracking error (the Active risk &amp; return convention, §9).</li>
+    <li><b class="where">Risk units</b>Switch to 99% VaR 1y to express the same contributions as value at risk (parametric, as Headline's VaR, §7).</li>
+    <li><b class="where">Risk basis</b>On the historical basis set Ex-post to use realised covariances over the period; the subtitle states the period and the estimation window.</li>
+    <li><b class="where">Active risk &amp; return</b>For the full existing treatment (passive and active risk, information ratio, active share) set <em>Active against</em> to the same step.</li>
+  </ol>
+  <h4>Flow E · Over time</h4>
+  <ol class="flow">
+    <li><b class="where">Context bar · Period</b>Set 5 years. Every historical card updates (§10).</li>
+    <li><b class="where">Decision chain card · Over time</b>Steps as rows, years as columns, linked contributions in each cell; totals per row equal the linked period figure in Bridge.</li>
+    <li><b class="where">Settings · Linking</b>Switch Cariño to Menchero or GRAP; the row totals stay equal to the period active return and the cells redistribute; the subtitle names the method.</li>
+    <li><b class="where">Rolling active return &amp; tracking error</b>Set Step to S3 for the rolling tracking error the products introduced.</li>
+  </ol>
+  <h4>Flow F · What-if</h4>
+  <ol class="flow">
+    <li><b class="where">Rail · Build</b>Change a product's weight. The portfolio and L2 change together (L2 follows the portfolio's weights); S2 and S3 recalculate; S1 is unchanged. The card labels the previous result "updating" until the new one arrives (§7 States).</li>
+    <li><b class="where">Scenario drawer</b>Apply a scenario to Strategic Core. The derived levels inherit the scope; forward-looking steps show the scenario, historical steps do not (§11).</li>
+    <li><b class="where">Rail · Optimize</b>Run "minimum tracking error to the SAA for a target return" (the new <em>to</em> option) and apply; S2 + S3 shrink in the bridge.</li>
+  </ol>
+  <h4>Flow G · Keep and share</h4>
+  <ol class="flow">
+    <li><b class="where">Card menu</b><em>Save to repository</em> stores the card with its settings (lens, step, model, linking) and no data (§7 Saved cards).</li>
+    <li><b class="where">Header menu</b><em>Snapshot</em> fixes the allocation with its chain; <em>Export</em> includes the chain and the conventions in the context line (§3 item 1, P2 "exports with full context").</li>
+  </ol>
+</section>
+
+<section id="s5">
+  <h2><span class="n">5</span>Modelling and analytics options</h2>
+  <p>For each decision: the options, what the UI must expose for each (mapped to a spec element or marked new), prerequisites, and when each is the better choice. Nothing here changes what the UI calculates: by the spec's principle the UI "performs no financial calculation of its own" (§2), so every option is a request parameter the service honours and a label the card states.</p>
+
+  <h3 id="s5-1"><span class="n">5.1</span>Return attribution methodology</h3>
+  <h4>Attribution model (asset space, by category or asset class)</h4>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Recommended default</span><h5>Brinson–Fachler</h5><p>Allocation = (w<sub>P</sub> − w<sub>B</sub>)(R<sub>Bc</sub> − R<sub>B</sub>); selection = w<sub>P</sub>(R<sub>Pc</sub> − R<sub>Bc</sub>). The mock engine's <code>brinson</code> does this today, with interaction folded into selection.</p><div class="k">UI</div><p><em>Attribution model</em> setting on the chain card and on Return attribution; stated in About these figures. <span class="st new">New</span></p><div class="k">When better</div><p>When over- and underweights should be judged against the benchmark's total, so that overweighting a group that beat the benchmark is positive regardless of the group's absolute return. The usual choice for multi-asset.</p></div>
+    <div class="opt"><h5>Brinson–Hood–Beebower</h5><p>Allocation = (w<sub>P</sub> − w<sub>B</sub>) R<sub>Bc</sub>. Totals are identical; the split between groups differs.</p><div class="k">UI</div><p>Same setting. The card must note that group-level allocation effects are not comparable across the two models.</p><div class="k">When better</div><p>When the policy committee reads "allocation" as the raw return earned by weighting a group, or an external report uses BHB.</p></div>
+    <div class="opt"><h5>Interaction treatment</h5><p>(w<sub>P</sub> − w<sub>B</sub>)(R<sub>Pc</sub> − R<sub>Bc</sub>): folded into selection (today), into allocation, or shown as its own row.</p><div class="k">UI</div><p><em>Interaction</em> setting; a third effect column and waterfall bar when separate. <span class="st new">New</span></p><div class="k">When better</div><p>Separate when a step mixes large weight and return differences (typically S1) and the analyst must not over-credit selection; folded when the audience expects two effects.</p></div>
+  </div>
+  <h4>Product level and factor level</h4>
+  <p>By product the step is each holding's (w<sub>lower</sub> − w<sub>upper</sub>)(r − R<sub>upper</sub>), as the engine's product attribution; for S3, where the weights are equal by construction, it reduces to w (r<sub>product</sub> − r<sub>benchmark</sub>), the product's own excess. By factor the step is Σ<sub>f</sub> Δβ<sub>f</sub> × premium<sub>f</sub> (forward) or × realised factor return<sub>f</sub> (historical), plus specific, plus cash where the levels' cash differs, as Active risk &amp; return's "By factor" (§9). No new option; the factor-return source is §5.3.</p>
+  <h4>Arithmetic versus geometric</h4>
+  <table>
+    <tr><th>Option</th><th>UI</th><th>Prerequisite</th><th>When better</th></tr>
+    <tr><td><strong>Arithmetic</strong>: step = R<sub>lower</sub> − R<sub>upper</sub>; steps sum to the whole exactly in a single period.</td><td><em>Active return</em> setting, already on Active risk &amp; return <span class="st exists">Exists</span>; the chain card reuses it.</td><td>None.</td><td>Single-period, forward-looking, and whenever "parts that reconcile" (§2) must hold by addition.</td></tr>
+    <tr><td><strong>Geometric</strong>: step = (1 + R<sub>lower</sub>)/(1 + R<sub>upper</sub>) − 1; steps compound to the whole.</td><td>Same setting; the Bridge becomes a compounding bridge and the Reconcile ledger multiplies instead of adding.</td><td>None.</td><td>Multi-period historical reporting without a linking algorithm; when returns are large or the chain is long.</td></tr>
+  </table>
+  <h4>Single-period versus multi-period (historical basis)</h4>
+  <p>The historical basis reports over a period of months (§10). Attribution effects computed month by month do not add up to the period's arithmetic active return; a linking method distributes the compounding residual.</p>
+  <div class="opts">
+    <div class="opt"><h5>None, annualised</h5><p>Effects from annualised period returns and average (or start) weights, as the historical Return attribution card does today.</p><div class="k">UI</div><p><em>Linking</em> = None. Subtitle "pp a year, period average weights". <span class="st exists">Exists</span> in effect.</p><div class="k">When better</div><p>Backtests of current weights (the spec's default when no position history exists): weights are constant, so monthly linking adds little.</p></div>
+    <div class="opt rec"><span class="rec-tag">Recommended default</span><h5>Cariño</h5><p>Logarithmic scaling of each month's effects so that the sum equals the period's arithmetic active return.</p><div class="k">UI</div><p><em>Linking</em> = Cariño; the Over time view shows the scaled monthly or yearly cells. <span class="st new">New</span></p><div class="k">Prerequisite</div><p>Monthly returns for every level (A4) and monthly weights (A8: actual position history where <code>history.basis</code> is 'actual'; the backtest's quarterly rebalanced weights otherwise, stated).</p><div class="k">When better</div><p>General purpose; symmetric; widely recognised.</p></div>
+    <div class="opt"><h5>Menchero</h5><p>Optimised linking: a constant scaling plus a small corrective term per month.</p><div class="k">UI</div><p>Same control.</p><div class="k">When better</div><p>When period-to-period distortion must be minimal and the report is read month by month.</p></div>
+    <div class="opt"><h5>GRAP / Frongello</h5><p>Each month's effect scaled by the benchmark's cumulative return before it and the portfolio's after it (GRAP); or recursively (Frongello). Order-dependent.</p><div class="k">UI</div><p>Same control; the card notes the order dependence.</p><div class="k">When better</div><p>When the house method is one of these, or a path-dependent reading is wanted.</p></div>
+    <div class="opt"><h5>Geometric, no linking</h5><p>Geometric effects compound exactly across months without an algorithm.</p><div class="k">UI</div><p>Selected automatically when Active return = Geometric; Linking is then disabled with the reason.</p><div class="k">When better</div><p>Multi-period reporting where compounding is the natural reading.</p></div>
+  </div>
+  <h4>Currency</h4>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Now</span><h5>No separate effect</h5><p>All returns are in the reporting currency (§3 Workspace creation); currency is inside selection and allocation.</p><div class="k">UI</div><p><em>Currency</em> = In selection; nothing else.</p><div class="k">When better</div><p>Unhedged multi-asset reporting in a single base currency, which is what the spec supports.</p></div>
+    <div class="opt rec"><span class="rec-tag">Now, factor lens</span><h5>FX factor row</h5><p>The FX factor, stated against the reporting currency (§9), carries currency in factor space; the Currency exposure card (Structure) shows the look-through mix.</p><div class="k">UI</div><p>Factor lens shows the FX row; asset lens may show "of which FX (factor)" as a memo column. <span class="st delta">Delta</span></p><div class="k">When better</div><p>When the question is "how much of this step is currency" and local-currency returns are not available.</p></div>
+    <div class="opt"><h5>Separate currency effect (Karnosky–Singer or naive)</h5><p>Local-currency returns plus currency surprise and forward premium per market; effects split into local allocation, local selection, currency allocation and currency selection.</p><div class="k">UI</div><p><em>Currency</em> = Separate; two extra effect columns; a hedging assumption per level (unhedged, stated hedge ratio). <span class="st new">New</span></p><div class="k">Prerequisite</div><p>Local returns, forward rates and hedge ratios per instrument: not in the spec (A9).</p><div class="k">When better</div><p>Hedged mandates or when currency is itself a decision in the chain.</p></div>
+  </div>
+  <h4>Cash and unallocated weight</h4>
+  <p>The spec's rule: unallocated weight "earns no return and carries no risk; it is not treated as cash" (§4), and the engine attributes it as an allocation effect against the benchmark return. Options for the chain: keep (default, consistent with every card); treat as cash (the Cash index; the §17 open question); exclude and rescale each level to 100% (the "A category on its own" rule; distorts weights relative to policy). The <em>Unallocated weight</em> setting exposes the first two; the third is available through "follow the selected row" on a category. Fee basis (gross or net of the product's stated fee, an attribute of the reference implementation's product library) is a workspace convention under the header menu, pending the §17 answer.</p>
+
+  <h3 id="s5-2"><span class="n">5.2</span>Risk attribution methodology</h3>
+  <h4>Ex-ante versus ex-post</h4>
+  <table>
+    <tr><th>Option</th><th>UI</th><th>Prerequisite</th><th>When better</th></tr>
+    <tr><td><strong>Ex-ante</strong>: tracking error of each step from the factor model's covariance (factor and specific), as every forward-looking risk figure (§2 Analytical model).</td><td>Default on the forward basis. <span class="st exists">Exists</span> (Active risk &amp; return, Risk by factor).</td><td>Exposures for every instrument at every level (A1).</td><td>Positioning today; the only basis a scenario affects.</td></tr>
+    <tr><td><strong>Ex-post</strong>: realised tracking error of each step from monthly active returns over the period; attributed by group or factor with realised covariances or realised factor returns.</td><td><em>Risk basis</em> setting; default on the historical basis. The subtitle states the period and window. <span class="st new">New</span></td><td>Monthly returns per level (A4), realised factor returns (A2).</td><td>Reporting what happened; validating the model (ex-ante vs ex-post side by side is the Lens "Both" pattern applied to risk).</td></tr>
+  </table>
+  <h4>Contribution measure</h4>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Recommended</span><h5>Euler (component) contributions</h5><p>Each source's marginal contribution times its exposure; sources sum to the tracking error. The convention of <code>ActiveResponse.riskSources</code> today.</p><div class="k">UI</div><p>Risk units Tracking error / Share of tracking error. <span class="st exists">Exists</span></p></div>
+    <div class="opt"><h5>Marginal contributions (MCTR) alongside</h5><p>The derivative per unit of weight or exposure, which does not sum but tells the analyst where a small change bites.</p><div class="k">UI</div><p>An extra column "Marginal" in the Steps table; not in the waterfall. <span class="st new">New</span></p><div class="k">When better</div><p>When the next action is a re-weight (ties to Optimize).</p></div>
+    <div class="opt"><h5>x · σ · ρ</h5><p>Contribution written as active weight × stand-alone volatility × correlation with the step's active return, so the three drivers are visible.</p><div class="k">UI</div><p>Three columns replacing one; the Matrix lens can show σ and ρ as memo rows. <span class="st new">New</span></p><div class="k">When better</div><p>Teaching and review: explains why a large position contributes little.</p></div>
+  </div>
+  <h4>Risk across the chain</h4>
+  <p>Tracking errors of steps do not add: TE²(policy → portfolio) = Σ TE²(step) + 2 Σ cov(step<sub>i</sub>, step<sub>j</sub>). Options for what the Bridge's risk waterfall shows:</p>
+  <table>
+    <tr><th>Option</th><th>Sums?</th><th>UI</th><th>When better</th></tr>
+    <tr><td><strong>Euler contribution of each step to total tracking error</strong>: cov(step, total active) / TE(total).</td><td>Yes, to TE(policy → portfolio).</td><td>Step risk = Contribution. Waterfall from zero to the total tracking error. <span class="st new">New</span></td><td>When the chain must reconcile as a whole ("parts that reconcile").</td></tr>
+    <tr><td><strong>Stand-alone tracking error per step</strong>.</td><td>No; a cross-term bar closes the gap (positive when steps reinforce, negative when they offset).</td><td>Step risk = Stand-alone; the cross term is its own bar and ledger line.</td><td>When each decision owner is judged on their own tracking error budget.</td></tr>
+    <tr><td><strong>Both</strong>: table shows stand-alone, contribution and the difference; the waterfall shows contributions with stand-alone as a faint reference mark.</td><td>Contribution sums; stand-alone shown for information.</td><td>Default. Reuses the Active risk &amp; return convention "passive squared plus tracking error squared plus the correlation term" (§9).</td><td>Review meetings where both readings come up.</td></tr>
+  </table>
+  <h4>Units: tracking error, VaR, expected shortfall</h4>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Now</span><h5>Parametric VaR / ES</h5><p>Headline's 99% VaR and the Value at risk &amp; expected shortfall card are parametric from mean and volatility (§7). Component VaR then scales Euler contributions by the same multiple, so <em>Risk units</em> can offer 99% VaR 1y and 99% ES with no new data.</p><div class="k">UI</div><p><em>Risk units</em> options; the note says parametric. <span class="st delta">Delta</span></p></div>
+    <div class="opt"><h5>Historical VaR / ES</h5><p>From the empirical distribution of monthly active returns over the period (the history pack already has the months).</p><div class="k">UI</div><p>Available with Risk basis = Ex-post; contribution by source needs the realised covariance or a shortfall-conditional average per source. <span class="st new">New</span></p><div class="k">When better</div><p>Fat tails matter and the period is long enough (the card states the number of months).</p></div>
+    <div class="opt"><h5>Monte Carlo</h5><p>Simulated paths from the factor model, with non-normal factor distributions if the service has them.</p><div class="k">UI</div><p>A simulation setting (paths, horizon, seed) that no card has today. <span class="st new">New</span></p><div class="k">Prerequisite</div><p>A simulation engine (A11): outside the spec's current service.</p></div>
+  </div>
+
+  <h3 id="s5-3"><span class="n">5.3</span>Factor model choice and handling</h3>
+  <table>
+    <tr><th>Decision</th><th>Options</th><th>UI</th><th>Note</th></tr>
+    <tr><td>Which model</td><td>ISG (11 factors) or Axioma (17), as §9. Vendor versus in-house, fundamental versus statistical versus macro: the two models in the spec are both macro-style, one in-house and one vendor; adding a statistical model is a service matter that the switch would absorb.</td><td>Context bar switch, per-card pin, Compare with the other model. <span class="st exists">Exists</span></td><td>The card states the model and its as-of date (the data layer's <code>modelAsOf</code>).</td></tr>
+    <tr><td>Models side by side</td><td>One model; two models as two pinned cards; two models in one card as paired columns.</td><td>Compare with the other model gives the first two today; paired columns would be a Lens option "ISG | Axioma" on the Steps view. <span class="st delta">Delta</span></td><td>Paired columns keep the factor rows aligned where identifiers match (§9: Axioma "has the same eleven under the same identifiers").</td></tr>
+    <tr><td>Factor returns for the return lens</td><td>Forward: premia implied from asset-class returns (today's rule, §9). Historical: realised factor returns per month (A2); or regression of the step's active return on factor returns over the period (a time-series beta, A2).</td><td>Setting <em>Factor returns</em>: Implied premia · Realised (period) · Regression over the period. <span class="st new">New</span></td><td>The Factors over time card already shows yearly return contributions by factor, so realised factor returns are assumed to exist.</td></tr>
+    <tr><td>Exposures of a level</td><td>Holdings-based (sum of instrument exposures, as Drivers &amp; Differences) or returns-based (regression of the level's returns, as the "historical (estimated over the period)" option of Factor exposures, §9).</td><td>Setting <em>Exposures</em>: Holdings-based · Returns-based. <span class="st exists">Exists</span> on Factor exposures; <span class="st delta">Delta</span> on the chain card.</td><td>Returns-based exposures do not tie to holdings-based asset effects exactly; the Reconcile view then shows a non-zero difference with this reason.</td></tr>
+    <tr><td>Factor versus specific split</td><td>Specific per instrument from the model (the "specific risk not explained by it", §2); residual return = active return − Σ factor contributions.</td><td>Always shown as the last row; a toggle <em>Group specific by</em>: one row · by category · by product. <span class="st delta">Delta</span></td><td>Grouping specific by category is the bridge between the lenses in the Matrix view.</td></tr>
+    <tr><td>Uncovered products</td><td>A product not covered takes its category index's loadings and is flagged (§9).</td><td>The flag carries into the chain card's notes with the count per level.</td><td>For L2 the benchmark index is covered by construction; S3's specific term therefore holds the product's whole residual.</td></tr>
+  </table>
+
+  <h3 id="s5-4"><span class="n">5.4</span>Chain-level definition</h3>
+  <h4>Sequential, parallel or order-averaged</h4>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Recommended default</span><h5>Sequential, fixed order</h5><p>S1 = SAA − Policy, S2 = Product benchmarks − SAA, S3 = Portfolio − Product benchmarks. Steps sum to the whole arithmetically; no interaction between steps in return.</p><div class="k">UI</div><p>Step order = Default. The Bridge shows three bars and no interaction bar for return (the cross term exists for risk only, §5.2).</p><div class="k">When better</div><p>The chain in the framework is a genuine sequence of decisions taken in this order.</p></div>
+    <div class="opt"><h5>Custom order</h5><p>The same three differences taken in another order (for example, product selection before mapping). Return steps still sum; their individual values change because each step is taken against a different "upper" portfolio.</p><div class="k">UI</div><p>Step order = Custom with the three steps draggable, as categories are reordered in the rail (§4). The subtitle states the order. <span class="st new">New</span></p><div class="k">When better</div><p>Sensitivity: to show that a conclusion does not depend on the order.</p></div>
+    <div class="opt"><h5>Parallel (each level versus policy)</h5><p>Each level's full active return and tracking error against the policy benchmark: SAA vs Policy, Product benchmarks vs Policy, Portfolio vs Policy.</p><div class="k">UI</div><p>Step = "Policy → each level"; the Levels view with Focus on the policy gives this directly. <span class="st exists">Exists</span> once levels are members.</p><div class="k">When better</div><p>Governance that asks "how far is each stage from policy" rather than "what did each stage add".</p></div>
+    <div class="opt"><h5>Order-averaged (Shapley)</h5><p>Each step's value averaged over all six orderings; removes order dependence; steps still sum.</p><div class="k">UI</div><p>Step order = Order-averaged; the card notes the six orderings and offers a table of the spread per step. <span class="st new">New</span></p><div class="k">Prerequisite</div><p>Six evaluations per request; latency the card's "updating" state can absorb.</p><div class="k">When better</div><p>When decision owners dispute the order.</p></div>
+  </div>
+  <h4>Mapping the SAA's indices to product benchmarks (what S2 measures)</h4>
+  <table>
+    <tr><th>Option</th><th>What S2 then captures</th><th>UI</th><th>When better</th></tr>
+    <tr><td><strong>Stated benchmark, else category index</strong> (the spec's rule, §9)</td><td>The difference between the SAA's index for a category and the benchmarks of the products placed in that category (for example, SAA holds a broad global index; products are benchmarked to US large cap and EM).</td><td>Default; "Review mapping" lists the resolution per holding. <span class="st exists">Exists</span> rule, <span class="st new">New</span> listing</td><td>Products have meaningful stated benchmarks.</td></tr>
+    <tr><td><strong>Category index basket for every holding</strong></td><td>S2 reduces to the weight difference between the SAA and the portfolio by category (an allocation-only step); the product's deviation from the category index becomes S3.</td><td>Radio in the dialog.</td><td>Stated benchmarks are missing or inconsistent, or the committee reads "manager" as "deviation from the category".</td></tr>
+    <tr><td><strong>Custom per holding</strong></td><td>Whatever the mandate says: a custom benchmark, a product, a fixed rate.</td><td>Per-holding override with the "Pick one…" picker. <span class="st new">New</span></td><td>Absolute-return managers (Cash + 3%), liability-matching categories.</td></tr>
+    <tr><td><strong>Split S2 into weight and benchmark</strong></td><td>S2a: SAA weights → portfolio weights at SAA indices (the allocation decision inside implementation); S2b: SAA indices → product benchmarks at portfolio weights (the benchmark decision).</td><td>Setting <em>Implementation step</em>: One step · Weight then benchmark · Benchmark then weight. The Bridge shows four bars. <span class="st new">New</span></td><td>When the SAA is implemented with weights that differ from the SAA (tactical tilt) as well as with different benchmarks.</td></tr>
+  </table>
+  <h4>Where the SAA comes from</h4>
+  <table>
+    <tr><th>Option</th><th>UI</th><th>Trade-off</th></tr>
+    <tr><td><strong>An explicit allocation of indices</strong> in the workspace, marked as the SAA of the portfolio.</td><td>Dialog picker; "Create SAA from policy…" helper; the SAA is edited in the rail like any allocation and can be compared, snapshotted and versioned (§14). <span class="st delta">Delta</span></td><td>One more allocation to maintain; it may drift from the portfolio's categories (the workspace-wide category rule, §4, keeps rows aligned).</td></tr>
+    <tr><td><strong>A benchmark from the library</strong> used as the SAA.</td><td>Dialog picker (benchmark). <span class="st exists">Exists</span> object</td><td>Rebalancing rule and versions come free; cannot be edited in the rail.</td></tr>
+    <tr><td><strong>Derived from the portfolio's category weights</strong> into each category's index basket (the operation Optimize performs for index baskets, §6).</td><td>Dialog radio; the card labels the SAA "derived" and S1 then contains only the category-weight decision. <span class="st new">New</span></td><td>Convenient; but it makes S2 a pure benchmark-mapping step and hides any tactical weight tilt, and the derived SAA moves whenever the portfolio's weights move.</td></tr>
+  </table>
+  <h4>Structural mismatches the UI must state</h4>
+  <ul>
+    <li>Categories present at one level and absent at another (new workspace categories; SAA without alternatives): rows appear with weight zero at the absent level, and the effect is pure allocation.</li>
+    <li>Unallocated weight at different levels: the Unallocated row (as the engine's Brinson already emits) appears in S1 and S2 as needed.</li>
+    <li>Leverage: a leveraged portfolio against an unleveraged SAA shows the borrowing as a negative cash row at L3 and a note (§4 "gross exposure, net exposure and borrowing are displayed as information").</li>
+    <li>Sleeve columns and snapshots as the portfolio: both are allowed as L3; a sleeve column's chain uses the sleeve's category index as policy unless set (the reference implementation measures a sleeve column against its category index; §12 says only that it is fully invested at its own weights).</li>
+  </ul>
+
+  <h3 id="s5-5"><span class="n">5.5</span>Reconciliation and tie-out between asset space and factor space</h3>
+  <p>Three identities must hold and be shown; the Reconcile view lists them with both sides and the difference.</p>
+  <table>
+    <tr><th>Identity</th><th>Holds when</th><th>Where a difference comes from</th><th>UI</th></tr>
+    <tr><td>Across steps: policy + S1 + S2 + S3 (+ interaction) = portfolio, for return; and for risk under the Euler reading.</td><td>Arithmetic, sequential; geometric with multiplication.</td><td>Multi-period linking residual if the service does not distribute it fully; rounding.</td><td>Reconcile ledger lines 1 and 4; tolerance stated (0.005 pp).</td></tr>
+    <tr><td>Within a step: Σ asset-space effects = step active return = Σ factor contributions + specific (+ cash).</td><td>Holdings-based exposures and the same instrument returns on both sides; the specific term defined as the remainder.</td><td>Returns-based exposures; a product proxied by its category index in one lens but not the other; factor returns from a regression window different from the period.</td><td>Tie line at the foot of the Lens view; the reason shown when non-zero.</td></tr>
+    <tr><td>Group × factor: Matrix rows sum to the asset-space effect per group; columns sum to the factor-space contribution per factor.</td><td>Each instrument's contribution is split by factor and assigned to its group.</td><td>Allocation effects are not instrument-specific under Brinson–Fachler (they depend on R<sub>B</sub>); the service must allocate them to factors through the group's benchmark exposure, and state that convention.</td><td>Matrix lens with a "how the matrix is built" note.</td></tr>
+  </table>
+  <div class="opts">
+    <div class="opt rec"><span class="rec-tag">Recommended</span><h5>Service reconciles; UI shows the ledger</h5><p>The service returns both lenses and the tie values in one response (§7), so the two sides are computed on the same data and the difference is zero or explained.</p></div>
+    <div class="opt"><h5>Residual-to-tie row</h5><p>The factor lens carries a "Not reconciled" row equal to the difference when the data sources differ (for example, returns-based exposures).</p><div class="k">When better</div><p>When the analyst deliberately chooses a non-reconciling option and wants the amount visible rather than hidden.</p></div>
+    <div class="opt"><h5>Independent requests</h5><p>The chain card requests the asset lens through <code>ActiveRequest</code> per step and the factor lens through the factor table; the UI compares.</p><div class="k">Trade-off</div><p>Faster to build on today's endpoints; differences become hard to explain. Acceptable for the first phase if the ledger states "from separate calculations".</p></div>
+  </div>
+
+  <h3 id="s5-6"><span class="n">5.6</span>Presentation and interaction patterns</h3>
+  <table>
+    <tr><th>Pattern</th><th>Spec convention reused</th><th>Used for</th><th>Alternatives considered</th></tr>
+    <tr><td>Bridge waterfall</td><td>"Waterfalls for contributions", one allocation at a time, tabs above the chart (§7)</td><td>Policy → portfolio in return and in risk; a step's effects by group or factor</td><td>Stacked bars per level (Allocations side by side style): shows composition, not steps; kept as an option in Levels view</td></tr>
+    <tr><td>Levels as columns, Focus as differences</td><td>Headline Table / Focus (§7)</td><td>The Levels view; Headline itself when levels are members</td><td>Levels as rows (one table per allocation): breaks "every member in every card"</td></tr>
+    <tr><td>Drill-down hierarchy</td><td>Drivers &amp; Differences category → product tree, row search, shared expansion (§8)</td><td>Steps view by category expanding to products; the principal table with levels as members</td><td>A separate tree card: duplicates §8</td></tr>
+    <tr><td>Side-by-side lenses</td><td>Scenario columns' Base | Scenario pairing (§8) and Compare with the other model (§9)</td><td>Lens = Both; ex-ante | ex-post risk</td><td>A Lens toggle only (one at a time): simpler, loses the tie line</td></tr>
+    <tr><td>Matrix heat map</td><td>Heat maps for change over time (§7) reused for group × factor</td><td>Lens = Matrix</td><td>Nested waterfall (group, then factor within): harder to read across groups</td></tr>
+    <tr><td>Time series</td><td>Factors over time heat map; Rolling active return &amp; TE line (§9, Appendix A)</td><td>Over time view; Step on the rolling card</td><td>Small multiples per step (the viz layer has them): good when steps have very different scales</td></tr>
+    <tr><td>What-if</td><td>Scenario drawer with scope; live recalculation on edit; Optimize proposals (§6, §11)</td><td>Flow F</td><td>A dedicated "what-if weights" panel: redundant with the rail</td></tr>
+    <tr><td>Row following</td><td>"Follow the selected row" (§8)</td><td>Chain of one category, levels cut and rescaled</td><td>—</td></tr>
+    <tr><td>Data table twin and export</td><td>"Every chart has an equivalent data table" (§7); export with context (§16 P2)</td><td>Every view of the chain card</td><td>—</td></tr>
+  </table>
+</section>
+
+<section id="s6">
+  <h2><span class="n">6</span>Controls, knobs and switches</h2>
+  <p>Every control an analyst needs to run the analysis, where it lives, its states, its default, where its value is persisted (per the spec's three tiers: allocation, workspace preference or convention, card setting), and which cards it affects.</p>
+  <div class="tblwrap"><table>
+    <tr><th>Control</th><th>Lives in</th><th>States / options</th><th>Default</th><th>Persisted on</th><th>Affects</th><th>Status</th></tr>
+    <tr><td>Policy benchmark</td><td>Decision chain dialog (rail header menu; member menu)</td><td>Any benchmark from the library, version-pinned; "use the assigned benchmark"</td><td>Assigned benchmark</td><td><code>Allocation.chain</code></td><td>Chain card; cards set to a step; vs = Policy benchmark</td><td><span class="st new">New</span></td></tr>
+    <tr><td>SAA</td><td>Decision chain dialog</td><td>Allocation in the workspace · benchmark · derived from category weights; Create from policy / from this allocation</td><td>None (Check tab item)</td><td><code>Allocation.chain</code></td><td>As above</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Product benchmarks</td><td>Decision chain dialog; Review mapping table</td><td>Stated else category index · category index for all · custom per holding</td><td>Stated else category index</td><td><code>Allocation.chain</code></td><td>As above; Active risk &amp; return "own benchmark"</td><td><span class="st delta">Delta</span></td></tr>
+    <tr><td>Step order</td><td>Chain card settings (and the dialog)</td><td>Default · custom (drag) · order-averaged</td><td>Default</td><td>Card</td><td>Chain card</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Implementation step</td><td>Chain card settings</td><td>One step · weight then benchmark · benchmark then weight</td><td>One step</td><td>Card</td><td>Chain card</td><td><span class="st new">New</span></td></tr>
+    <tr><td>View</td><td>Chain card, top switch</td><td>Bridge · Levels · Steps · Lens · Reconcile · Over time</td><td>Bridge</td><td>Card</td><td>Chain card</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Allocation tabs</td><td>Chain card, above the chart (Bridge, Steps)</td><td>One member at a time</td><td>The allocation being edited</td><td>Session</td><td>Chain card</td><td><span class="st exists">Exists</span> pattern</td></tr>
+    <tr><td>Step</td><td>Chain card; Active risk &amp; return (Active against → A chain step…); Return attribution; Rolling active return &amp; TE; Factors over time; Active weights vs reference</td><td>S1 · S2 · S3 · Policy → Portfolio (· All steps on the chain card)</td><td>All steps / S3</td><td>Card</td><td>That card</td><td><span class="st delta">Delta</span></td></tr>
+    <tr><td>Lens</td><td>Chain card</td><td>Asset &amp; allocation · Factor · Both · Matrix</td><td>Asset &amp; allocation</td><td>Card</td><td>Chain card</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Attribute by</td><td>Chain card; Active risk &amp; return</td><td>Category · Asset class · Product · Factor</td><td>Category</td><td>Card</td><td>That card</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Basis</td><td>Chain card</td><td>Both · Forward-looking · Historical</td><td>Both</td><td>Card</td><td>Chain card</td><td><span class="st exists">Exists</span> pattern</td></tr>
+    <tr><td>Factor model</td><td>Context bar; card pin; Compare with the other model</td><td>ISG · Axioma</td><td>Context bar</td><td>Workspace pref / card</td><td>Every factor-based figure</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Factor returns</td><td>Chain card settings</td><td>Implied premia · realised over the period · regression over the period</td><td>Implied (forward), realised (historical)</td><td>Card</td><td>Chain card factor lens</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Exposures</td><td>Chain card settings; Factor exposures</td><td>Holdings-based · returns-based</td><td>Holdings-based</td><td>Card</td><td>Factor lens; tie line</td><td><span class="st delta">Delta</span></td></tr>
+    <tr><td>Group specific by</td><td>Chain card settings</td><td>One row · by category · by product</td><td>One row</td><td>Card</td><td>Factor lens; Matrix</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Attribution model</td><td>Header menu (workspace default); chain card and Return attribution settings</td><td>Brinson–Fachler · Brinson–Hood–Beebower</td><td>Brinson–Fachler</td><td>Workspace convention / card</td><td>Asset lens by category or asset class</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Interaction</td><td>Same</td><td>In selection · in allocation · separate row</td><td>In selection</td><td>Workspace convention / card</td><td>Same</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Active return</td><td>Chain card; Active risk &amp; return</td><td>Arithmetic · geometric</td><td>Arithmetic</td><td>Card</td><td>That card</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Linking</td><td>Header menu (default); chain card, Return attribution</td><td>None · Cariño · Menchero · GRAP · Frongello · geometric (auto)</td><td>Cariño</td><td>Workspace convention / card</td><td>Historical attribution; Over time</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Currency</td><td>Header menu (default); chain card</td><td>In selection · FX factor row · separate effect</td><td>In selection</td><td>Workspace convention / card</td><td>Asset lens columns; factor lens FX row</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Unallocated weight</td><td>Header menu (default); chain card</td><td>Zero return · treat as cash</td><td>Zero return</td><td>Workspace convention / card</td><td>Unallocated row</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Fee basis</td><td>Header menu</td><td>Gross · net of stated fees</td><td>As the platform returns (§17)</td><td>Workspace convention</td><td>Every return figure</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Risk basis</td><td>Chain card settings</td><td>Ex-ante · ex-post</td><td>By basis</td><td>Card</td><td>Risk figures of the chain card</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Risk units</td><td>Chain card; Drivers &amp; Differences; Active risk &amp; return</td><td>Tracking error · share · 99% VaR 1y · 99% ES</td><td>Tracking error</td><td>Card</td><td>That card</td><td><span class="st delta">Delta</span></td></tr>
+    <tr><td>Step risk</td><td>Chain card</td><td>Contribution · stand-alone · both with cross term</td><td>Both</td><td>Card</td><td>Bridge risk waterfall; Reconcile</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Contribution columns</td><td>Chain card Steps view</td><td>Euler only · + marginal · x·σ·ρ</td><td>Euler only</td><td>Card</td><td>Steps table</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Period</td><td>Context bar</td><td>Common · 1/3/5/10y · custom months</td><td>Common history</td><td>Workspace pref</td><td>Every historical figure</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Over time granularity</td><td>Chain card Over time view</td><td>Years · months · rolling 36 months</td><td>Years</td><td>Card</td><td>Over time heat map / line</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Scenario</td><td>Context bar / drawer, scope per member</td><td>Base · any workspace scenario</td><td>Base</td><td>Workspace</td><td>Forward-looking steps; derived levels inherit scope</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Reference (vs)</td><td>Context bar</td><td>Shared benchmark · individual · compared portfolio · <strong>policy benchmark</strong></td><td>Shared</td><td>Workspace</td><td>Headline and every active card not set to a step</td><td><span class="st delta">Delta</span></td></tr>
+    <tr><td>Show levels in comparison</td><td>Chain card; member menu</td><td>On · off (for the allocation being edited, or for every allocation with a chain)</td><td>Off</td><td>Workspace pref (display)</td><td>Comparison strip and every card</td><td><span class="st new">New</span></td></tr>
+    <tr><td>Follow the selected row</td><td>Chain card settings</td><td>On · off</td><td>Off</td><td>Card</td><td>Chain of one category</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Emphasis</td><td>Card legends</td><td>Per member</td><td>All</td><td>Workspace pref</td><td>Every chart</td><td><span class="st exists">Exists</span></td></tr>
+    <tr><td>Tracking error to</td><td>Rail Optimize tab</td><td>Assigned benchmark · policy benchmark · SAA</td><td>Assigned benchmark</td><td>Optimizer options</td><td>Active objectives</td><td><span class="st delta">Delta</span></td></tr>
+    <tr><td>Show data table · Save to repository · Export</td><td>Card menu; header</td><td>—</td><td>—</td><td>—</td><td>Chain card and every view</td><td><span class="st exists">Exists</span></td></tr>
+  </table></div>
+</section>
+
+<section id="s7">
+  <h2><span class="n">7</span>Data objects and service contract</h2>
+  <p>Written in the conventions of the data access layer (<code>js/api.js</code>): one contract, request shapes the UI sends, response shapes it displays. Nothing in the UI calculates.</p>
+  <h3>Allocation <span class="st delta">Delta</span></h3>
+  <div class="mock">Allocation {…, benchmarkId,
+  <b>chain</b>: {
+    policyBenchmarkId: string|null,                 // benchmark library id, version-pinned as benchmarkId is
+    saa: {kind:'allocation'|'benchmark'|'derived', id?: string} | null,
+    productBenchmarks: {mode:'stated'|'categoryIndex'|'custom',
+                        overrides:{[holdingId]: {kind:'benchmark'|'instrument', id}}},
+    order: ['saa','mapping','selection'] | 'averaged',
+    implementation: 'one'|'weightThenBenchmark'|'benchmarkThenWeight'
+  } | null }
+Workspace.conventions {attributionModel:'BF'|'BHB', interaction:'selection'|'allocation'|'separate',
+  linking:'none'|'carino'|'menchero'|'grap'|'frongello', currency:'none'|'fxFactor'|'separate',
+  unallocated:'zero'|'cash', fees:'gross'|'net'}                      // header menu; copied into requests</div>
+  <h3>Derived member <span class="st new">New</span></h3>
+  <div class="mock">kind 'level': {id:'__level:al_core:saa', name:'Strategic Core · SAA', level:'policy'|'saa'|'productBenchmarks',
+  parentId:'al_core', scopeAs:'al_core'}     // session only, like the stand-alone category; holdings resolved by the service</div>
+  <h3>Chain analytics <span class="st new">New</span></h3>
+  <div class="mock">POST /analytics/chain   ← ChainRequest → ChainResponse
+
+ChainRequest {revision, allocations:Allocation[] (each with chain), basis:'forward'|'historical'|'both',
+  period, scenario, factorModel, rowKey ('__total' or a category key),
+  lens:'asset'|'factor'|'both'|'matrix', decompose:'category'|'assetClass'|'product'|'factor',
+  step:'all'|'saa'|'mapping'|'selection'|'policyToPortfolio', order, implementation,
+  method:{model, interaction, returns:'arithmetic'|'geometric', linking, currency, unallocated, fees},
+  factorReturns:'implied'|'realised'|'regression', exposures:'holdings'|'returns', specificBy:'one'|'category'|'product',
+  risk:{basis:'exante'|'expost', units:'te'|'share'|'var99'|'es99', stepRisk:'contribution'|'standalone'|'both', columns:'euler'|'marginal'|'xsr'},
+  overTime:'years'|'months'|'rolling36'|null}
+
+ChainResponse {factorModel, modelAsOf, period, series:[{allocationId, reason?,
+  levels:[{id:'policy'|'saa'|'productBenchmarks'|'portfolio', label, source:{kind, id, version?, derived?},
+           holdings:[{instrumentId, weight, categoryId}], forward:Headline|null, historical:Headline|null,
+           coverage, proxied:number, uncovered:number}],
+  steps:[{id, from, to, label, order,
+    ret:{forward?:StepReturn, historical?:StepReturn},
+    risk:{forward?:StepRisk, historical?:StepRisk}}],
+  interaction:{ret:{forward, historical}, risk:{forward, historical}},      // cross-step terms
+  totals:{policyReturn, portfolioReturn, activeReturn, trackingError, …},
+  ties:[{id, label, lhs, rhs, diff, reason?}],                              // the Reconcile ledger
+  overTime?:{periods:string[], cells:{[stepId]:{[groupOrFactor]:(number|null)[]}}, linked:boolean},
+  notes:string[], warnings:string[]}]}
+
+StepReturn {total, byGroup:[{key, label, wFrom, wTo, rFrom, rTo, allocation, selection, interaction?, currency?, total}],
+            byFactor:[{factorId, betaFrom, betaTo, dBeta, factorReturn, contribution}], specific, cash, factorTotal, tie:{assetTotal, factorTotal, diff}}
+StepRisk   {te, contribution, standalone, var99?, es99?, byGroup:[{key, label, euler, marginal?, x?, sigma?, rho?}],
+            byFactor:[{factorId, euler, …}], specific}
+Headline   as /analytics/headline per level (total, excess, passive and active, risk, tracking error to the previous level, Sharpe, IR, var99)</div>
+  <p>Every other request shape gains <code>against:{mode:'step', step, allocationId}</code> where it has an <code>against</code> or <code>reference</code> today (<code>ActiveRequest</code>, <code>TableRequest</code> values 'delta', <code>HistoryRequest</code> for the rolling card, the factor history request). <code>OptimizeRequest.options</code> gains <code>teTo:'benchmark'|'policy'|'saa'</code>. The context bar's reference gains <code>referenceMode:'policy'</code>.</p>
+  <h3>Conventions a service must keep (additions to the README list)</h3>
+  <ul>
+    <li>Derived levels are evaluated from the chain, never stored; the same chain and revision always yield the same holdings.</li>
+    <li>Steps sum to the whole on the arithmetic reading within the stated tolerance; the service returns the ties, not the UI.</li>
+    <li>A level that cannot be formed (no SAA, benchmark not found, holding without any resolvable benchmark) returns a <code>reason</code> for the affected steps and the others still compute.</li>
+    <li>Scenario scope and the factor-model note propagate from the parent allocation to its levels.</li>
+  </ul>
+</section>
+
+<section id="s8">
+  <h2><span class="n">8</span>Assumptions to validate</h2>
+  <p>Each is stated where the spec does not confirm the data or calculation. Validate against what the service can deliver before committing to the option that depends on it.</p>
+  <table>
+    <tr><th>Id</th><th>Assumption</th><th>Spec basis</th><th>Depends on it</th><th>If false</th></tr>
+    <tr><td>A1</td><td>Factor exposures under both models exist for every instrument, including indices and benchmark constituents, with the category-index fallback for uncovered products.</td><td>§9 ("a product not covered takes its category index's loadings"); product directory shows exposures (§13).</td><td>Factor lens at every level; ex-ante step risk.</td><td>Factor lens limited to levels whose instruments are covered; the card flags counts per level.</td></tr>
+    <tr><td>A2</td><td>Realised factor returns per month exist for the period under each model.</td><td>Implied by Factors over time (yearly return contributions by factor) and Factor exposures "historical (estimated over the period)".</td><td>Historical factor lens; ex-post risk by factor; Factor returns = realised.</td><td>Historical factor lens falls back to regression over the period (A2b) or is unavailable with the reason.</td></tr>
+    <tr><td>A3</td><td>Forward factor premia are the premia implied from asset-class returns, consistent with the capital market assumptions and overridable by scenarios.</td><td>§9 "By factor: active exposure multiplied by the factor premium implied from asset-class returns"; §11 factor premia overrides.</td><td>Forward factor lens; reconciliation on the forward basis.</td><td>Forward factor lens shows exposures only.</td></tr>
+    <tr><td>A4</td><td>Monthly return history exists for every index, product, benchmark constituent and fixed-rate constituent, over the model's history, with proxies before inception as §10.</td><td>§10 Coverage; benchmark library (§5).</td><td>Historical levels and steps; linking; ex-post risk.</td><td>Steps that include an uncovered instrument report partial coverage as the spec's distinct state.</td></tr>
+    <tr><td>A5</td><td>Products have stated benchmarks; where absent, the category index basket is a meaningful benchmark.</td><td>§9 own-benchmark rule; §13 fitted index for uploaded products.</td><td>L2 and S2/S3 by the default mapping.</td><td>Use "category index for every holding" or per-holding overrides; the Check tab reports the count.</td></tr>
+    <tr><td>A6</td><td>A benchmark's constituents resolve to instruments the service can evaluate (nested benchmarks flattened; fixed rate as cash plus margin).</td><td>§5 custom benchmark composition.</td><td>L0 and a benchmark used as SAA.</td><td>Nested benchmarks are rejected in the chain dialog with the reason.</td></tr>
+    <tr><td>A7</td><td>The analytics service can evaluate arbitrary portfolios (holdings it has not stored).</td><td>§17 Open question "Analytics service".</td><td>Derived levels; order-averaged steps; "A category on its own" already relies on it.</td><td>Levels must be materialised as stored snapshots before analysis (§4.5 second option).</td></tr>
+    <tr><td>A8</td><td>Monthly position history exists where <code>history.basis</code> is 'actual'; otherwise weights are the current weights rebalanced quarterly (the backtest).</td><td>§10 Actual history and backtests.</td><td>Multi-period linking with changing weights; attribution over time.</td><td>Linking operates on backtest weights and the card states "backtest weights".</td></tr>
+    <tr><td>A9</td><td>Local-currency returns, forward rates and hedge ratios per instrument are not available.</td><td>Not in the spec; the FX factor is the only currency measure (§9), plus look-through currency mix (Structure card).</td><td>Separate currency effect (Karnosky–Singer).</td><td>Nothing: the option stays disabled with the reason until the data exists.</td></tr>
+    <tr><td>A10</td><td>Returns are on one fee basis (gross or net) platform-wide; the product library's stated fee allows a net-of-fee view.</td><td>§17 "fee basis"; product library <code>fee</code>.</td><td>Fee basis convention.</td><td>The control is hidden and the subtitle states the platform basis.</td></tr>
+    <tr><td>A11</td><td>No Monte Carlo engine exists.</td><td>Not in the spec; VaR is parametric (§7).</td><td>Monte Carlo VaR units.</td><td>—</td></tr>
+    <tr><td>A12</td><td>Benchmark rebalancing rules (§5) are applied by the service when a benchmark is evaluated over a period.</td><td>§5 "rebalancing rule".</td><td>L0 and benchmark-based SAA on the historical basis.</td><td>The level's basis label says "constant weights" (as the backtest's quarterly rule).</td></tr>
+  </table>
+</section>
+
+<section id="s9">
+  <h2><span class="n">9</span>Phasing</h2>
+  <p>Mapped onto the spec's release plan (§16). Each phase is usable on its own and states what it does not yet do.</p>
+  <table>
+    <tr><th>Phase</th><th>Content</th><th>Builds on</th><th>Not yet</th></tr>
+    <tr><td><strong>1 · Chain and single-step reuse</strong> (extends P1 "active risk and return attribution")</td><td>Decision chain dialog and <code>Allocation.chain</code>; Check tab items; derived levels as temporary members; Step option on Active risk &amp; return, Return attribution, Rolling active return &amp; TE, Active weights vs reference; vs = Policy benchmark; Optimize "tracking error to".</td><td><code>ActiveRequest</code> with <code>against.mode:'step'</code>; the stand-alone-category member pattern.</td><td>No chain card; no cross-step risk; no linking.</td></tr>
+    <tr><td><strong>2 · Decision chain card, asset and factor lenses</strong></td><td>The card with Bridge, Levels, Steps, Lens (Both, Matrix) and Reconcile; <code>/analytics/chain</code>; attribution model, interaction, order, implementation step; ex-ante risk with contribution, stand-alone and cross term; parametric VaR units.</td><td>A1, A3, A5, A6, A7.</td><td>Over time; ex-post risk; currency effect.</td></tr>
+    <tr><td><strong>3 · Time and ex-post</strong></td><td>Linking methods and the workspace conventions menu; Over time view; Factors over time and Factor exposures deltas; ex-post risk basis; historical VaR / ES units; Factor returns option.</td><td>A2, A4, A8.</td><td>Currency effect; order-averaged.</td></tr>
+    <tr><td><strong>4 · Extensions</strong> (P2)</td><td>Separate currency effect; order-averaged steps; marginal and x·σ·ρ columns; paired model columns; Monte Carlo units; exports with chain and conventions in the context line.</td><td>A9, A11.</td><td>—</td></tr>
+  </table>
+</section>
+
+<section id="s10">
+  <h2><span class="n">10</span>Open questions for §17</h2>
+  <ol>
+    <li><strong>Chain ownership.</strong> Is the chain a property of the allocation (recommended) or of the workspace (one policy and one SAA for every allocation)? A workspace-level chain is simpler but cannot compare two portfolios with different policies.</li>
+    <li><strong>SAA as allocation or benchmark.</strong> Should an SAA be editable in the rail (allocation) or governed like a benchmark (library, versions, read-only)? Both are offered; the house process decides.</li>
+    <li><strong>Benchmark inheritance</strong> (existing question). The product-benchmark mapping gives it a concrete form: stated benchmark, category index or override. Confirm the fallback order.</li>
+    <li><strong>Metric conventions</strong> (existing question). Confirm the defaults proposed in §1: Brinson–Fachler, interaction in selection, arithmetic, Cariño, currency in selection, unallocated at zero return.</li>
+    <li><strong>Residual treatment</strong> (existing question). Whether "treat as cash" should be offered at all in the chain, since it changes every card's convention.</li>
+    <li><strong>Snapshot reproducibility</strong> (existing question). Whether a snapshot fixes the chain's resolved levels (holdings of L1 and L2 as of the snapshot) in addition to the chain's identifiers.</li>
+    <li><strong>Levels in the comparison strip.</strong> Whether derived levels should ever be saved (as snapshots) or always remain temporary.</li>
+    <li><strong>Attribution on the forward basis.</strong> Whether a forward-looking "return attribution" (expected active return by step) is wanted by the committee, or only risk; the design supports both.</li>
+  </ol>
+</section>
+
+<section id="sa">
+  <h2><span class="n">A</span>Worked example and tie-out</h2>
+  <p>Fictional figures for Strategic Core on the forward-looking basis, % a year, ISG model, arithmetic, Brinson–Fachler with interaction in selection, sequential order. They show what the Reconcile view displays.</p>
+  <div class="two">
+  <div>
+  <h4>Bridge · return</h4>
+  <table>
+    <tr><th>Line</th><th class="num">Value</th></tr>
+    <tr><td>L0 Policy benchmark (Strategic Core Policy v2)</td><td class="num">5.90</td></tr>
+    <tr><td>S1 SAA decision</td><td class="num">+0.45</td></tr>
+    <tr><td>S2 Product benchmark decision</td><td class="num">−0.12</td></tr>
+    <tr><td>S3 Product / manager decision</td><td class="num">+0.31</td></tr>
+    <tr><td>Interaction between steps (arithmetic, sequential)</td><td class="num">0.00</td></tr>
+    <tr><td><strong>L3 Portfolio</strong></td><td class="num"><strong>6.54</strong></td></tr>
+  </table>
+  <h4>S1 · asset space, by category</h4>
+  <table>
+    <tr><th>Category</th><th class="num">w Policy</th><th class="num">w SAA</th><th class="num">Allocation</th><th class="num">Selection</th><th class="num">Total</th></tr>
+    <tr><td>Public Equity</td><td class="num">50.0</td><td class="num">42.0</td><td class="num">−0.14</td><td class="num">+0.06</td><td class="num">−0.08</td></tr>
+    <tr><td>Investment Grade Fixed Income</td><td class="num">50.0</td><td class="num">22.0</td><td class="num">+0.38</td><td class="num">−0.02</td><td class="num">+0.36</td></tr>
+    <tr><td>Other Fixed Income</td><td class="num">0.0</td><td class="num">4.0</td><td class="num">+0.02</td><td class="num">0.00</td><td class="num">+0.02</td></tr>
+    <tr><td>Hedge Funds</td><td class="num">0.0</td><td class="num">8.0</td><td class="num">+0.01</td><td class="num">0.00</td><td class="num">+0.01</td></tr>
+    <tr><td>Private Equity &amp; Other Private Assets</td><td class="num">0.0</td><td class="num">10.0</td><td class="num">+0.17</td><td class="num">0.00</td><td class="num">+0.17</td></tr>
+    <tr><td>Real Assets</td><td class="num">0.0</td><td class="num">7.0</td><td class="num">+0.01</td><td class="num">0.00</td><td class="num">+0.01</td></tr>
+    <tr><td>Cash</td><td class="num">0.0</td><td class="num">4.0</td><td class="num">−0.04</td><td class="num">0.00</td><td class="num">−0.04</td></tr>
+    <tr><td>Unallocated</td><td class="num">0.0</td><td class="num">3.0</td><td class="num">0.00</td><td class="num">—</td><td class="num">0.00</td></tr>
+    <tr><td><strong>S1 total</strong></td><td class="num">100.0</td><td class="num">100.0</td><td class="num">+0.41</td><td class="num">+0.04</td><td class="num"><strong>+0.45</strong></td></tr>
+  </table>
+  </div>
+  <div>
+  <h4>S1 · factor space</h4>
+  <table>
+    <tr><th>Factor</th><th class="num">β Policy</th><th class="num">β SAA</th><th class="num">Δβ</th><th class="num">Premium</th><th class="num">Contribution</th></tr>
+    <tr><td>Equity</td><td class="num">0.52</td><td class="num">0.58</td><td class="num">+0.06</td><td class="num">5.0</td><td class="num">+0.30</td></tr>
+    <tr><td>Term</td><td class="num">0.45</td><td class="num">0.22</td><td class="num">−0.23</td><td class="num">1.0</td><td class="num">−0.23</td></tr>
+    <tr><td>Liquidity</td><td class="num">0.00</td><td class="num">0.14</td><td class="num">+0.14</td><td class="num">2.5</td><td class="num">+0.35</td></tr>
+    <tr><td>EM</td><td class="num">0.05</td><td class="num">0.06</td><td class="num">+0.01</td><td class="num">2.0</td><td class="num">+0.02</td></tr>
+    <tr><td>Commodities</td><td class="num">0.00</td><td class="num">0.03</td><td class="num">+0.03</td><td class="num">1.0</td><td class="num">+0.03</td></tr>
+    <tr><td>Other six factors</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">−0.01</td></tr>
+    <tr><td>Cash (weight difference × cash rate)</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">−0.04</td></tr>
+    <tr><td>Specific</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">+0.03</td></tr>
+    <tr><td><strong>S1 total</strong></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"><strong>+0.45</strong></td></tr>
+  </table>
+
+  </div>
+  </div>
+  <h4>Reconcile ledger</h4>
+  <table>
+    <tr><th>Identity</th><th class="num">Left</th><th class="num">Right</th><th class="num">Diff</th></tr>
+    <tr><td>Policy + S1 + S2 + S3 = Portfolio</td><td class="num">6.54</td><td class="num">6.54</td><td class="num">0.00</td></tr>
+    <tr><td>S1 asset = S1 factor + specific + cash</td><td class="num">+0.45</td><td class="num">+0.45</td><td class="num">0.00</td></tr>
+    <tr><td>S2 asset = S2 factor + specific</td><td class="num">−0.12</td><td class="num">−0.12</td><td class="num">0.00</td></tr>
+    <tr><td>S3 asset = S3 factor + specific</td><td class="num">+0.31</td><td class="num">+0.31</td><td class="num">0.00</td></tr>
+    <tr><td>TE(policy → portfolio)² = Σ TE(step)² + cross</td><td class="num">2.10² = 4.41</td><td class="num">1.85² + 0.40² + 0.95² + cross 0.11 = 4.41</td><td class="num">0.00</td></tr>
+    <tr><td>Σ Euler step contributions = TE(policy → portfolio)</td><td class="num">1.63 + 0.08 + 0.39 = 2.10</td><td class="num">2.10</td><td class="num">0.00</td></tr>
+  </table>
+  <p class="small">The Matrix lens for S1 would place the +0.38 Investment Grade allocation effect mostly in the Term column (−0.23 is the Term row total across all categories, because the SAA's lower bond weight loses the term premium while its higher equity and private weights gain Equity and Liquidity); specific holds what the model does not explain (+0.03).</p>
+</section>
+
+<section id="sb">
+  <h2><span class="n">B</span>Vocabulary map</h2>
+  <table>
+    <tr><th>Framework term</th><th>Spec term used here</th><th>Where defined</th></tr>
+    <tr><td>Policy benchmark</td><td>Policy benchmark (a Benchmark from the benchmark library, in the allocation's chain)</td><td>§5 Benchmark library; this document §4.1</td></tr>
+    <tr><td>Strategic asset allocation, SAA</td><td>SAA (an allocation of indices, a benchmark, or derived; in the chain)</td><td>§4 Allocation construction; this document §4.2, §5.4</td></tr>
+    <tr><td>Product / manager benchmark</td><td>Product benchmark: the product's stated benchmark, else its category index basket, else an override</td><td>§9 Active risk &amp; return ("own benchmark"); §13 Product directory</td></tr>
+    <tr><td>Product / manager</td><td>Holding (product) in a category; "manager" is the instrument's manager attribute, used as a label only</td><td>§4</td></tr>
+    <tr><td>Level</td><td>Level L0–L3: a portfolio the service evaluates; L1 and L2 are derived members</td><td>This document §2, §4.5</td></tr>
+    <tr><td>Step / decision</td><td>Step S1–S3: the active comparison of two adjacent levels</td><td>This document §2</td></tr>
+    <tr><td>Attribution impact</td><td>Active return and tracking error of a step; allocation and selection effects; factor contributions and specific</td><td>§9</td></tr>
+    <tr><td>Asset and allocation space</td><td>Asset &amp; allocation lens: attribution by category, asset class or product</td><td>§9 "By category or asset class", "By product"</td></tr>
+    <tr><td>Factor space</td><td>Factor lens: attribution by factor plus specific under the selected factor model</td><td>§9 "By factor"</td></tr>
+    <tr><td>Residual / specific</td><td>Specific (the spec's term)</td><td>§2, §9</td></tr>
+    <tr><td>Tie-out</td><td>Reconcile view and ties</td><td>§2 "Parts that reconcile"; this document §4.3, §5.5</td></tr>
+    <tr><td>Ex-ante / ex-post</td><td>Forward-looking / historical basis; Risk basis ex-ante / ex-post for the risk estimate</td><td>§2 The analytical model; this document §5.2</td></tr>
+    <tr><td>What-if</td><td>Scenario; a weight edit in the rail; an Optimize proposal</td><td>§6, §11</td></tr>
+  </table>
+</section>
+
+<footer>
+  <p>Decision chain attribution · product and UX specification for review · 5 November 2026 · Written against Portfolio Analytics Workspace, product specification v3.0 draft. Fictional data throughout.</p>
+</footer>
+</main>
+</div>
+<a class="top" href="#s0">Top ↑</a>
+</body>
+</html>

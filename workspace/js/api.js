@@ -46,19 +46,67 @@
      POST   /analytics/history-suite         ← SuiteRequest → HistorySuiteResponse
      POST   /analytics/structure             ← SuiteRequest → StructureResponse
      POST   /analytics/optimize              ← OptimizeRequest → OptimizeResponse
+     POST   /analytics/chain                 ← ChainRequest → ChainResponse     (the decision chain, js/chain.js)
      GET    /products                        → ProductRecord[]    (uploaded products, see js/products.js)
      POST   /products/fit                    ← {returns:{start, values}} → {fits:Fit[], stats}  (closest asset classes)
      POST   /products                        ← ProductRecord[] → ProductRecord[]  (add from pasted returns)
      PATCH  /products/:id                    ← {name?, archived?} → ProductRecord
      GET    /products/:id/analytics?factorModel=…  → ProductAnalytics
    Every analytics request carries the workspace's reporting currency in the
-   X-Reporting-Currency header (useCurrency); figures come back in it.
+   X-Reporting-Currency header (useCurrency); figures come back in it. The
+   workspace's fee basis travels in X-Fee-Basis (useConventions): 'net' (the
+   platform's basis: returns after each product's stated fee) or 'gross'.
+
+   Decision chains
+   ─────────────────
+   Allocation.chain {policyBenchmarkId:string|null (null: the assigned benchmark),
+                   saa:{kind:'allocation'|'benchmark'|'derived', id?}|null,
+                   productBenchmarks:{mode:'stated'|'categoryIndex', overrides:{[instrumentId]:{kind:'benchmark'|'instrument', id}}},
+                   order:'default'|'saa,selection,mapping'|…, implementation:'one'|'weightThenBenchmark'|'benchmarkThenWeight'}
+                   copied by snapshots and clones. Requests that need an SAA allocation carry it in
+                   chainAllocations:Allocation[] (the referenced allocations, as edited).
+   Workspace.conventions {attributionModel:'BF'|'BHB', interaction:'selection'|'allocation'|'separate',
+                   linking:'none'|'carino'|'menchero'|'grap'|'frongello', currency:'none'|'fxFactor'|'separate',
+                   unallocated:'zero'|'cash', fees:'net'|'gross'}   workspace defaults a card may depart from
+   Derived level   a temporary member {id:'__level:<parentId>:saa'|…, kind:'level', level:{parentId, id}, scopeAs:parentId,
+                   holdings, chain (the parent's)}; session only, like a category on its own
+   against         ActiveRequest, the structure request (step), the factor-history request (step) and
+                   HeadlineRequest (against:{mode:'policy'}) accept {mode:'step', step:'saa'|'mapping'|'selection'|'policyToPortfolio'}:
+                   the subject is the step's lower level and the benchmark its upper level.
+   reference       referenceMode also 'policy' (each allocation's policy benchmark) and, for TableRequest,
+                   'previousLevel' (a level's previous level; an allocation's product-benchmark level).
+   ActiveRequest.method {model, interaction, linking}  historical attribution by category or asset class
+                   through the chain's attribution models and linking (Return attribution card).
+   OptimizeRequest.options.teTo 'benchmark'|'policy'|'saa'   which level tracking error is measured to.
+   ChainRequest   {revision, allocations, chainAllocations, basis:'forward'|'historical'|'both', period, scenario,
+                   factorModel, pairModels:boolean, rowKey, decompose:'category'|'assetClass'|'product'|'factor',
+                   order:'chain'|'default'|<order>|'averaged', implementation, method:{model, interaction, returns, linking,
+                   currency, unallocated}, factorReturns:'implied'|'realised'|'regression', exposures:'holdings'|'returns',
+                   specificBy, risk:{basis:'default'|'exante'|'expost', units, stepRisk, columns, varMethod:'parametric'|'historical'|'montecarlo', paths},
+                   overTime:'years'|'months'|'rolling36'}
+   ChainResponse  {factorModel, modelAsOf, pairModel, period, series:[{allocationId, reason?, partial?, notes, warnings,
+                   levels:[{id, code, short, name, label, source, reason?, holdings}], mapping:[{instrumentId, name, categoryId,
+                   weight, source:'stated'|'categoryIndex'|'override'|'index'|'fitted'|'none', target:{kind, id, label}}], counts,
+                   decisions:[{id, code, label, short}], order, orderLabel, coverage:[{id, proxied, uncovered}],
+                   forward|historical:{levelReturns, headline:Headline[] (each level vs the one before), exposure, rf, premia,
+                     steps:[{meta:{id, code, label, from, to}, total, byGroup:[{key, label, short, color, wFrom, wTo, rFrom, rTo,
+                       allocation, selection, interaction, total, sub?, weightLine?}], factor:{byFactor:[{factorId, label, betaFrom,
+                       betaTo, dBeta, factorReturn, contribution}], factorTotal, cash, specific, drift?, notReconciled?},
+                       matrix:{order, cells:{[group]:{factors:{[id]:pp}, specific, cash}}}, pair?, drift?, driftLabel?, spread?},
+                     risk:{basis, total, cross, muTotal, steps:[{id, te, contribution, standalone, mu, byGroup:[{key, euler,
+                       activeWeight, sigma, rho, marginal}], byFactor:[{factorId, euler, exposure, marginal}], specific, cash?, drift?}],
+                       pairs:[{a, b, cov, corr}], var:{method, total:{var99, es99}, steps:[{id, standalone, component}], note}},
+                     overTime? (historical): {kind:'cells', periods, steps:[{id, total, rows, factors, specific, drift, cumulative}]}
+                       | {kind:'rolling', months, lines} },
+                   ties:{tolerance, list:[{id, basis, label, lhs, rhs, diff, ok, within, explained, reason?, kind}]}}]}
+     Returns in % a year (historical steps annualised; Over time cells linked and cumulative), risk in % a year.
+     Levels are resolved from the chain on every request, never stored.
 
    Shapes
    ─────
    TableRequest   {revision, allocations:Allocation[], basis:'forward'|'historical',
                    metric:'weight'|'return'|'risk'|'factor', values:'absolute'|'delta',
-                   riskUnits:'share'|'vol', factors:string[],
+                   riskUnits:'share'|'vol'|'var99' (contribution to parametric 99% one-year VaR), factors:string[],
                    reference:{referenceMode:'shared'|'individual'|'portfolio', sharedBenchmarkId, referencePortfolioId},
                    period:{preset, start, end}, scenario:Scenario|null,
                    factorModel:'isg'|'axioma'  (betas for metric 'factor')}
@@ -138,7 +186,7 @@
     if (!rowRes) return null;
     if (metric === 'weight') return rowRes.weight;
     if (metric === 'return') return rowRes.ret;
-    if (metric === 'risk') return riskUnits === 'share' ? rowRes.riskShare : rowRes.riskVol;
+    if (metric === 'risk') return riskUnits === 'share' ? rowRes.riskShare : riskUnits === 'var99' ? (rowRes.riskVol == null ? null : rowRes.riskVol * 2.3263) : rowRes.riskVol;
     if (metric === 'factor') return rowRes.beta ? rowRes.beta[fid] : null;
     return null;
   }
@@ -150,6 +198,8 @@
   }
   function findReference(alloc, req) {
     var ref = req.reference || {};
+    if (ref.referenceMode === 'policy') { var pol = CH.policyOf(alloc); return pol.holdings ? { alloc: { id: '__policy:' + alloc.id, kind: 'benchmark', name: pol.label, holdings: pol.holdings }, label: pol.label, reason: null } : { alloc: null, label: null, reason: pol.reason }; }
+    if (ref.referenceMode === 'previousLevel') return previousLevel(alloc, req);
     if (ref.referenceMode === 'individual') {
       if (!alloc.benchmarkId) return { alloc: null, label: null, reason: 'No benchmark assigned' };
       var b = D.benchmarkById[alloc.benchmarkId];
@@ -184,7 +234,7 @@
    * category index stands in and the note says so.
    */
   function benchmarkFor(alloc, req) {
-    var mode = (req.against && req.against.mode) || 'reference', key = req.rowKey && req.rowKey !== '__total' ? req.rowKey : null, parts = key ? key.split('/') : null;
+    var mode = (req.against && req.against.mode) || 'reference', key = req.rowKey && req.rowKey !== '__total' ? req.rowKey : (alloc.standalone ? alloc.standalone.categoryId : null), parts = key ? key.split('/') : null;
     var ownOfRow = function () {
       if (parts.length === 1) return indexOf(parts[0]);
       var ins = D.instrumentById[parts[1]];
@@ -198,6 +248,12 @@
       if (ref.kind === 'allocation' && ref.allocation) { var pa = E.effective(ref.allocation); return pa.length ? { holdings: pa.map(function (h) { return { instrumentId: h.instrumentId, weight: h.weight }; }), label: ref.label || ref.allocation.name, kind: 'allocation' } : { label: ref.label, reason: ref.label + ' holds nothing' }; }
       if (ref.holdings && ref.holdings.length) return { holdings: ref.holdings, label: ref.label || 'Picked portfolio', kind: ref.kind };
       return { label: null, reason: 'Pick a benchmark in the card settings' };
+    }
+    if (mode === 'policy') {
+      var pol = CH.policyOf(alloc); if (!pol.holdings) return { label: null, reason: pol.reason + ' for ' + alloc.name };
+      if (!key) return { holdings: pol.holdings, label: pol.label, kind: 'policy benchmark' };
+      var pcut = scaled(E.holdingsFor({ holdings: pol.holdings }, key)); if (pcut) return { holdings: pcut, label: pol.label + ' · ' + (parts.length > 1 ? D.instrumentById[parts[1]].name : D.categoryById[parts[0]].short), kind: 'policy row' };
+      var pown = ownOfRow(); if (pown.holdings) pown.note = pol.label + ' holds nothing in this row; ' + pown.label + ' is used'; return pown;
     }
     if (mode === 'own') {
       if (key) return ownOfRow();
@@ -232,19 +288,56 @@
   }
   function fail() { throw { code: 'service_unavailable', message: 'The analytics service did not respond' }; }
 
+  /* ── decision chains ─────────────────────────────────────────────── */
+  var CH = PA.chain;
+  function chainPool(req) { return (req.chainAllocations || []).concat(req.allocations || []); }
+  var STEP_LEVELS = { saa: ['policy', 'saa'], mapping: ['saa', 'productBenchmarks'], selection: ['productBenchmarks', 'portfolio'], policyToPortfolio: ['policy', 'portfolio'] };
+  var STEP_CODES = { saa: 'S1', mapping: 'S2', selection: 'S3', policyToPortfolio: 'Policy → Portfolio' };
+  /** The chain an allocation answers to: its own, a temporary category's parent's, or none for a derived level. */
+  function chainSource(alloc) { return alloc && alloc.kind !== 'level' && CH.chainOf(alloc) ? alloc : null; }
+  /** The two ends of a chain step: the subject is the step's lower level, the benchmark its upper level. */
+  function stepPair(alloc, req, step) {
+    var src = chainSource(alloc);
+    if (!src) return { reason: alloc.kind === 'level' ? 'A derived level has no chain of its own' : 'No decision chain for ' + alloc.name };
+    var key = req.rowKey && req.rowKey !== '__total' ? req.rowKey : null;
+    var res = CH.levelsOf(src, chainPool(req), { unallocated: (req.method || {}).unallocated, rowKey: key, implementation: 'one' });
+    var ids = STEP_LEVELS[step] || STEP_LEVELS.selection, find = function (id) { return res.levels.filter(function (l) { return l.id === id; })[0]; };
+    var up = find(ids[0]), lo = find(ids[1]);
+    if (!up || !up.holdings) return { reason: (up && up.reason) || 'Level unavailable' };
+    if (!lo || !lo.holdings) return { reason: (lo && lo.reason) || 'Level unavailable' };
+    var subject = { holdings: lo.holdings };
+    if (lo.id === 'portfolio' && !key && !alloc.standalone) subject.returnsFrom = function (f, t) { var r = E.rowReturns(alloc, '__total', f, t); return r ? r.returns : E.backtest(lo.holdings, f, t).returns; };
+    return { subject: subject, bench: { holdings: up.holdings }, label: up.short + ' (step ' + STEP_CODES[step] + ')', subjectLabel: lo.short, upper: up, lower: lo, notes: res.notes };
+  }
+  /** The previous chain level of a derived level, or an allocation's product-benchmark level. */
+  function previousLevel(alloc, req) {
+    var parent = alloc.kind === 'level' ? chainPool(req).filter(function (x) { return x.id === alloc.level.parentId; })[0] : chainSource(alloc);
+    if (!parent) return { reason: alloc.kind === 'level' ? 'Parent allocation not in the comparison' : 'No decision chain' };
+    var res = CH.levelsOf(parent, chainPool(req), {}), ids = res.levels.map(function (l) { return l.id; }), at = alloc.kind === 'level' ? ids.indexOf(alloc.level.id) : ids.indexOf('portfolio'), prev = at > 0 ? res.levels[at - 1] : null;
+    if (!prev) return { reason: 'The policy benchmark is the first level' };
+    if (!prev.holdings) return { reason: prev.reason };
+    return { alloc: { id: '__prev:' + alloc.id, kind: 'benchmark', name: prev.short, holdings: prev.holdings }, label: prev.short + ' level', reason: null };
+  }
+
   /* ── mock adapter ────────────────────────────────────────────────── */
   var mock = (function () {
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } if (store.chainDefault !== 1) { migrateChains(store); store.chainDefault = 1; persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
       store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace);
       return store;
+    }
+    /* stores saved before decision chains: give the sample workspace its SAA and chains */
+    function migrateChains(st) {
+      var w = st.workspaces.filter(function (x) { return x.id === 'ws_global_review'; })[0]; if (!w) return;
+      if (!w.allocations.some(function (a) { return a.id === D.sampleSaa.id; })) w.allocations.push(U.clone(D.sampleSaa));
+      Object.keys(D.sampleChains).forEach(function (id) { var a = w.allocations.filter(function (x) { return x.id === id; })[0]; if (a && !a.chain) a.chain = U.clone(D.sampleChains[id]); });
     }
     function fresh() {
       var need = [['workspaces', 'data/workspaces.js'], ['sleeveRepository', 'data/sleeves.js'], ['savedCards', 'data/sleeves.js'], ['benchmarkLibrary', 'data/benchmarks.js']], gone = need.filter(function (n) { return !D[n[0]]; }).map(function (n) { return n[1]; });
       if (gone.length) throw { code: 'missing_data', message: 'The sample data did not load (' + gone.filter(function (f, i) { return gone.indexOf(f) === i; }).join(', ') + '). Check that the whole workspace folder was copied and that its files are available offline, then reload.' };
-      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2 }; }
+      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2, chainDefault: 1 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }
@@ -314,12 +407,35 @@
       optimize: function (req) {
         return wait(req.options && req.options.preview ? 90 : latency()).then(function () {
           if (config.failAnalytics) fail();
-          var a = req.allocation, bm = a.benchmarkId ? D.benchmarkById[a.benchmarkId] : null;
-          var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0);
-          return E.optimize(a, Object.assign({}, req.options, { scenario: inScope ? req.scenario : null, factorModel: req.factorModel, benchmark: bm ? { holdings: bm.holdings, label: bm.name } : null }));
+          var a = req.allocation, teTo = (req.options && req.options.teTo) || 'benchmark', bm = a.benchmarkId ? D.benchmarkById[a.benchmarkId] : null, bench = bm ? { holdings: bm.holdings, label: bm.name } : null, why = null;
+          if (teTo !== 'benchmark') {
+            var lv = CH.chainOf(a) ? CH.levelsOf(a, (req.chainAllocations || []).concat([a]), {}) : null, lvl = lv && lv.levels.filter(function (l) { return l.id === (teTo === 'policy' ? 'policy' : 'saa'); })[0];
+            bench = lvl && lvl.holdings ? { holdings: lvl.holdings, label: (teTo === 'policy' ? 'policy benchmark ' : 'SAA ') + lvl.label } : null;
+            why = !lv ? 'Set up a decision chain for ' + a.name + ' to optimise against its ' + (teTo === 'policy' ? 'policy benchmark' : 'SAA') + '.' : lvl && lvl.reason ? lvl.reason + ': set it in the decision chain.' : null;
+          }
+          var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0);
+          var res = E.optimize(a, Object.assign({}, req.options, { scenario: inScope ? req.scenario : null, factorModel: req.factorModel, benchmark: bench }));
+          if (why && res.error) res.error = why;
+          res.teTo = teTo; return res;
         });
       },
       useCurrency: function (code) { D.setReportingCurrency(code); return Promise.resolve({ currency: D.reporting }); },
+      useConventions: function (c) { var fb = c && c.fees === 'gross' ? 'gross' : 'net'; if (D.feeBasis !== fb) { D.feeBasis = fb; CH.resetCaches(); } return Promise.resolve({ fees: D.feeBasis }); },
+      chainAnalysis: function (req) {
+        return wait(latency() * 1.2).then(function () {
+          if (config.failAnalytics) fail();
+          var model = E.modelOf(req.factorModel), basis = req.basis || 'both', risk = req.risk || {}, period = resolvePeriod(req.allocations, req.period), Rbase = E.resolve(null), Rsc = req.scenario ? E.resolve(req.scenario) : null;
+          var run = basis === 'forward' && risk.basis === 'expost' ? 'both' : basis;
+          var series = req.allocations.map(function (a) {
+            if (a.kind === 'level') { var par = chainPool(req).filter(function (x) { return x.id === a.level.parentId; })[0]; return { allocationId: a.id, reason: 'A derived level of ' + (par ? par.name : 'another allocation') + '; its chain is under ' + (par ? par.name : 'that allocation') }; }
+            if (!chainSource(a)) return { allocationId: a.id, reason: 'No decision chain for ' + a.name, noChain: true };
+            var inScope = basis !== 'historical' && !!(Rsc && Rsc.corrValid && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0), sub = subjectOf(a, '__total');
+            var r = CH.analyse(a, { pool: chainPool(req), basis: run, R: inScope ? Rsc : Rbase, period: period, modelId: model.id, pairModelId: req.pairModels ? (model.id === 'isg' ? 'axioma' : 'isg') : null, rowKey: req.rowKey && req.rowKey !== '__total' ? req.rowKey : null, decompose: req.decompose, order: req.order, implementation: req.implementation, method: req.method, factorReturns: req.factorReturns, exposures: req.exposures, specificBy: req.specificBy, risk: risk, overTime: req.overTime, returnsFrom: sub ? sub.returnsFrom : null });
+            r.scenarioApplied = inScope; r.basisRun = run; return r;
+          });
+          return { factorModel: model.id, modelAsOf: model.asOf, pairModel: req.pairModels ? (model.id === 'isg' ? 'axioma' : 'isg') : null, period: period, series: series };
+        });
+      },
       /* benchmark library */
       listBenchmarks: function () { return wait(latency() * 0.4).then(function () { return { presets: U.clone(D.benchmarkPresets), custom: U.clone(load().benchmarks) }; }); },
       saveBenchmark: function (b) {
@@ -380,7 +496,7 @@
           if (Rsc && !Rsc.corrValid && scenarioApplies) warnings.push('The scenario correlation matrix is not positive semi-definite. Scenario results are unavailable until it is corrected; base results are unchanged.');
           var columns = [], cells = {};
           allocations.forEach(function (alloc) {
-            var inScope = scenarioApplies && req.scenario.scope.indexOf(alloc.id) >= 0, sets = ['base']; if (inScope) sets.push('scenario');
+            var inScope = scenarioApplies && req.scenario.scope.indexOf(alloc.scopeAs || alloc.id) >= 0, sets = ['base']; if (inScope) sets.push('scenario');
             var refInfo = findReference(alloc, req), hb = req.basis === 'historical' ? E.historyBasis(alloc) : null;
             var col = { allocationId: alloc.id, name: alloc.name, kind: alloc.kind, color: alloc.color, sets: sets, inScope: inScope,
               basisLabel: hb ? hb.label : 'Platform model', basisDetail: hb ? hb.detail : D.assumptions.model + ' · as of ' + U.fmt.date(D.assumptions.asOf),
@@ -445,8 +561,8 @@
           var series = req.allocations.map(function (a) {
             var subject = subjectOf(a, '__total');
             if (!subject) return { allocationId: a.id, reason: 'Nothing allocated' };
-            var bm = benchmarkFor(a, Object.assign({}, req, { rowKey: '__total', against: { mode: 'reference' } })), bench = bm.holdings ? { holdings: bm.holdings } : null;
-            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0 && Rsc && Rsc.corrValid);
+            var bm = benchmarkFor(a, Object.assign({}, req, { rowKey: '__total', against: { mode: req.against && req.against.mode === 'policy' ? 'policy' : 'reference' } })), bench = bm.holdings ? { holdings: bm.holdings } : null;
+            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0 && Rsc && Rsc.corrValid);
             return { allocationId: a.id, benchmark: bm.label ? { label: bm.label, kind: bm.kind } : null, benchmarkReason: bench ? null : (bm.reason || 'No benchmark'), scenarioApplied: inScope,
               forward: E.headline(subject, bench, { basis: 'forward', R: inScope ? Rsc : Rbase, modelId: model.id }),
               historical: E.headline(subject, bench, { basis: 'historical', period: period }) };
@@ -461,7 +577,7 @@
           var model = E.modelOf(req.factorModel), hist = req.basis === 'historical', period = hist ? resolvePeriod(req.allocations, req.period) : null;
           var Rbase = E.resolve(null), Rsc = req.scenario && !hist ? E.resolve(req.scenario) : null;
           var series = req.allocations.map(function (a) {
-            var inScope = !!Rsc && Rsc.corrValid && req.scenario.scope.indexOf(a.id) >= 0, R = inScope ? Rsc : Rbase, refInfo = findReference(a, req);
+            var inScope = !!Rsc && Rsc.corrValid && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0, R = inScope ? Rsc : Rbase, refInfo = findReference(a, req);
             var opts = { basis: req.basis, R: R, period: period, modelId: model.id }, own = E.factorBreakdown(a, opts);
             return { allocationId: a.id, name: a.name, inScope: inScope, values: own, reason: own ? null : (hist ? 'Fewer than 12 months of history in the period' : 'Nothing allocated'), reference: refInfo.alloc ? E.factorBreakdown(refInfo.alloc, opts) : null, referenceLabel: refInfo.label, referenceReason: refInfo.reason };
           });
@@ -473,7 +589,9 @@
         return wait(latency() * 0.9).then(function () {
           if (config.failAnalytics) fail();
           var period = resolvePeriod(req.allocations, req.period), model = E.modelOf(req.factorModel);
-          return { factorModel: model.id, period: period, series: req.allocations.map(function (a) { var h = E.factorHistory(a, period.start, period.end, model.id); return { allocationId: a.id, history: h, reason: h ? null : 'No history in the period' }; }) };
+          return { factorModel: model.id, period: period, step: req.step || null, series: req.allocations.map(function (a) {
+            if (req.step) { var st = stepPair(a, req, req.step); if (st.reason) return { allocationId: a.id, history: null, reason: st.reason }; var hs = CH.factorHistoryStep(st.subject.holdings, st.bench.holdings, period.start, period.end, model.id, st.subject.returnsFrom); return { allocationId: a.id, history: hs, reason: hs.years.length ? null : 'No history in the period', label: st.lower.short + ' vs ' + st.upper.short }; }
+            var h = E.factorHistory(a, period.start, period.end, model.id); return { allocationId: a.id, history: h, reason: h ? null : 'No history in the period' }; }) };
         });
       },
 
@@ -506,7 +624,7 @@
           if (config.failAnalytics) fail();
           var Rbase = E.resolve(null), Rsc = req.scenario ? E.resolve(req.scenario) : null;
           var series = req.allocations.map(function (a) {
-            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0), p = E.project(a, req.rowKey, inScope ? Rsc : Rbase, req.horizon, req.confidence, req.basis);
+            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0), p = E.project(a, req.rowKey, inScope ? Rsc : Rbase, req.horizon, req.confidence, req.basis);
             return { allocationId: a.id, inScope: inScope, years: p ? p.years : null, central: p ? p.central : null, bands: p ? p.bands : null, mu: p ? p.mu : null, vol: p ? p.vol : null, start: p ? p.start : null, reason: p ? null : (inScope && Rsc && !Rsc.corrValid ? 'Invalid scenario covariance' : 'No holdings in this row') };
           });
           return { unit: req.basis === 'contribution' ? 'Value within a portfolio of 100' : 'Growth of 100', series: series };
@@ -520,7 +638,7 @@
           var series = req.allocations.map(function (a) {
             var b = E.forward(a, Rbase, rows), bv = b.error ? null : metricOf(b.rows[req.rowKey], req.metric, req.riskUnits, req.factor);
             return { allocationId: a.id, base: { value: bv }, scenarios: req.scenarios.map(function (s, i) {
-              if (s.scope.indexOf(a.id) < 0) return { scenarioId: s.id, cell: { value: null, reason: 'Not applied to ' + a.name } };
+              if (s.scope.indexOf(a.scopeAs || a.id) < 0) return { scenarioId: s.id, cell: { value: null, reason: 'Not applied to ' + a.name } };
               var r = E.forward(a, Rs[i], rows); if (r.error) return { scenarioId: s.id, cell: { value: null, reason: 'Invalid covariance' } };
               return { scenarioId: s.id, cell: { value: metricOf(r.rows[req.rowKey], req.metric, req.riskUnits, req.factor) } };
             }) };
@@ -536,14 +654,32 @@
           if (config.failAnalytics) fail();
           var model = E.modelOf(req.factorModel), hist = req.basis === 'historical', period = hist ? resolvePeriod(req.allocations, req.period) : null;
           var Rbase = E.resolve(null), Rsc = req.scenario ? E.resolve(req.scenario) : null;
+          var stepMode = req.against && req.against.mode === 'step';
           var series = req.allocations.map(function (a) {
-            var subject = subjectOf(a, req.rowKey);
+            var st = stepMode ? stepPair(a, req, req.against.step) : null;
+            if (st && st.reason) return { allocationId: a.id, benchmark: { label: 'Step ' + STEP_CODES[req.against.step] }, reason: st.reason };
+            var subject = st ? st.subject : subjectOf(a, req.rowKey);
             if (!subject) return { allocationId: a.id, benchmark: null, reason: 'No holdings in this row' };
-            var bm = benchmarkFor(a, req);
+            var bm = st ? { holdings: st.bench.holdings, label: st.label, kind: 'chain level' } : benchmarkFor(a, req);
             if (!bm.holdings) return { allocationId: a.id, benchmark: { label: bm.label, kind: bm.kind }, reason: bm.reason || 'No benchmark' };
-            var inScope = !hist && !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0 && Rsc && Rsc.corrValid);
-            var res = E.active(subject, { holdings: bm.holdings }, { modelId: model.id, basis: req.basis, R: inScope ? Rsc : Rbase, period: period, attribute: req.attribute || req.decompose, returnMethod: req.returnMethod });
-            res.allocationId = a.id; res.benchmark = { label: bm.label, kind: bm.kind, note: bm.note || null }; res.scenarioApplied = inScope; res.unallocated = !req.rowKey || req.rowKey === '__total' ? U.round(100 - E.allocated(a), 4) : 0;
+            var inScope = !hist && !!(req.scenario && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0 && Rsc && Rsc.corrValid);
+            var by = req.attribute || req.decompose;
+            var res = E.active(subject, { holdings: bm.holdings }, { modelId: model.id, basis: req.basis, R: inScope ? Rsc : Rbase, period: period, attribute: by, returnMethod: req.returnMethod });
+            res.allocationId = a.id; res.benchmark = { label: bm.label, kind: bm.kind, note: bm.note || null }; res.scenarioApplied = inScope; res.unallocated = !st && (!req.rowKey || req.rowKey === '__total') ? U.round(100 - E.allocated(a), 4) : 0;
+            if (st) res.subject = { label: a.name + ' · ' + st.subjectLabel, level: st.lower.id };
+            /* the chain's attribution models and linking, for historical attribution by category or asset class */
+            if (req.method && hist && !res.reason && (by === 'category' || by === 'assetClass')) {
+              var pr = CH.pair(subject.holdings, bm.holdings, { basis: 'historical', period: period, R: Rbase, modelId: model.id, decompose: by, method: req.method, returnsFrom: subject.returnsFrom, risk: {}, upperLabel: bm.label, lowerLabel: a.name });
+              var ps = pr.historical && !pr.historical.reason ? pr.historical.steps[0] : null;
+              if (ps) {
+                res.returnSources = ps.byGroup.map(function (r) { return { key: r.key, label: r.label, short: r.short, color: r.color, weight: r.wTo, benchWeight: r.wFrom, allocation: r.allocation, selection: r.selection, interaction: r.interaction, contribution: r.total }; });
+                if (Math.abs(ps.drift || 0) > 5e-4) res.returnSources.push({ key: '__drift', label: ps.driftLabel, short: ps.driftLabel, color: '#c3cedb', weight: null, benchWeight: null, allocation: 0, selection: ps.drift, interaction: 0, contribution: ps.drift, drift: true });
+                var sumF = function (f) { return U.sum(res.returnSources, function (r) { return r[f] || 0; }); };
+                res.returnTotals = { allocation: sumF('allocation'), selection: sumF('selection'), interaction: sumF('interaction'), arithmetic: ps.total, attributed: ps.total, linked: true };
+                res.method = { model: req.method.model, interaction: req.method.interaction, linking: pr.historical.linking };
+                res.returnSourcesNote = (pr.historical.linking === 'none' ? 'Effects use each holding’s annualised return over the period at current weights; the compounding and rebalancing line closes the gap to the realised active return.' : 'Monthly effects at current weights, linked with ' + CH.LABELS.linking[pr.historical.linking] + ' and scaled to the annualised active return; the rebalancing and drift line is the difference between the quarterly-rebalanced backtests and constant weights.');
+              }
+            }
             return res;
           });
           return { factorModel: model.id, modelAsOf: model.asOf, basis: req.basis, period: period, series: series };
@@ -569,7 +705,7 @@
           if (!Rbase.corrValid) throw { code: 'invalid_covariance', message: 'The correlation matrix is not positive semi-definite' };
           var series = req.allocations.map(function (a) {
             var subject = subjectOf(a, '__total'); if (!subject) return { allocationId: a.id, reason: 'No holdings' };
-            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.id) >= 0 && Rsc && Rsc.corrValid), R = inScope ? Rsc : Rbase;
+            var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0 && Rsc && Rsc.corrValid), R = inScope ? Rsc : Rbase;
             var out = E.forwardSuite(subject.holdings, R, opts); if (!out) return { allocationId: a.id, reason: 'No holdings' };
             out.allocationId = a.id; out.scenarioApplied = inScope;
             var bm = benchmarkFor(a, { reference: req.reference, against: { mode: 'reference' } });
@@ -597,10 +733,11 @@
         return wait(latency() * 0.5).then(function () {
           var codes = {};
           var series = req.allocations.map(function (a) {
-            var hs = E.effective(a), weights = E.categoryWeights(hs), bm = benchmarkFor(a, { reference: req.reference, against: { mode: 'reference' } }), rw = bm.holdings ? E.categoryWeights(bm.holdings) : null, active = null;
+            var hs = E.effective(a), st = req.step ? stepPair(a, Object.assign({}, req, { rowKey: '__total' }), req.step) : null;
+            var weights = E.categoryWeights(st && st.subject ? st.subject.holdings : hs), bm = st ? (st.reason ? { reason: st.reason } : { holdings: st.bench.holdings, label: st.label }) : benchmarkFor(a, { reference: req.reference, against: { mode: 'reference' } }), rw = bm.holdings ? E.categoryWeights(bm.holdings) : null, active = null;
             if (rw) { active = {}; D.categories.forEach(function (c) { active[c.id] = weights[c.id] - rw[c.id]; }); }
             var mix = E.currencyMix(hs); Object.keys(mix).forEach(function (c) { if (Math.abs(mix[c]) > 1e-9) codes[c] = 1; });
-            return { allocationId: a.id, reference: bm.holdings ? { label: bm.label } : null, referenceReason: bm.reason || null, weights: weights, referenceWeights: rw, active: active, currency: mix };
+            return { allocationId: a.id, reference: bm.holdings ? { label: bm.label } : null, referenceReason: bm.reason || null, weights: weights, referenceWeights: rw, active: active, currency: mix, subject: st && st.subjectLabel ? { label: a.name + ' · ' + st.subjectLabel } : null };
           });
           var order = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'EM'], rep = D.reporting, list = Object.keys(codes).sort(function (x, y) { var i = order.indexOf(x), j = order.indexOf(y); return (x === rep ? -1 : y === rep ? 1 : 0) || (i < 0 ? 99 : i) - (j < 0 ? 99 : j); });
           return { currency: rep, categories: D.categories.map(function (c) { return { id: c.id, name: c.name, short: c.short, color: c.color }; }), currencies: list, series: series };
@@ -612,7 +749,7 @@
   /* ── http adapter (handoff target) ───────────────────────────────── */
   var http = (function () {
     function call(method, path, body) {
-      return fetch(config.baseUrl + path, { method: method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Reporting-Currency': config.currency || 'USD' }, credentials: 'same-origin', body: body == null ? undefined : JSON.stringify(body) })
+      return fetch(config.baseUrl + path, { method: method, headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Reporting-Currency': config.currency || 'USD', 'X-Fee-Basis': config.fees || 'net' }, credentials: 'same-origin', body: body == null ? undefined : JSON.stringify(body) })
         .then(function (r) { if (r.status === 204) return {}; return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw { code: j.code || 'http_' + r.status, message: j.message || r.statusText, status: r.status }; return j; }); }, function (e) { throw { code: 'network', message: e.message }; });
     }
     return {
@@ -629,6 +766,8 @@
       saveSleeve: function (s) { return call('PUT', '/sleeves/' + encodeURIComponent(s.id), s); },
       archiveSleeve: function (id, archived) { return call('PATCH', '/sleeves/' + encodeURIComponent(id), { archived: archived !== false }); },
       useCurrency: function (code) { config.currency = code; return Promise.resolve({ currency: code }); },
+      useConventions: function (c) { config.fees = c && c.fees === 'gross' ? 'gross' : 'net'; return Promise.resolve({ fees: config.fees }); },
+      chainAnalysis: function (req) { return call('POST', '/analytics/chain', req); },
       listBenchmarks: function () { return call('GET', '/benchmarks'); },
       saveBenchmark: function (b) { return call('PUT', '/benchmarks/' + encodeURIComponent(b.id), b); },
       archiveBenchmark: function (id, archived) { return call('PATCH', '/benchmarks/' + encodeURIComponent(id), { archived: archived !== false }); },

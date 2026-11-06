@@ -30,6 +30,10 @@
                category's index basket (engine.js, E.normalizeAllocation).
                sleeveRef {sleeveId, version, name} tags products that came
                from a repository sleeve.
+               chain?: the decision chain (policy benchmark, SAA, product
+               benchmark mapping, step order); see js/api.js
+   Workspace.conventions?: attribution conventions (header menu); defaults
+               in js/chain.js
                kind 'sleeve' is a repository sleeve version compared as its
                own column: read-only, fully invested at the sleeve's weights,
                with sleeve:{id, version, name, categoryId, mixed}. It is pinned
@@ -59,6 +63,15 @@
     return p;
   };
   var card = function (id, type, x, y, w, h, settings, followRow) { return { id: id, type: type, x: x, y: y, w: w, h: h, settings: settings || {}, followRow: !!followRow }; };
+  /* Strategic Core's decision chain: the 2027 policy, its SAA as an allocation of indices, products against their stated benchmarks.
+     Income Tilt: its assigned benchmark as policy and an SAA derived from its category weights. */
+  D.sampleChains = {
+    al_core: { policyBenchmarkId: 'cbm_policy@2', saa: { kind: 'allocation', id: 'al_core_saa' }, productBenchmarks: { mode: 'stated', overrides: {} }, order: 'default', implementation: 'one' },
+    al_income: { policyBenchmarkId: null, saa: { kind: 'derived' }, productBenchmarks: { mode: 'stated', overrides: {} }, order: 'default', implementation: 'one' }
+  };
+  D.sampleSaa = { id: 'al_core_saa', name: 'Strategic Core SAA', kind: 'live', color: 'cat-5', benchmarkId: 'cbm_policy@2', leverage: false,
+    history: { basis: 'backtest', inception: '2026-10' }, edited: false, note: 'Strategic asset allocation agreed at the 2027 review: one index per asset class. The SAA of Strategic Core’s decision chain.',
+    holdings: H([['idx_us_eq', 26], ['idx_dev_eq', 12], ['idx_em_eq', 4], ['idx_pe', 10], ['idx_govt', 14], ['idx_ig', 8], ['idx_hy', 4], ['idx_cash', 4], ['idx_hf', 8], ['idx_re', 4], ['idx_infra', 3], ['idx_cmd', 3]]) };
   var ALTS = { sleeveId: 'slv_core_alts', version: 1, name: 'Core Alternatives' };
 
   var ws1 = {
@@ -72,11 +85,13 @@
     allocations: [
       { id: 'al_core', name: 'Strategic Core', kind: 'live', color: 'cat-1', benchmarkId: 'bm_6040', leverage: false,
         history: { basis: 'actual', inception: '2015-01' }, edited: false, note: 'Current strategic allocation. Position history complete since Jan 2015.',
+        chain: D.sampleChains.al_core,
         categories: { public_equity: 45, private_equity: 10, ig_fixed_income: 22, other_fixed_income: 4, cash: 4, hedge_funds: 8, real_assets: 7 },
         holdings: H([['etf_us_lc', 20], ['fund_intl', 13], ['fund_em', 7], ['fund_us_sc', 5], ['pe_oakhurst', 6], ['pe_tamar', 4],
           ['fund_tsy', 14], ['fund_ig', 8], ['fund_hy', 4], ['fund_cash', 4], ['hf_kestrel', 5, ALTS], ['hf_alder', 3, ALTS], ['re_harbor', 4], ['fund_cmd', 3]]) },
       { id: 'al_income', name: 'Income Tilt', kind: 'live', color: 'cat-2', benchmarkId: 'bm_4060', leverage: false,
         history: { basis: 'backtest', inception: '2026-09' }, edited: false, note: 'Alternative with more credit and real assets, less public equity. Real Assets not yet fully implemented.',
+        chain: D.sampleChains.al_income,
         categories: { public_equity: 30, private_equity: 10, ig_fixed_income: 27, other_fixed_income: 13, cash: 5, hedge_funds: 5, real_assets: 10 },
         holdings: H([['etf_us_lc', 15], ['fund_intl', 10], ['fund_em', 5], ['pe_oakhurst', 10], ['fund_tsy', 10], ['etf_govt', 5],
           ['fund_ig', 12], ['fund_hy', 7], ['fund_pc', 6], ['fund_cash', 5], ['hf_kestrel', 5], ['re_harbor', 6], ['infra_grey', 2]]) },
@@ -90,7 +105,8 @@
         note: 'Fixed snapshot taken at the March review. Weights frozen; analytics refresh with the platform model.',
         categories: { public_equity: 44, private_equity: 8, ig_fixed_income: 25, other_fixed_income: 4, cash: 4, hedge_funds: 8, real_assets: 7 },
         holdings: H([['etf_us_lc', 22], ['fund_intl', 12], ['fund_em', 6], ['fund_us_sc', 4], ['pe_oakhurst', 6], ['pe_tamar', 2],
-          ['fund_tsy', 16], ['fund_ig', 9], ['fund_hy', 4], ['fund_cash', 4], ['hf_kestrel', 5, ALTS], ['hf_alder', 3, ALTS], ['re_harbor', 4], ['fund_cmd', 3]]) }
+          ['fund_tsy', 16], ['fund_ig', 9], ['fund_hy', 4], ['fund_cash', 4], ['hf_kestrel', 5, ALTS], ['hf_alder', 3, ALTS], ['re_harbor', 4], ['fund_cmd', 3]]) },
+      D.sampleSaa
     ],
     comparison: { members: ['al_core', 'al_income', 'al_growth', 'al_core_snap'], activeId: 'al_core', referenceMode: 'shared', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
     scenarios: [

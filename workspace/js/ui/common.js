@@ -136,12 +136,17 @@
   };
 
   /* ── common markup helpers ───────────────────────────────────────── */
-  UI.colorOf = function (alloc) { return 'var(--' + (alloc && alloc.color ? alloc.color : 'cat-1') + ')'; };
+  UI.STANDALONE_INK = '#1B2430';
+  /* a derived chain level wears its parent's colour, lighter for each level further from the portfolio */
+  UI.LEVEL_TINT = { productBenchmarks: 62, saa: 40 };
+  UI.colorOf = function (alloc) { if (alloc && alloc.kind === 'standalone') return UI.STANDALONE_INK; var base = 'var(--' + (alloc && alloc.color ? alloc.color : 'cat-1') + ')'; if (alloc && alloc.kind === 'level') return 'color-mix(in srgb, ' + base + ' ' + (UI.LEVEL_TINT[alloc.level.id] || 50) + '%, #ffffff)'; return base; };
   /** A tag for the exceptional kinds (snapshot, benchmark, sleeve); live allocations carry none. */
   UI.kindTag = function (alloc) {
     if (!alloc) return '';
     if (alloc.kind === 'snapshot') return '<span class="tag tag-info" data-tip="Fixed snapshot captured ' + esc(U.fmt.dateTime(alloc.capturedAt)) + '. Weights are frozen.">Snapshot</span>';
     if (alloc.kind === 'benchmark') return '<span class="tag">Benchmark</span>';
+    if (alloc.kind === 'standalone') return '<span class="tag tag-temp" data-tip="Temporary: the selected category of ' + esc(PA.store.allocation(alloc.standalone.allocationId).name) + ' on its own, its ' + U.fmt.num(alloc.standalone.weight, 2) + '% rescaled to 100%. Shown while the category stays selected in the rail.">Category · 100%</span>';
+    if (alloc.kind === 'level') { var par = PA.store.allocation(alloc.level.parentId); return '<span class="tag tag-temp" data-tip="Temporary: ' + esc(alloc.level.label || alloc.level.short) + ', the ' + esc(alloc.level.short) + ' level of ' + esc(par ? par.name : 'its allocation') + '’s decision chain' + (alloc.level.derived ? ', derived from its category weights' : '') + '. Resolved from the chain on every change; shown while levels are on.">Level · ' + esc(alloc.level.short) + '</span>'; }
     if (alloc.kind === 'sleeve') return '<span class="tag tag-sleeve" data-tip="Sleeve “' + esc(alloc.sleeve.name) + '” v' + alloc.sleeve.version + ' from the repository, fully invested at its weights. Read-only.">Sleeve v' + alloc.sleeve.version + '</span>';
     return ''; /* live is the default kind: no tag */
   };

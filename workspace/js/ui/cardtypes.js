@@ -50,9 +50,9 @@
   function hlSettings(card, ctx) { var s = card.settings || {}, ids = ctx.members.map(function (a) { return a.id; }); return { view: s.view === 'focus' ? 'focus' : 'table', focus: ids.indexOf(s.focus) >= 0 ? s.focus : ids.indexOf(ctx.ws.comparison.activeId) >= 0 ? ctx.ws.comparison.activeId : ids[0] }; }
   function hlGet(o, k) { if (!o || o.reason) return null; if (k.indexOf('var99.') === 0) return o.var99 ? o.var99[k.slice(6)] : null; return o[k]; }
   C.register({ id: 'headline', title: 'Headline', description: 'Total, excess, passive and active return; risk, passive and active risk and tracking error; Sharpe and information ratios; 99% value at risk over a day, week, month and year. Forward-looking and historical side by side, as a table of every allocation or with one allocation in focus and the others as differences from it.', group: 'Summary', size: { w: 12, h: 12 }, min: { w: 6, h: 6 }, basis: 'dual', factorModel: true,
-    settings: [],
-    subtitle: function (ctx, s, card) { var h = hlSettings(card, ctx), f = h.view === 'focus' && ctx.members.length > 1 ? (S.allocation(h.focus) || {}).name : null; return '% a year unless stated · whole portfolio · against ' + UI.context.referenceLabel() + (f ? ' · focus ' + f : '') + C.modelDeparture(card); },
-    data: function (ctx, s, card) { return C.fetch('headline', { revision: ctx.revision, allocations: U.clone(ctx.members), period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario), factorModel: C.modelIdOf(card), reference: U.clone(ctx.ws.comparison) }); },
+    settings: [{ key: 'against', label: 'Passive and active against', type: 'select', options: [['reference', 'The Reference (context bar)'], ['policy', 'Each allocation’s policy benchmark']], default: 'reference', hint: 'The policy benchmark comes from each allocation’s decision chain.' }],
+    subtitle: function (ctx, s, card) { var h = hlSettings(card, ctx), f = h.view === 'focus' && ctx.members.length > 1 ? (S.allocation(h.focus) || {}).name : null; return '% a year unless stated · whole portfolio · against ' + (s.against === 'policy' ? 'each allocation’s policy benchmark' : UI.context.referenceLabel()) + (f ? ' · focus ' + f : '') + C.modelDeparture(card); },
+    data: function (ctx, s, card) { return C.fetch('headline', { revision: ctx.revision, allocations: U.clone(ctx.members), period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario), factorModel: C.modelIdOf(card), reference: U.clone(ctx.ws.comparison), against: s.against === 'policy' ? { mode: 'policy' } : null }); },
     render: function (body, data, ctx, s, card) {
       var one = function (a) { return data.series.filter(function (q) { return q.allocationId === a.id; })[0] || {}; }, active = ctx.ws.comparison.activeId;
       var set = hlSettings(card, ctx), focusView = set.view === 'focus' && ctx.members.length > 1;
@@ -112,6 +112,37 @@
       }) });
     },
     dataTable: function (data, ctx) { return V.table([{ label: 'Allocation' }].concat(data.categories.map(function (c) { return { label: esc(c.short), num: true }; })), ctx.members.map(function (a) { var sr = data.series.filter(function (x) { return x.allocationId === a.id; })[0]; return { cells: [esc(a.name)].concat(sr.categories.map(function (x) { return F.num(x.target); })) }; }), { maxHeight: '200px' }); } });
+
+  /* ── Weights side by side: categories and products, one column per allocation ─ */
+  /** Rows shared by every compared allocation: each category, then the union of its products in order of first appearance. */
+  function weightRows(data) {
+    return data.categories.map(function (c) {
+      var order = [], names = {}, byAlloc = {}, totals = {};
+      data.series.forEach(function (sr) {
+        var x = sr.categories.filter(function (q) { return q.id === c.id; })[0], w = byAlloc[sr.allocationId] = {};
+        totals[sr.allocationId] = x ? x.target : 0;
+        (x ? x.products : []).forEach(function (p) { if (!(p.instrumentId in names)) { names[p.instrumentId] = p.name; order.push(p.instrumentId); } w[p.instrumentId] = (w[p.instrumentId] || 0) + p.weight; });
+      });
+      return { cat: c, totals: totals, products: order.map(function (id) { return { id: id, name: names[id], weights: data.series.reduce(function (o, sr) { o[sr.allocationId] = byAlloc[sr.allocationId][id]; return o; }, {}) }; }) };
+    });
+  }
+  C.register({ id: 'weights', title: 'Weights side by side', description: 'Category and product weights of every compared allocation in one table: categories and their products down the side, one column per allocation.', group: 'Structure', size: { w: 8, h: 8 }, min: { w: 4, h: 4 }, basis: 'none', livePrefs: true,
+    settings: [{ key: 'rows', label: 'Rows', type: 'select', options: [['all', 'Categories and products'], ['categories', 'Categories only']], default: 'all' }],
+    subtitle: function () { return '% of total portfolio'; },
+    data: function (ctx) { return C.fetch('breakdown', { allocations: U.clone(ctx.members) }); },
+    render: function (body, data, ctx, s, card) {
+      var groups = weightRows(data), active = ctx.ws.comparison.activeId, ids = data.series.map(function (sr) { return sr.allocationId; }), withProducts = s.rows !== 'categories';
+      var w = function (v) { return v == null || Math.abs(v) < 1e-9 ? '<span class="faint">—</span>' : F.num(v, 2); };
+      var head = '<thead><tr><th scope="col" class="wt-name">' + (withProducts ? 'Category · product' : 'Category') + '</th>' + ids.map(function (id) { var a = S.allocation(id) || ctx.members.filter(function (m) { return m.id === id; })[0]; return '<th scope="col" class="num' + (id === active ? ' is-active' : '') + '"><span class="dot" style="background:' + colorOf(a) + '"></span>' + esc(a.name) + '</th>'; }).join('') + '</tr></thead>';
+      var rows = groups.map(function (g) {
+        var empty = !g.products.length;
+        return '<tr class="wt-cat' + (empty ? ' is-empty' : '') + '"><th scope="row"><span class="sw" style="background:' + g.cat.color + '"></span>' + esc(g.cat.name) + '</th>' + ids.map(function (id) { return '<td class="num">' + w(g.totals[id]) + '</td>'; }).join('') + '</tr>' +
+          (withProducts ? g.products.map(function (p) { return '<tr class="wt-prod"><th scope="row">' + esc(p.name) + '</th>' + ids.map(function (id) { return '<td class="num">' + w(p.weights[id]) + '</td>'; }).join('') + '</tr>'; }).join('') : '');
+      }).join('') + '<tr class="total"><th scope="row">Allocated</th>' + data.series.map(function (sr) { return '<td class="num">' + F.num(sr.allocated, 2) + '</td>'; }).join('') + '</tr>';
+      body.innerHTML = '<div class="tblwrap" style="max-height:100%"><table class="tbl wt-m"><caption class="sr-only">Category' + (withProducts ? ' and product' : '') + ' weights of every compared allocation, % of total portfolio</caption>' + head + '<tbody>' + rows + '</tbody></table></div>' +
+        C.notes(card, ['Each category is the sum of its products and indices. A dash means the allocation does not hold it.']);
+    },
+    dataTable: function (data, ctx) { return V.table([{ label: 'Category · product' }].concat(data.series.map(function (sr) { return { label: esc((S.allocation(sr.allocationId) || {}).name || sr.allocationId), num: true }; })), [].concat.apply([], weightRows(data).map(function (g) { return [{ cells: ['<b>' + esc(g.cat.name) + '</b>'].concat(data.series.map(function (sr) { return F.num(g.totals[sr.allocationId], 2); })) }].concat(g.products.map(function (p) { return { cells: ['&nbsp;&nbsp;' + esc(p.name)].concat(data.series.map(function (sr) { var v = p.weights[sr.allocationId]; return v == null ? '—' : F.num(v, 2); })) }; })); })), { maxHeight: '260px' }); } });
 
   /* ── Cumulative return ───────────────────────────────────────────── */
   C.register({ id: 'cumulative-return', title: 'Cumulative return', description: 'Growth of 100 over the selected period, actual history dashed where it differs from the backtest.', group: 'Historical', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'historical', supportsRow: true,
@@ -241,10 +272,17 @@
   /* ── Factor exposures ────────────────────────────────────────────── */
   C.register({ id: 'factor-exposures', title: 'Factor exposures', description: 'Stand-alone factor betas of the selected row, or the portfolio, for every allocation, under the chosen factor model.', group: 'Forward-looking', size: { w: 6, h: 6 }, min: { w: 4, h: 4 }, basis: 'either', supportsRow: true, factorModel: true,
     entries: [{ settings: { basis: 'forward' } }, { title: 'Realised factor exposures', description: 'Regression betas over the period, for the selected row or the portfolio, under the chosen factor model.', group: 'Historical', settings: { basis: 'historical' } }],
-    settings: [{ key: 'factors', label: 'Factors', type: 'factors', default: null }],
-    subtitle: function (ctx, s, card) { return 'β, stand-alone exposure' + rowSuffix(ctx, card) + C.modelDeparture(card); },
-    data: function (ctx, s, card) { var m = C.modelIdOf(card); return C.fetch('analyzeTable', tableReq(ctx, 'factor', { factors: C.factorsFor(s.factors, m).ids, factorModel: m })); },
+    settings: [{ key: 'factors', label: 'Factors', type: 'factors', default: null },
+      { key: 'show', label: 'Show', type: 'select', options: [['members', 'Every compared allocation'], ['levels', 'Chain levels of the allocation being edited'], ['step', 'Active exposure of a chain step']], default: 'members' },
+      { key: 'step', label: 'Chain step', type: 'select', options: [['saa', 'S1 · Policy → SAA'], ['mapping', 'S2 · SAA → Product benchmarks'], ['selection', 'S3 · Product benchmarks → Portfolio'], ['policyToPortfolio', 'Policy → Portfolio']], default: 'saa', when: function (s) { return s.show === 'step'; } }],
+    subtitle: function (ctx, s, card) { var a = S.active(); return (s.show === 'step' ? 'Δβ, active exposure of chain step ' + ({ saa: 'S1', mapping: 'S2', selection: 'S3', policyToPortfolio: 'policy → portfolio' })[s.step] : s.show === 'levels' ? 'β at each chain level · ' + (a ? a.name : '') : 'β, stand-alone exposure' + rowSuffix(ctx, card)) + C.modelDeparture(card); },
+    data: function (ctx, s, card) {
+      var m = C.modelIdOf(card);
+      if (s.show === 'levels' || s.show === 'step') { var list = s.show === 'levels' ? ctx.members.filter(function (a) { return a.id === ctx.ws.comparison.activeId; }) : ctx.members; return C.fetch('chainAnalysis', { revision: ctx.revision, allocations: U.clone(list), basis: ctx.basis, period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario), factorModel: m, rowKey: card.followRow ? ctx.row : '__total', decompose: 'category', order: 'default', method: {}, risk: {}, exposures: 'holdings', overTime: 'years' }).then(function (r) { r.chainMode = s.show; return r; }); }
+      return C.fetch('analyzeTable', tableReq(ctx, 'factor', { factors: C.factorsFor(s.factors, m).ids, factorModel: m }));
+    },
     render: function (body, data, ctx, s, card) {
+      if (data.chainMode) return chainExposures(body, data, ctx, s, card);
       var key = card.followRow ? ctx.row : '__total', m = D.factorModelById[data.factorModel || 'isg'], pick = C.factorsFor(s.factors, m.id), ids = pick.ids.filter(function (f) { return m.factorById[f]; });
       var get = function (a, fid) { var c = data.cells[a.id] && data.cells[a.id][key]; if (!c) return null; var cell = c.scenario || c.base; return cell && cell.factors ? cell.factors[fid] : null; };
       var cov = ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key]; return c && c.base && c.base.coverage ? a.name + ': ' + c.base.coverage.replace(/^Proxied by the category index in [^:]+: /, 'proxied by its index in ' + m.name + ': ') : null; });
@@ -252,7 +290,34 @@
       V.hBars(body.querySelector('.viz-host'), { rows: ids.map(function (f) { return m.factorById[f].name; }), series: ctx.members.map(function (a) { return { name: a.name, color: colorOf(a), dim: dim(ctx, a), values: ids.map(function (f) { return get(a, f); }) }; }), unit: 'β', dp: 2, aria: ctx.rowLabel + ' factor exposures under ' + m.name + ' for ' + ctx.members.length + ' allocations' });
       wireLegend(body);
     },
-    dataTable: function (data, ctx, s, card) { var key = card.followRow ? ctx.row : '__total', m = D.factorModelById[data.factorModel || 'isg']; return V.table([{ label: 'Factor · ' + esc(m.name) }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), C.factorsFor(s.factors, m.id).ids.filter(function (f) { return m.factorById[f]; }).map(function (f) { return { cells: [esc(m.factorById[f].name)].concat(ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key], cell = c && (c.scenario || c.base); var v = cell && cell.factors ? cell.factors[f] : null; return v == null ? '—' : F.num(v, 2); })) }; }), { maxHeight: '200px' }); } });
+    dataTable: function (data, ctx, s, card) { if (data.chainMode) return ''; var key = card.followRow ? ctx.row : '__total', m = D.factorModelById[data.factorModel || 'isg']; return V.table([{ label: 'Factor · ' + esc(m.name) }].concat(ctx.members.map(function (a) { return { label: esc(a.name), num: true }; })), C.factorsFor(s.factors, m.id).ids.filter(function (f) { return m.factorById[f]; }).map(function (f) { return { cells: [esc(m.factorById[f].name)].concat(ctx.members.map(function (a) { var c = data.cells[a.id] && data.cells[a.id][key], cell = c && (c.scenario || c.base); var v = cell && cell.factors ? cell.factors[f] : null; return v == null ? '—' : F.num(v, 2); })) }; }), { maxHeight: '200px' }); } });
+
+  /** Factor exposures across the chain: the levels of one allocation, or each allocation's active exposure in one step. */
+  var LEVEL_INK = { policy: 'var(--ink-3)', saa: null, productBenchmarks: null, portfolio: null };
+  function chainExposures(body, data, ctx, s, card) {
+    var m = D.factorModelById[data.factorModel || 'isg'], ids = C.factorsFor(s.factors, m.id).ids.filter(function (f) { return m.factorById[f]; }), b = ctx.basis === 'historical' ? 'historical' : 'forward';
+    var expOf = function (y, i) { return b === 'historical' && y.exposureReturns && y.exposureReturns[i] ? y.exposureReturns[i] : y.exposure[i]; };
+    var notes = [esc(m.long) + ', as of ' + F.date(m.asOf) + '. ' + (b === 'historical' ? 'Estimated over the period from each level’s monthly returns.' : 'Holdings-based exposures of each level.')], series = [], missing = [];
+    if (data.chainMode === 'levels') {
+      var a = S.active(), x = a && data.series.filter(function (q) { return q.allocationId === a.id; })[0];
+      if (!x || x.reason || !x[b] || x[b].reason) { body.innerHTML = '<div class="chart-empty">' + esc((x && (x.reason || (x[b] && x[b].reason))) || 'No decision chain for the allocation being edited.') + (x && x.noChain ? ' <button type="button" class="btn btn-sm" data-fx-chain>Set up decision chain</button>' : '') + '</div>'; var bt = body.querySelector('[data-fx-chain]'); if (bt) bt.onclick = function () { UI.chain.open(a); }; return; }
+      var lv = x.levels.filter(function (l) { return l.holdings; }), y = x[b];
+      series = lv.map(function (l, i) { var pseudo = { kind: l.id === 'portfolio' ? 'live' : 'level', color: a.color, level: { id: l.id } }; return { name: l.code + ' ' + l.short, color: l.id === 'policy' ? 'var(--ink-3)' : l.id === 'portfolio' ? colorOf(a) : UI.colorOf(pseudo), dim: false, values: ids.map(function (f) { return expOf(y, i)[f]; }) }; });
+      notes.push('Levels of ' + esc(a.name) + '’s decision chain: ' + lv.map(function (l) { return esc(l.code + ' ' + l.short + ' (' + l.label + ')'); }).join(', ') + '.');
+    } else {
+      var pairOf = { saa: ['policy', 'saa'], mapping: ['saa', 'productBenchmarks'], selection: ['productBenchmarks', 'portfolio'], policyToPortfolio: ['policy', 'portfolio'] }[s.step || 'saa'];
+      ctx.members.forEach(function (a) {
+        var x = data.series.filter(function (q) { return q.allocationId === a.id; })[0]; if (!x || x.reason || !x[b] || x[b].reason) { missing.push(a.name + (x && x.reason ? ' (' + x.reason + ')' : '')); return; }
+        var lv = x.levels.filter(function (l) { return l.holdings; }), ii = lv.map(function (l) { return l.id; }), up = ii.indexOf(pairOf[0]), lo = ii.indexOf(pairOf[1]);
+        if (up < 0 || lo < 0) { missing.push(a.name + ' (level missing)'); return; }
+        var eu = expOf(x[b], up), el = expOf(x[b], lo); series.push({ name: a.name, color: colorOf(a), dim: dim(ctx, a), values: ids.map(function (f) { return el[f] - eu[f]; }) });
+      });
+      notes.push('Active exposure: the step’s lower level less its upper level, factor by factor.' + (missing.length ? ' Not shown: ' + esc(missing.join(', ')) + '.' : ''));
+    }
+    body.innerHTML = '<div class="viz-legend" style="padding:0 0 8px">' + series.map(function (q) { return '<span class="ch-leg"><span class="sw" style="background:' + q.color + '"></span>' + esc(q.name) + '</span>'; }).join('') + '</div><div class="viz-host"></div>' + C.notes(card, notes.concat(['Units differ by factor, so compare an exposure across levels or allocations rather than across factors.']));
+    if (!series.length) { body.querySelector('.viz-host').innerHTML = '<div class="chart-empty">No allocation with a decision chain in the comparison.</div>'; return; }
+    V.hBars(body.querySelector('.viz-host'), { rows: ids.map(function (f) { return m.factorById[f].name; }), series: series, unit: 'β', dp: 2, signed: data.chainMode === 'step', aria: 'Factor exposures across the decision chain under ' + m.name });
+  }
 
   /* ── Correlation between allocations ─────────────────────────────── */
   C.register({ id: 'correlation', title: 'Correlation between allocations', description: 'Correlation of monthly returns between the compared allocations over the period.', group: 'Historical', size: { w: 4, h: 5 }, min: { w: 3, h: 3 }, basis: 'historical',

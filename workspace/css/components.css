@@ -142,6 +142,14 @@ select.input-sm{padding-right:24px;background-position:right 8px center}
 .tip.is-on{opacity:1}
 .tip b{font-weight:600;color:#fff}
 .tip .num{color:#DCE4EE}
+/* definitions: what a heading means, how it is worked out */
+.def-pop{position:fixed;z-index:121;width:max-content;max-width:320px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-pop);font-size:12px;line-height:1.45;color:var(--ink-2);opacity:0;pointer-events:none;transition:opacity var(--fast)}
+.def-pop.is-on{opacity:1}
+.def-pop p{margin:0}
+.def-pop p+p{margin-top:5px}
+.def-pop .def-t{display:block;margin-bottom:3px;font-size:12.5px;font-weight:700;color:var(--ink)}
+.def-pop .def-w{font-family:var(--f-num);font-variant-numeric:tabular-nums;color:var(--ink)}
+.def-pop .def-h{color:var(--ink-3)}
 [data-tip]{cursor:help}
 button[data-tip],a[data-tip]{cursor:pointer}
 

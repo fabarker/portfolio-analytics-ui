@@ -30,8 +30,10 @@
                category's index basket (engine.js, E.normalizeAllocation).
                sleeveRef {sleeveId, version, name} tags products that came
                from a repository sleeve.
-               chain?: the decision chain (policy benchmark, SAA, product
-               benchmark mapping, step order); see js/api.js
+               chain?: what the allocation is measured against at each level
+               (a different benchmark to attribute against, the SAA, product
+               benchmarks); see js/api.js. An allocation with a benchmark
+               and no chain uses the default.
    Workspace.conventions?: attribution conventions (header menu); defaults
                in js/chain.js
                kind 'sleeve' is a repository sleeve version compared as its
@@ -63,14 +65,14 @@
     return p;
   };
   var card = function (id, type, x, y, w, h, settings, followRow) { return { id: id, type: type, x: x, y: y, w: w, h: h, settings: settings || {}, followRow: !!followRow }; };
-  /* Strategic Core's decision chain: the 2027 policy, its SAA as an allocation of indices, products against their stated benchmarks.
-     Income Tilt: its assigned benchmark as policy and an SAA derived from its category weights. */
+  /* Strategic Core is compared with Global 60/40 and attributed against the 2027 policy (the tagged exception); its SAA is an
+     allocation of indices. Income Tilt uses its own benchmark and an SAA typed as category weights. Growth Tilt has no benchmark yet. */
   D.sampleChains = {
-    al_core: { policyBenchmarkId: 'cbm_policy@2', saa: { kind: 'allocation', id: 'al_core_saa' }, productBenchmarks: { mode: 'stated', overrides: {} }, order: 'default', implementation: 'one' },
-    al_income: { policyBenchmarkId: null, saa: { kind: 'derived' }, productBenchmarks: { mode: 'stated', overrides: {} }, order: 'default', implementation: 'one' }
+    al_core: { policyBenchmarkId: 'cbm_policy@2', saa: { kind: 'allocation', id: 'al_core_saa' }, productBenchmarks: { mode: 'stated', overrides: {} } },
+    al_income: { policyBenchmarkId: null, saa: { kind: 'weights', weights: { public_equity: 32, private_equity: 8, ig_fixed_income: 30, other_fixed_income: 10, cash: 5, hedge_funds: 5, real_assets: 10 }, indices: {} }, productBenchmarks: { mode: 'stated', overrides: {} } }
   };
   D.sampleSaa = { id: 'al_core_saa', name: 'Strategic Core SAA', kind: 'live', color: 'cat-5', benchmarkId: 'cbm_policy@2', leverage: false,
-    history: { basis: 'backtest', inception: '2026-10' }, edited: false, note: 'Strategic asset allocation agreed at the 2027 review: one index per asset class. The SAA of Strategic Core’s decision chain.',
+    history: { basis: 'backtest', inception: '2026-10' }, edited: false, note: 'Strategic asset allocation agreed at the 2027 review: one index per asset class. Strategic Core’s SAA.',
     holdings: H([['idx_us_eq', 26], ['idx_dev_eq', 12], ['idx_em_eq', 4], ['idx_pe', 10], ['idx_govt', 14], ['idx_ig', 8], ['idx_hy', 4], ['idx_cash', 4], ['idx_hf', 8], ['idx_re', 4], ['idx_infra', 3], ['idx_cmd', 3]]) };
   var ALTS = { sleeveId: 'slv_core_alts', version: 1, name: 'Core Alternatives' };
 

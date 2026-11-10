@@ -161,13 +161,13 @@
     var x = S.standalone(); if (!x) return '';
     return '<div class="member is-temp" data-standalone tabindex="-1"><span class="dot" style="background:' + UI.colorOf(x) + '"></span><b>' + esc(x.name) + '</b>' + UI.kindTag(x) + '<button type="button" class="mbtn" data-standalone-close aria-label="Stop showing ' + esc(x.name) + ' on its own" data-tip="Stop showing this category on its own (Esc in the rail)">' + I.close + '</button></div>';
   }
-  /** Derived chain levels: shown after the comparison while levels are on; one close button turns them all off. */
+  /** An allocation’s SAA and benchmarks as columns: shown after the comparison while they are on; one close button turns them all off. */
   function levelChips() {
-    return S.levels().map(function (x) { return '<div class="member is-temp is-level" data-level="' + esc(x.id) + '" tabindex="-1"><span class="dot" style="background:' + UI.colorOf(x) + '"></span><b>' + esc(x.name) + '</b>' + UI.kindTag(x) + '<button type="button" class="mbtn" data-level-close aria-label="Stop showing chain levels" data-tip="Stop showing chain levels in the comparison">' + I.close + '</button></div>'; }).join('');
+    return S.levels().map(function (x) { return '<div class="member is-temp is-level" data-level="' + esc(x.id) + '" tabindex="-1"><span class="dot" style="background:' + UI.colorOf(x) + '"></span><b>' + esc(x.name) + '</b>' + UI.kindTag(x) + '<button type="button" class="mbtn" data-level-close aria-label="Stop showing the SAA and benchmark columns" data-tip="Stop showing the SAA and benchmarks as columns">' + I.close + '</button></div>'; }).join('');
   }
   function wireCompare() {
     U.on(els.compare, 'click', '[data-standalone-close]', function () { S.setStandalone(null); var n = document.querySelector('#tree .tree-row.is-selected .tname'); if (n) n.focus(); });
-    U.on(els.compare, 'click', '[data-level-close]', function () { S.setPref('showLevels', 'off'); U.announce('Chain levels hidden'); var b = els.compare.querySelector('.member.is-active'); if (b) b.focus(); });
+    U.on(els.compare, 'click', '[data-level-close]', function () { S.setPref('showLevels', 'off'); U.announce('SAA and benchmark columns hidden'); var b = els.compare.querySelector('.member.is-active'); if (b) b.focus(); });
     U.on(els.compare, 'click', '[data-menu]', function (e, b) { memberMenu(b, b.dataset.menu); });
     U.on(els.compare, 'click', '.member', function (e, m) { if (e.target.closest('[data-menu]') || m.hasAttribute('data-standalone') || m.hasAttribute('data-level')) return; setActive(m.dataset.id); });
     U.on(els.compare, 'keydown', '.member', function (e, m) { if ((e.key === 'Enter' || e.key === ' ') && e.target === m) { e.preventDefault(); setActive(m.dataset.id); } });
@@ -184,8 +184,8 @@
     var a = S.allocation(id), members = S.ws.comparison.members, i = members.indexOf(id);
     if (a.kind === 'sleeve') return UI.sleeves.refresh().then(function () { sleeveMenu(btn, a, members, i); });
     var lv = S.ws.prefs.showLevels || 'off', shown = lv === 'all' || (lv === 'active' && a.id === S.ws.comparison.activeId);
-    UI.menu(btn, [{ head: a.name }, { label: 'Edit in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: 'Decision chain…', icon: I.chart, disabled: a.kind === 'sleeve', onClick: function () { UI.chain.open(a); } },
-      { label: shown ? 'Hide chain levels' : 'Show chain levels', icon: I.layers, disabled: !a.chain, onClick: function () { if (shown) S.setPref('showLevels', 'off'); else { if (a.id !== S.ws.comparison.activeId && lv !== 'all') S.setPref('showLevels', 'all'); else S.setPref('showLevels', lv === 'all' ? 'all' : 'active'); } } }, { sep: true },
+    UI.menu(btn, [{ head: a.name }, { label: 'Edit in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Benchmarks…', icon: I.target, onClick: function () { UI.chain.open(a); } },
+      { label: shown ? 'Hide its SAA and benchmark columns' : 'Show its SAA and benchmarks as columns', icon: I.layers, disabled: !PA.chain.chainOf(a), onClick: function () { if (shown) S.setPref('showLevels', 'off'); else { if (a.id !== S.ws.comparison.activeId && lv !== 'all') S.setPref('showLevels', 'all'); else S.setPref('showLevels', lv === 'all' ? 'all' : 'active'); } } }, { sep: true },
       { label: 'Move left', icon: I.chevronLeft, disabled: i <= 0, onClick: function () { moveMember(id, members[i - 1]); } }, { label: 'Move right', icon: I.chevron, disabled: i >= members.length - 1, onClick: function () { moveMember(id, members[i + 2] || null); } }, { sep: true },
       a.kind === 'snapshot' ? { label: 'Create draft from snapshot', icon: I.copy, onClick: function () { UI.dialogs.draftFromSnapshot(a); } } : { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } },
       { label: 'Remove from comparison', icon: I.close, onClick: function () { removeMember(id); } }, { label: 'Delete allocation…', icon: I.trash, onClick: function () { deleteAllocation(a); } }], { align: 'end' });
@@ -193,7 +193,7 @@
   function sleeveMenu(btn, a, members, i) {
     var id = a.id, s = UI.sleeves.known[a.sleeve.id], newer = UI.sleeves.newerVersion(a);
     UI.menu(btn, [{ head: a.name + ' · sleeve v' + a.sleeve.version }, { label: 'Show in builder', icon: I.sliders, disabled: a.id === S.ws.comparison.activeId, onClick: function () { setActive(id); } }, { label: 'Open in repository', icon: I.folder, onClick: function () { shell.go('#/sleeves/' + encodeURIComponent(a.sleeve.id)); } },
-      { label: newer ? 'Show v' + newer.v + ' (latest)' : 'Showing the latest version', icon: I.reset, disabled: !newer, onClick: function () { UI.sleeves.setMemberVersion(a, s, newer); } }, { label: 'Make an editable copy', icon: I.copy, onClick: function () { UI.dialogs.draftFromSnapshot(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { sep: true },
+      { label: newer ? 'Show v' + newer.v + ' (latest)' : 'Showing the latest version', icon: I.reset, disabled: !newer, onClick: function () { UI.sleeves.setMemberVersion(a, s, newer); } }, { label: 'Make an editable copy', icon: I.copy, onClick: function () { UI.dialogs.draftFromSnapshot(a); } }, { label: 'Benchmarks…', icon: I.target, onClick: function () { UI.chain.open(a); } }, { sep: true },
       { label: 'Move left', icon: I.chevronLeft, disabled: i <= 0, onClick: function () { moveMember(id, members[i - 1]); } }, { label: 'Move right', icon: I.chevron, disabled: i >= members.length - 1, onClick: function () { moveMember(id, members[i + 2] || null); } }, { sep: true },
       { label: 'Remove from comparison', icon: I.close, onClick: function () { removeMember(id); } }, { label: 'Remove from workspace…', icon: I.trash, onClick: function () { deleteAllocation(a); } }], { align: 'end' });
   }

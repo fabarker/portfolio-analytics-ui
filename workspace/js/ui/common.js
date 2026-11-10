@@ -137,7 +137,7 @@
 
   /* ── common markup helpers ───────────────────────────────────────── */
   UI.STANDALONE_INK = '#1B2430';
-  /* a derived chain level wears its parent's colour, lighter for each level further from the portfolio */
+  /* an SAA or benchmark column wears its allocation's colour, lighter the further it is from the portfolio */
   UI.LEVEL_TINT = { productBenchmarks: 62, saa: 40 };
   UI.colorOf = function (alloc) { if (alloc && alloc.kind === 'standalone') return UI.STANDALONE_INK; var base = 'var(--' + (alloc && alloc.color ? alloc.color : 'cat-1') + ')'; if (alloc && alloc.kind === 'level') return 'color-mix(in srgb, ' + base + ' ' + (UI.LEVEL_TINT[alloc.level.id] || 50) + '%, #ffffff)'; return base; };
   /** A tag for the exceptional kinds (snapshot, benchmark, sleeve); live allocations carry none. */
@@ -146,10 +146,34 @@
     if (alloc.kind === 'snapshot') return '<span class="tag tag-info" data-tip="Fixed snapshot captured ' + esc(U.fmt.dateTime(alloc.capturedAt)) + '. Weights are frozen.">Snapshot</span>';
     if (alloc.kind === 'benchmark') return '<span class="tag">Benchmark</span>';
     if (alloc.kind === 'standalone') return '<span class="tag tag-temp" data-tip="Temporary: the selected category of ' + esc(PA.store.allocation(alloc.standalone.allocationId).name) + ' on its own, its ' + U.fmt.num(alloc.standalone.weight, 2) + '% rescaled to 100%. Shown while the category stays selected in the rail.">Category · 100%</span>';
-    if (alloc.kind === 'level') { var par = PA.store.allocation(alloc.level.parentId); return '<span class="tag tag-temp" data-tip="Temporary: ' + esc(alloc.level.label || alloc.level.short) + ', the ' + esc(alloc.level.short) + ' level of ' + esc(par ? par.name : 'its allocation') + '’s decision chain' + (alloc.level.derived ? ', derived from its category weights' : '') + '. Resolved from the chain on every change; shown while levels are on.">Level · ' + esc(alloc.level.short) + '</span>'; }
+    if (alloc.kind === 'level') { var par = PA.store.allocation(alloc.level.parentId); return '<span class="tag tag-temp" data-tip="Temporary: ' + esc(alloc.level.label || alloc.level.short) + ', the ' + esc(alloc.level.short) + ' of ' + esc(par ? par.name : 'its allocation') + (alloc.level.derived ? ', taken from today’s category weights' : '') + '. Worked out again on every change; shown while these columns are on.">' + (alloc.level.derived ? 'Not set' : 'Temporary') + '</span>'; }
     if (alloc.kind === 'sleeve') return '<span class="tag tag-sleeve" data-tip="Sleeve “' + esc(alloc.sleeve.name) + '” v' + alloc.sleeve.version + ' from the repository, fully invested at its weights. Read-only.">Sleeve v' + alloc.sleeve.version + '</span>';
     return ''; /* live is the default kind: no tag */
   };
+  /* ── definitions ─────────────────────────────────────────────────────
+     A heading or a figure can carry its own definition: what it is, a worked
+     line where one helps, and how it is arrived at. It shows on hover or
+     focus in one popover, so a card needs no glossary and no key. */
+  UI.defAttr = function (o) { return o ? ' data-def="' + esc(JSON.stringify(o)) + '" tabindex="0"' : ''; };
+  var defEl, defTarget;
+  function defShow(el) {
+    var o; try { o = JSON.parse(el.getAttribute('data-def')); } catch (e) { return; }
+    if (!o) return;
+    if (!defEl) { defEl = document.createElement('div'); defEl.className = 'def-pop'; defEl.id = 'def-pop'; defEl.setAttribute('role', 'tooltip'); document.body.appendChild(defEl); }
+    defTarget = el; el.setAttribute('aria-describedby', 'def-pop');
+    defEl.innerHTML = (o.title ? '<b class="def-t">' + esc(o.title) + '</b>' : '') + (o.what ? '<p>' + esc(o.what) + '</p>' : '') + (o.worked ? '<p class="def-w">' + esc(o.worked) + '</p>' : '') + (o.how ? '<p class="def-h">' + esc(o.how) + '</p>' : '');
+    defEl.classList.add('is-on'); defEl.style.left = '0px'; defEl.style.top = '0px';
+    var r = el.getBoundingClientRect(), w = defEl.offsetWidth, h = defEl.offsetHeight;
+    var top = r.bottom + 8; if (top + h > window.innerHeight - 8 && r.top - h - 8 > 8) top = r.top - h - 8;
+    defEl.style.left = U.clamp(r.left + r.width / 2 - w / 2, 8, window.innerWidth - w - 8) + 'px'; defEl.style.top = top + 'px';
+  }
+  function defHide() { if (defEl) defEl.classList.remove('is-on'); if (defTarget) defTarget.removeAttribute('aria-describedby'); defTarget = null; }
+  document.addEventListener('mouseover', function (e) { var t = e.target.closest && e.target.closest('[data-def]'); if (t && t !== defTarget) defShow(t); });
+  document.addEventListener('mouseout', function (e) { var t = e.target.closest && e.target.closest('[data-def]'); if (t && (!e.relatedTarget || !t.contains(e.relatedTarget))) defHide(); });
+  document.addEventListener('focusin', function (e) { var t = e.target.closest && e.target.closest('[data-def]'); if (t) defShow(t); });
+  document.addEventListener('focusout', defHide);
+  document.addEventListener('scroll', defHide, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') defHide(); });
   UI.alert = function (kind, html, action) {
     return '<div class="alert alert-' + kind + '" role="' + (kind === 'error' ? 'alert' : 'status') + '">' + (kind === 'error' ? U.icon.warn : U.icon.info) + '<div>' + html + '</div>' + (action ? '<button type="button" class="btn btn-sm" data-alert-action>' + esc(action) + '</button>' : '') + '</div>';
   };

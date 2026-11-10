@@ -1,7 +1,8 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · benchmarks
-   One picker in two places (the context bar's “vs” menu and Assign
-   benchmark), the custom benchmark builder, and the benchmark library
+   One picker wherever a benchmark is chosen (the context bar's “vs” menu,
+   the Benchmarks dialog and the Decision chain card's empty state), the
+   custom benchmark builder, and the benchmark library
    (#/benchmarks). Presets are read-only and can be duplicated; custom
    benchmarks mix indices, products, other benchmarks and a fixed rate, are
    versioned like sleeves, and are shared with the team unless private.
@@ -55,28 +56,41 @@
   }
   function filterPicker(el, q) { q = q.trim().toLowerCase(); U.$$('.bm-opt', el).forEach(function (o) { o.hidden = !!q && o.dataset.text.indexOf(q) < 0; }); }
 
-  /** Assign benchmark: the allocation's own benchmark. */
-  BM.assign = function (a) {
-    var chosen = a.benchmarkId ? BM.baseId(a.benchmarkId) : '', tab = '';
-    BM.refresh().then(function () {
-      var nP = D.benchmarks.filter(function (b) { return b.source !== 'custom'; }).length, nC = D.benchmarks.length - nP;
-      UI.openDialog({ title: 'Benchmark for ' + a.name, sub: 'Used when cards measure against each allocation’s own benchmark, and by Active risk &amp; return. Presets are maintained by the platform team; custom benchmarks come from the benchmark library.', wide: true, initialFocus: '#bm-q',
-        body: '<div class="bm-tools"><div class="seg" role="group" aria-label="Show"><button type="button" data-bm-tab="" aria-pressed="true">All · ' + (nP + nC) + '</button><button type="button" data-bm-tab="presets" aria-pressed="false">Presets · ' + nP + '</button><button type="button" data-bm-tab="custom" aria-pressed="false">Custom · ' + nC + '</button></div><div class="search-wrap">' + I.search + '<input type="search" id="bm-q" placeholder="Search benchmarks…" aria-label="Search benchmarks"></div></div>' +
-          '<div id="bm-pick">' + pickerHtml(a.benchmarkId) + '</div><label class="check" style="margin-top:10px"><input type="checkbox" id="bm-none"' + (a.benchmarkId ? '' : ' checked') + '> No benchmark</label>',
-        onOpen: function (dlg) {
-          var host = U.$('#bm-pick', dlg);
-          wirePicker(host, function (id) { chosen = id; U.$('#bm-none', dlg).checked = false; });
-          U.on(host, 'click', '[data-bm-use]', function (e, b) { chosen = b.dataset.bmUse; S.update(a.name + ' benchmark moved to the latest version', function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].benchmarkId = BM.pinId(chosen); }, { type: 'edit' }); host.innerHTML = pickerHtml(S.allocation(a.id).benchmarkId, tab); });
-          U.$('#bm-q', dlg).oninput = function (e) { filterPicker(host, e.target.value); };
-          U.on(dlg, 'click', '[data-bm-tab]', function (e, b) { tab = b.dataset.bmTab; U.$$('[data-bm-tab]', dlg).forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); U.$$('.bm-group', host).forEach(function (g) { g.hidden = !!tab && g.dataset.group !== tab; }); });
-          U.$('#bm-none', dlg).onchange = function (e) { if (e.target.checked) { chosen = ''; U.$$('.bm-opt', host).forEach(function (x) { x.setAttribute('aria-selected', 'false'); }); } };
-        },
-        actions: [{ label: 'Create custom benchmark…', ghost: true, onClick: function () { BM.builder({ assignTo: a }); } }, { spacer: true, label: 'Cancel', ghost: true }, { label: 'Assign', primary: true, onClick: function () {
-          var id = chosen ? (BM.baseId(a.benchmarkId) === chosen ? a.benchmarkId : BM.pinId(chosen)) : null;
-          if (id !== a.benchmarkId) S.update(a.name + ' benchmark set to ' + (id ? D.benchmarkById[id].name : 'none'), function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].benchmarkId = id; }, { type: 'edit' });
-        } }] });
-    });
+  /**
+   * The picker, wherever a benchmark is chosen: search, presets and custom with their
+   * mixes, and the two ways to more. o: {selected: a stored id, compact, onPick(baseId)}.
+   * onPick receives the library id; BM.pinId gives the id to store.
+   */
+  BM.picker = function (host, o) {
+    o = o || {};
+    var paint = function () {
+      host.innerHTML = '<div class="bm-picker' + (o.compact ? ' is-compact' : '') + '"><div class="search-wrap">' + I.search + '<input type="search" class="bm-q" placeholder="Search benchmarks…" aria-label="Search benchmarks"></div>' + pickerHtml(o.selected) +
+        '<div class="bm-more"><button type="button" class="btn-link" data-bm-new>Create custom benchmark…</button><button type="button" class="btn-link" data-bm-lib>Open the library</button></div></div>';
+    };
+    paint();
+    /* the chosen benchmark is in view when the picker opens */
+    var chosen = host.querySelector('.bm-opt[aria-selected=true]'), list = host.querySelector('.bm-list');
+    if (chosen && list) { var off = chosen.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom; if (off > 0) list.scrollTop += off + 8; }
+    if (host._bmPicker) { host._bmPicker = o; return; }
+    host._bmPicker = o;
+    var cur = function () { return host._bmPicker; };
+    wirePicker(host, function (id) { if (cur().onPick) cur().onPick(id); });
+    U.on(host, 'input', '.bm-q', function (e, q) { filterPicker(host, q.value); });
+    U.on(host, 'keydown', '.bm-q', function (e) { if (e.key !== 'ArrowDown') return; var f = U.$$('.bm-opt:not([hidden])', host)[0]; if (f) { e.preventDefault(); f.focus(); } });
+    U.on(host, 'click', '[data-bm-use]', function (e, b) { if (cur().onPick) cur().onPick(b.dataset.bmUse, true); });
+    U.on(host, 'click', '[data-bm-new]', function () { BM.builder({ onSaved: function (saved) { if (cur().onPick) cur().onPick(saved.id); } }); });
+    U.on(host, 'click', '[data-bm-lib]', function () { if (cur().onLeave) cur().onLeave(); UI.shell.go('#/benchmarks'); });
   };
+
+  /** Set an allocation's benchmark. A custom benchmark is pinned to its latest version. */
+  BM.setFor = function (a, id) {
+    var next = id ? (BM.baseId(a.benchmarkId) === id && !BM.outdated(a.benchmarkId) ? a.benchmarkId : BM.pinId(id)) : null;
+    if (next === (a.benchmarkId || null)) return;
+    var b = next && D.benchmarkById[next];
+    S.update(a.name + ' benchmark set to ' + (b ? b.name : 'none'), function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].benchmarkId = next; }, { type: 'edit' });
+    U.announce(a.name + ' is measured against ' + (b ? b.name : 'no benchmark'));
+  };
+
 
   /** The context bar's “vs” menu: shared benchmarks, each allocation's own, or a compared portfolio, and the ways to make more. */
   BM.referenceMenu = function (btn) {
@@ -87,8 +101,9 @@
     items.push({ head: 'Presets' }); D.benchmarks.filter(function (b) { return b.source !== 'custom'; }).forEach(function (b) { items.push(bmItem(b)); });
     var cus = D.benchmarks.filter(function (b) { return b.source === 'custom'; });
     if (cus.length) { items.push({ sep: true }, { head: 'Custom' }); cus.forEach(function (b) { items.push(bmItem(b)); }); }
-    items.push({ sep: true }, { head: 'Per allocation' }, { label: 'Each allocation’s own benchmark', icon: check(c.referenceMode === 'individual'), onClick: function () { set({ referenceMode: 'individual' }, 'each allocation’s own benchmark'); } },
-      { label: 'Each allocation’s policy benchmark', icon: check(c.referenceMode === 'policy'), onClick: function () { set({ referenceMode: 'policy' }, 'each allocation’s policy benchmark'); } });
+    items.push({ sep: true }, { head: 'Per allocation' }, { label: 'Each allocation’s own benchmark', icon: check(c.referenceMode === 'individual'), onClick: function () { set({ referenceMode: 'individual' }, 'each allocation’s own benchmark'); } });
+    /* only where it would differ: an allocation attributed against a different benchmark */
+    if (c.referenceMode === 'policy' || S.ws.allocations.some(function (a) { return PA.chain.exceptionOf(a); })) items.push({ label: 'The benchmark each is attributed against', icon: check(c.referenceMode === 'policy'), onClick: function () { set({ referenceMode: 'policy' }, 'the benchmark each allocation is attributed against'); } });
     var mem = S.members(); if (mem.length) { items.push({ sep: true }, { head: 'A compared portfolio' }); mem.forEach(function (a) { items.push({ label: a.name, icon: check(c.referenceMode === 'portfolio' && c.referencePortfolioId === a.id), onClick: function () { set({ referenceMode: 'portfolio', referencePortfolioId: a.id }, a.name); } }); }); }
     items.push({ sep: true }, { label: 'Create custom benchmark…', icon: I.plus, onClick: function () { BM.builder({ useAsReference: true }); } }, { label: 'Benchmark library', icon: I.folder, onClick: function () { UI.shell.go('#/benchmarks'); } });
     UI.menu(btn, items, { align: 'start', cls: 'ref-menu' });

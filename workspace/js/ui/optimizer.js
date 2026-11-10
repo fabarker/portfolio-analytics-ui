@@ -25,12 +25,20 @@
   }
   /** What the result depends on: the weights, the benchmark, the scenario and the factor model. */
   function sigOf(a) { return JSON.stringify([a.holdings.map(function (h) { return [h.instrumentId, h.weight]; }), E.categoryTargets(a), a.benchmarkId, a.chain || null, S.ws.activeScenarioId, S.ws.prefs.factorModel]); }
-  /** What tracking error is measured to: the assigned benchmark, or a level of the decision chain. */
+  /** What tracking error can be measured to: the benchmark, and what Benchmarks sets beside it
+      (a different benchmark for attribution, an SAA). One choice is no choice, so it is not asked. */
+  function teChoices(a) {
+    var out = [['benchmark', 'Benchmark']]; if (!PA.chain.chainOf(a)) return out;
+    if (PA.chain.exceptionOf(a)) out.push(['policy', 'Attribution benchmark']);
+    if (!PA.chain.saaOf(a, S.ws.allocations).derived) out.push(['saa', 'SAA']);
+    return out;
+  }
+  function teToOf(a, s) { return teChoices(a).some(function (o) { return o[0] === s.teTo; }) ? s.teTo : 'benchmark'; }
   function teRef(a, s) {
-    var to = a.chain ? s.teTo : 'benchmark';
+    var to = teToOf(a, s);
     if (to === 'benchmark') { var b = a.benchmarkId ? D.benchmarkById[a.benchmarkId] : null; return b ? { label: b.name } : null; }
     var lv = to === 'policy' ? PA.chain.policyOf(a) : PA.chain.saaOf(a, S.ws.allocations);
-    return lv.holdings ? { label: (to === 'policy' ? 'the policy benchmark ' : 'the SAA ') + lv.label } : null;
+    return lv.holdings ? { label: (to === 'policy' ? 'the attribution benchmark ' : 'the SAA ') + lv.label } : null;
   }
   function optionsOf(s, preview) {
     var mw = Number(String(s.maxWeight).replace(',', '.')), bd = Number(String(s.band).replace(',', '.'));
@@ -39,7 +47,7 @@
   function targetKey(s) { return s.objective === 'active' ? (s.teMode === 'min' ? 'activeRet' : 'activeTE') : s.objective; }
   function targetOf(s) { return s.targets[targetKey(s)]; }
   function scenario() { var w = S.ws; return w.activeScenarioId ? U.clone(w.scenarios.filter(function (x) { return x.id === w.activeScenarioId; })[0] || null) : null; }
-  function request(a, s, preview) { var o = optionsOf(s, preview); if (!a.chain) o.teTo = 'benchmark'; return { allocation: U.clone(a), chainAllocations: PA.cards.chainPool([a]), scenario: scenario(), factorModel: PA.cards.workspaceModel(), options: o }; }
+  function request(a, s, preview) { var o = optionsOf(s, preview); o.teTo = teToOf(a, s); return { allocation: U.clone(a), chainAllocations: PA.cards.chainPool([a]), scenario: scenario(), factorModel: PA.cards.workspaceModel(), options: o }; }
 
   /** Fetch where the allocation is now and what the constraints reach; seeds the targets. */
   function loadPreview(a, s) {
@@ -84,8 +92,9 @@
     return '<div class="op">' + nowLine + obj + cons + go + '<div id="op-result">' + resultHtml(a, s) + '</div></div>';
   };
   function targetHtml(a, s, p, bm) {
-    var to = s.objective === 'active' && a.chain ? '<div class="op-seg op-teto" role="group" aria-label="Tracking error to"><span class="op-seg-l">Tracking error to</span>' + [['benchmark', 'Assigned benchmark'], ['policy', 'Policy benchmark'], ['saa', 'SAA']].map(function (o) { return '<button type="button" data-teto="' + o[0] + '" aria-pressed="' + ((s.teTo || 'benchmark') === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' : '';
-    if (s.objective === 'active' && !bm) return to + '<div class="op-need">' + I.info + '<span>' + (a.chain && s.teTo !== 'benchmark' ? 'The decision chain of ' + esc(a.name) + ' has no ' + (s.teTo === 'policy' ? 'policy benchmark' : 'SAA') + '. <button type="button" class="btn-link" id="op-chain">Open the decision chain</button>' : 'Tracking error is measured against the allocation’s benchmark, and ' + esc(a.name) + ' has none. <button type="button" class="btn-link" id="op-bench">Assign a benchmark</button>') + '</span></div>';
+    var tos = teChoices(a), cur = teToOf(a, s);
+    var to = s.objective === 'active' && tos.length > 1 ? '<div class="op-seg op-teto" role="group" aria-label="Tracking error to"><span class="op-seg-l">Tracking error to</span>' + tos.map(function (o) { return '<button type="button" data-teto="' + o[0] + '" aria-pressed="' + (cur === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>' : '';
+    if (s.objective === 'active' && !bm) return to + '<div class="op-need">' + I.info + '<span>' + (cur !== 'benchmark' ? 'The ' + (cur === 'policy' ? 'attribution benchmark' : 'SAA') + ' of ' + esc(a.name) + ' cannot be used. <button type="button" class="btn-link" id="op-chain">Open Benchmarks</button>' : 'Tracking error is measured against the allocation’s benchmark, and ' + esc(a.name) + ' has none. <button type="button" class="btn-link" id="op-bench">Choose a benchmark</button>') + '</span></div>';
     var mode = to + (s.objective === 'active' ? '<div class="op-seg" role="group" aria-label="Tracking error"><button type="button" data-temode="target" aria-pressed="' + (s.teMode === 'target') + '">Maximise return at a tracking error</button><button type="button" data-temode="min" aria-pressed="' + (s.teMode === 'min') + '">Minimise tracking error for a return</button></div>' : '');
     var label = s.objective === 'minVol' || (s.objective === 'active' && s.teMode === 'min') ? 'Target return' : s.objective === 'maxReturn' ? 'Target volatility' : 'Target tracking error';
     var isRet = label === 'Target return', rng = p ? (s.objective === 'active' ? p.rangeTE : p.rangeVol) : null;
@@ -152,7 +161,7 @@
     U.$$('input[name="op-obj"]', root).forEach(function (r) { r.onchange = function () { s.objective = r.value; s.error = null; rerender(); }; });
     U.$$('[data-temode]', root).forEach(function (b) { b.onclick = function () { s.teMode = b.dataset.temode; rerender(); }; });
     U.$$('[data-teto]', root).forEach(function (b) { b.onclick = function () { s.teTo = b.dataset.teto; s.error = null; s.result = null; s.targets.activeTE = null; rerender(); }; });
-    var oc = U.$('#op-chain', root); if (oc) oc.onclick = function () { UI.chain.open(a, { focus: s.teTo === 'policy' ? 'policy' : 'saa' }); };
+    var oc = U.$('#op-chain', root); if (oc) oc.onclick = function () { UI.chain.open(a, { focus: teToOf(a, s) === 'policy' ? 'policy' : 'saa' }); };
     var t = U.$('#op-target', root); if (t) { t.oninput = function () { s.targets[targetKey(s)] = t.value; }; t.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); run(a); } }; }
     var mw = U.$('#op-maxw', root); if (mw) { mw.oninput = function () { s.maxWeight = mw.value; }; mw.onchange = function () { s.previewSig = null; rerender(); }; mw.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); s.previewSig = null; run(a); } }; }
     var bd = U.$('#op-band', root); if (bd) { bd.oninput = function () { s.band = bd.value; }; bd.onchange = function () { s.previewSig = null; rerender(); }; }
@@ -161,13 +170,13 @@
     var go = U.$('#op-run', root); if (go) go.onclick = function () { run(a); };
     var rr = U.$('#op-rerun', root); if (rr) rr.onclick = function () { run(a); };
     var cl = U.$('#op-clear', root); if (cl) cl.onclick = function () { s.result = null; s.error = null; rerender(); };
-    var ab = U.$('#op-bench', root); if (ab) ab.onclick = function () { UI.dialogs.assignBenchmark(a); };
+    var ab = U.$('#op-bench', root); if (ab) ab.onclick = function () { UI.chain.open(a, { focus: 'policy' }); };
     var ap = U.$('#op-apply', root); if (ap) ap.onclick = function () { apply(a, s); };
     var sv = U.$('#op-save', root); if (sv) sv.onclick = function () { saveAsNew(a, s); };
   };
   function describe(r) {
     var t = F.num(r.target, 2) + '%';
-    return r.objective === 'minVol' ? 'minimum volatility for ' + t + ' return' : r.objective === 'maxReturn' ? 'maximum return at ' + t + ' volatility' : (r.teMode === 'min' ? 'minimum tracking error for ' + t + ' return' : 'maximum return at ' + t + ' tracking error') + (r.teTo && r.teTo !== 'benchmark' ? ' to the ' + (r.teTo === 'policy' ? 'policy benchmark' : 'SAA') : '');
+    return r.objective === 'minVol' ? 'minimum volatility for ' + t + ' return' : r.objective === 'maxReturn' ? 'maximum return at ' + t + ' volatility' : (r.teMode === 'min' ? 'minimum tracking error for ' + t + ' return' : 'maximum return at ' + t + ' tracking error') + (r.teTo && r.teTo !== 'benchmark' ? ' to the ' + (r.teTo === 'policy' ? 'attribution benchmark' : 'SAA') : '');
   }
   function run(a) {
     var s = stateOf(a), o = optionsOf(s);

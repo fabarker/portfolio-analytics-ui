@@ -1,68 +1,90 @@
 /* ─────────────────────────────────────────────────────────────────────────
    Portfolio Analytics · the decision chain (mock engine)
-   An allocation's decision chain names the portfolios its return and risk
-   are decomposed through:
+   An allocation with a benchmark has a decision chain: the four portfolios
+   its return and risk are decomposed through,
 
-     L0 Policy benchmark   a benchmark from the library (or the assigned one)
-     L1 SAA                an allocation of indices, a benchmark, or derived
-                           from the portfolio's category weights
-     L2 Product benchmarks every holding replaced by its benchmark at the
-                           holding's weight (stated benchmark, else category
-                           index, else an override)
-     L3 Portfolio          the allocation itself
+     Policy benchmark          the allocation's benchmark (or, as a tagged
+                               exception, a different one for attribution)
+     SAA                       typed category weights held in indices, an
+                               allocation or a benchmark; until one is
+                               entered, today's category weights stand in
+     Manager/Product benchmark every holding replaced by its benchmark at the
+                               holding's weight (stated benchmark, else
+                               category index, else an override)
+     Manager/Product           the allocation itself
 
-   and the steps between them: S1 the SAA decision (L0 → L1), S2 the product
-   benchmark decision (L1 → L2), S3 the product or manager decision
-   (L2 → L3). Each step is an active position (lower level less upper level),
-   attributed in asset space (Brinson by category or asset class, or by
-   product) and in factor space (active exposure × factor return, plus cash
-   and specific), on the forward-looking and historical bases, with the
+   and the decisions between them, each named for the portfolio it arrives
+   at: the SAA decision, the Manager/Product benchmark decision (one, or
+   split into weights and choice of benchmark) and the Manager/Product
+   decision. The codes L0–L3 and S1–S3 stay in the data for the service
+   contract and stored settings; nothing on screen shows them.
+
+   Each decision is an active position (the portfolio after it less the one
+   before it), attributed in asset space (Brinson by category or asset class,
+   or by product) and in factor space (active exposure × factor return, plus
+   cash and specific), on the forward-looking and historical bases, with the
    ties that make the parts add up to the whole.
 
-   Steps taken in another order, or averaged over every order, overlay the
-   same active positions on the policy in that order, so the portfolio after
-   any set of decisions is the policy plus those decisions' positions.
+   Decisions taken in another order, or averaged over every order, overlay
+   the same active positions on the policy in that order, so the portfolio
+   after any set of decisions is the policy plus those decisions' positions.
 
    Behind PA.api like the rest of the engine: the interface sends the chain,
-   the service resolves the levels and returns the ChainResponse documented
-   in js/api.js. CH.levelsOf is also used by the store to show derived
-   levels as temporary members.
+   the service resolves the portfolios and returns the ChainResponse
+   documented in js/api.js. CH.levelsOf is also used by the store to show an
+   allocation's SAA and benchmarks as temporary columns.
    ───────────────────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
   var PA = window.PA, U = PA.util, D = PA.data, E = PA.engine;
   var CH = PA.chain = {};
 
-  CH.LEVELS = { policy: { id: 'policy', code: 'L0', short: 'Policy', name: 'Policy benchmark' }, saa: { id: 'saa', code: 'L1', short: 'SAA', name: 'SAA' },
-    saaWeights: { id: 'saaWeights', code: 'L1a', short: 'SAA at portfolio weights', name: 'SAA indices at the portfolio’s category weights' },
-    benchWeights: { id: 'benchWeights', code: 'L1b', short: 'Benchmarks at SAA weights', name: 'Product benchmarks at the SAA’s category weights' },
-    productBenchmarks: { id: 'productBenchmarks', code: 'L2', short: 'Product benchmarks', name: 'Product benchmarks' }, portfolio: { id: 'portfolio', code: 'L3', short: 'Portfolio', name: 'Portfolio' } };
-  CH.DECISIONS = {
-    saa: { id: 'saa', code: 'S1', label: 'SAA decision', short: 'SAA' },
-    mapping: { id: 'mapping', code: 'S2', label: 'Product benchmark decision', short: 'Benchmarks' },
-    weight: { id: 'weight', code: 'S2a', label: 'Implementation weights', short: 'Weights' },
-    benchmark: { id: 'benchmark', code: 'S2b', label: 'Benchmark choice', short: 'Benchmarks' },
-    benchmarkFirst: { id: 'benchmarkFirst', code: 'S2a', label: 'Benchmark choice', short: 'Benchmarks' },
-    weightSecond: { id: 'weightSecond', code: 'S2b', label: 'Implementation weights', short: 'Weights' },
-    selection: { id: 'selection', code: 'S3', label: 'Product / manager decision', short: 'Selection' },
-    pair: { id: 'pair', code: 'Active', label: 'Active position', short: 'Active' }
+  /* Names: the four portfolios of the chain, and each decision named for the portfolio it arrives at.
+     `code` is kept for the service contract and stored settings; it is not shown. */
+  CH.LEVELS = {
+    policy: { id: 'policy', code: 'L0', short: 'Policy benchmark', name: 'Policy benchmark' },
+    saa: { id: 'saa', code: 'L1', short: 'SAA', name: 'SAA', long: 'Strategic asset allocation' },
+    saaWeights: { id: 'saaWeights', code: 'L1a', short: 'SAA indices at held weights', name: 'SAA indices at the portfolio’s category weights' },
+    benchWeights: { id: 'benchWeights', code: 'L1b', short: 'Benchmarks at SAA weights', name: 'Manager/Product benchmarks at the SAA’s category weights' },
+    productBenchmarks: { id: 'productBenchmarks', code: 'L2', short: 'Manager/Product benchmark', name: 'Manager/Product benchmark' },
+    portfolio: { id: 'portfolio', code: 'L3', short: 'Manager/Product', name: 'Manager/Product' }
   };
+  CH.DECISIONS = {
+    saa: { id: 'saa', code: 'S1', label: 'SAA', short: 'SAA', versus: 'SAA less policy benchmark', asks: 'Was the long-term mix better than the policy benchmark?' },
+    mapping: { id: 'mapping', code: 'S2', label: 'Manager/Product benchmark', short: 'Manager/Product benchmark', versus: 'Manager/Product benchmarks less SAA', asks: 'Did the weights held, and the benchmarks of the products chosen to fill them, beat the SAA?' },
+    weight: { id: 'weight', code: 'S2a', label: 'Manager/Product benchmark · weights', short: 'Benchmark · weights', versus: 'Weights held less SAA weights', asks: 'Did holding different category weights from the SAA add value?' },
+    benchmark: { id: 'benchmark', code: 'S2b', label: 'Manager/Product benchmark · choice', short: 'Benchmark · choice', versus: 'Manager/Product benchmarks less category indices', asks: 'Did the benchmarks of the products chosen beat their categories’ indices?' },
+    benchmarkFirst: { id: 'benchmarkFirst', code: 'S2a', label: 'Manager/Product benchmark · choice', short: 'Benchmark · choice', versus: 'Manager/Product benchmarks less category indices', asks: 'Did the benchmarks of the products chosen beat their categories’ indices?' },
+    weightSecond: { id: 'weightSecond', code: 'S2b', label: 'Manager/Product benchmark · weights', short: 'Benchmark · weights', versus: 'Weights held less SAA weights', asks: 'Did holding different category weights from the SAA add value?' },
+    selection: { id: 'selection', code: 'S3', label: 'Manager/Product', short: 'Manager/Product', versus: 'Managers and products less their benchmarks', asks: 'Did the managers and products beat their own benchmarks, after fees?' },
+    pair: { id: 'pair', code: 'Active', label: 'Active position', short: 'Active', versus: 'One portfolio less another' },
+    policyToPortfolio: { id: 'policyToPortfolio', code: 'All', label: 'All decisions', short: 'All decisions', versus: 'Portfolio less policy benchmark', asks: 'Did the portfolio beat its policy benchmark?' }
+  };
+  /* How the other cards name a decision when they show one instead of the Reference. */
+  CH.DECISION_OPTIONS = [['saa', 'SAA decision: the SAA against the policy benchmark'], ['mapping', 'Manager/Product benchmark decision: those benchmarks against the SAA'], ['selection', 'Manager/Product decision: the portfolio against those benchmarks'], ['policyToPortfolio', 'All decisions: the portfolio against the policy benchmark']];
+  CH.DECISION_VS = { saa: 'the policy benchmark', mapping: 'the SAA', selection: 'the Manager/Product benchmarks', policyToPortfolio: 'the policy benchmark' };
+  CH.decisionTag = function (id) { return id === 'policyToPortfolio' ? 'all decisions' : (CH.DECISIONS[id] || CH.DECISIONS.selection).label + ' decision'; };
   /** The orders the three decisions can be taken in; 'default' is the chain as named. */
-  CH.ORDERS = [['default', 'Policy → SAA → Product benchmarks → Portfolio'], ['saa,selection,mapping', 'SAA, then selection, then benchmarks'], ['mapping,saa,selection', 'Benchmarks, then SAA, then selection'],
-    ['mapping,selection,saa', 'Benchmarks, then selection, then SAA'], ['selection,saa,mapping', 'Selection, then SAA, then benchmarks'], ['selection,mapping,saa', 'Selection, then benchmarks, then SAA']];
-  CH.orderLabel = function (o) { var x = CH.ORDERS.filter(function (r) { return r[0] === o; })[0]; return o === 'averaged' ? 'Order-averaged over every order' : x ? x[1] : CH.ORDERS[0][1]; };
+  CH.ORDERS = [['default', 'Policy benchmark → SAA → Manager/Product benchmark → Manager/Product'], ['saa,selection,mapping', 'SAA, then Manager/Product, then Manager/Product benchmark'], ['mapping,saa,selection', 'Manager/Product benchmark, then SAA, then Manager/Product'],
+    ['mapping,selection,saa', 'Manager/Product benchmark, then Manager/Product, then SAA'], ['selection,saa,mapping', 'Manager/Product, then SAA, then Manager/Product benchmark'], ['selection,mapping,saa', 'Manager/Product, then Manager/Product benchmark, then SAA']];
+  CH.orderLabel = function (o) { var x = CH.ORDERS.filter(function (r) { return r[0] === o; })[0]; return o === 'averaged' ? 'Averaged over every order' : x ? x[1] : CH.ORDERS[0][1]; };
+  CH.IMPLEMENTATIONS = [['one', 'One decision'], ['weightThenBenchmark', 'Two parts: weights, then benchmark choice'], ['benchmarkThenWeight', 'Two parts: benchmark choice, then weights']];
   /** Workspace attribution conventions (the header menu); a card may depart from them. */
-  CH.CONVENTIONS = { attributionModel: 'BF', interaction: 'selection', linking: 'carino', currency: 'none', unallocated: 'zero', fees: 'net' };
+  CH.CONVENTIONS = { attributionModel: 'BF', interaction: 'selection', linking: 'carino', currency: 'none', unallocated: 'zero', fees: 'net', order: 'default', implementation: 'one' };
   CH.LABELS = {
     attributionModel: { BF: 'Brinson–Fachler', BHB: 'Brinson–Hood–Beebower' },
     interaction: { selection: 'Interaction in selection', allocation: 'Interaction in allocation', separate: 'Interaction as its own effect' },
     linking: { none: 'No linking (annualised)', carino: 'Cariño', menchero: 'Menchero', grap: 'GRAP', frongello: 'Frongello', geometric: 'Geometric' },
     currency: { none: 'Currency in selection', fxFactor: 'FX factor row', separate: 'Separate currency effect' },
     unallocated: { zero: 'Unallocated at zero return', cash: 'Unallocated treated as cash' },
-    fees: { net: 'Net of stated fees', gross: 'Gross of fees' }
+    fees: { net: 'Net of stated fees', gross: 'Gross of fees' },
+    order: (function () { var o = { averaged: 'Averaged over every order' }; CH.ORDERS.forEach(function (r) { o[r[0]] = r[1]; }); return o; })(),
+    implementation: (function () { var o = {}; CH.IMPLEMENTATIONS.forEach(function (r) { o[r[0]] = r[1]; }); return o; })()
   };
   CH.conventionsOf = function (ws) { var c = Object.assign({}, CH.CONVENTIONS); if (ws && ws.conventions) Object.keys(c).forEach(function (k) { if (ws.conventions[k] != null) c[k] = ws.conventions[k]; }); return c; };
-  CH.blank = function () { return { policyBenchmarkId: null, saa: null, productBenchmarks: { mode: 'stated', overrides: {} }, order: 'default', implementation: 'one' }; };
+  /** The chain every allocation with a benchmark starts from: its own benchmark, no SAA entered, each product against its stated benchmark.
+      order and implementation are stored only when they differ from the workspace's conventions. */
+  CH.blank = function () { return { policyBenchmarkId: null, saa: null, productBenchmarks: { mode: 'stated', overrides: {} } }; };
 
   /* ── resolving the levels ────────────────────────────────────────── */
   var h0 = function (instrumentId, weight, categoryId) { return { instrumentId: instrumentId, weight: weight, categoryId: categoryId || E.categoryOf(instrumentId) }; };
@@ -78,35 +100,62 @@
     return c.index.map(function (p) { return h0(p[0], p[1] / tot * weight, categoryId); });
   };
   function benchmarkHoldings(id) { var b = id && D.benchmarkById[id]; return b ? b.holdings.map(function (h) { return h0(h.instrumentId, h.weight); }) : null; }
-  CH.chainOf = function (alloc) { return alloc && alloc.chain ? alloc.chain : null; };
-  /** The policy benchmark of an allocation: the chain's, else the assigned benchmark. */
-  CH.policyOf = function (alloc) {
-    var ch = CH.chainOf(alloc); if (!ch) return { reason: 'No decision chain' };
-    var id = ch.policyBenchmarkId || alloc.benchmarkId, b = id && D.benchmarkById[id];
-    if (!id) return { reason: 'No policy benchmark' };
-    if (!b) return { reason: 'Policy benchmark not found' };
-    return { holdings: benchmarkHoldings(id), label: b.name + (b.version ? ' v' + b.version : ''), source: { kind: 'benchmark', id: id, version: b.version || null, assigned: !ch.policyBenchmarkId } };
+  /** The chain as stored on the allocation, or null. */
+  CH.storedChain = function (alloc) { return alloc && alloc.chain ? alloc.chain : null; };
+  /** The chain an allocation is analysed through: the stored one, else the default once it has a benchmark, else null. */
+  CH.chainOf = function (alloc) {
+    if (!alloc) return null;
+    if (alloc.chain) return alloc.chain;
+    return alloc.benchmarkId ? Object.assign(CH.blank(), { isDefault: true }) : null;
   };
-  /** The SAA: an allocation in the pool, a benchmark, or derived from the portfolio's category weights. */
+  /** The benchmark the chain is attributed against when it is not the allocation's own (the tagged exception), else null. */
+  CH.exceptionOf = function (alloc) {
+    var ch = CH.storedChain(alloc), id = ch && ch.policyBenchmarkId;
+    if (!id || !alloc.benchmarkId || id === alloc.benchmarkId) return null;
+    var b = D.benchmarkById[id]; return b ? { id: id, label: b.name + (b.version ? ' v' + b.version : '') } : null;
+  };
+  /** Has the SAA been entered (typed weights, a benchmark or an allocation)? Otherwise today's category weights stand in. */
+  CH.saaSet = function (alloc) { var ch = CH.chainOf(alloc), s = ch && ch.saa; return !!(s && s.kind && s.kind !== 'derived'); };
+  /** The policy benchmark of an allocation: its own benchmark, unless the chain names a different one to attribute against. */
+  CH.policyOf = function (alloc) {
+    var ch = CH.chainOf(alloc); if (!ch) return { reason: 'No benchmark' };
+    var id = ch.policyBenchmarkId || alloc.benchmarkId, b = id && D.benchmarkById[id];
+    if (!id) return { reason: 'No benchmark' };
+    if (!b) return { reason: 'Benchmark not found' };
+    return { holdings: benchmarkHoldings(id), label: b.name + (b.version ? ' v' + b.version : ''), source: { kind: 'benchmark', id: id, version: b.version || null, assigned: !ch.policyBenchmarkId || ch.policyBenchmarkId === alloc.benchmarkId } };
+  };
+  /** The SAA: typed category weights, an allocation in the pool, a benchmark, or (until one is entered) today's category weights. */
   CH.saaOf = function (alloc, pool) {
-    var ch = CH.chainOf(alloc), s = ch && ch.saa; if (!s) return { reason: 'No SAA' };
-    if (s.kind === 'benchmark') { var b = D.benchmarkById[s.id]; return b ? { holdings: benchmarkHoldings(s.id), label: b.name + (b.version ? ' v' + b.version : ''), source: { kind: 'benchmark', id: s.id } } : { reason: 'SAA benchmark not found' }; }
-    if (s.kind === 'allocation') {
+    var ch = CH.chainOf(alloc), s = ch && ch.saa; if (!ch) return { reason: 'No benchmark' };
+    if (s && s.kind === 'benchmark') { var b = D.benchmarkById[s.id]; return b ? { holdings: benchmarkHoldings(s.id), label: b.name + (b.version ? ' v' + b.version : ''), source: { kind: 'benchmark', id: s.id } } : { reason: 'SAA benchmark not found' }; }
+    if (s && s.kind === 'allocation') {
       var a = (pool || []).filter(function (x) { return x.id === s.id; })[0];
       if (!a) return { reason: 'SAA allocation not in this workspace' };
       if (a.id === alloc.id) return { reason: 'An allocation cannot be its own SAA' };
       var hs = E.effective(a).map(function (h) { return h0(h.instrumentId, h.weight, h.categoryId); });
-      var products = hs.filter(function (h) { return D.instrumentById[h.instrumentId].type !== 'Index'; });
-      return { holdings: hs, label: a.name, source: { kind: 'allocation', id: a.id }, warning: products.length ? 'The SAA holds products (' + products.map(function (h) { return D.instrumentById[h.instrumentId].name; }).join(', ') + '); S2 includes their benchmark mapping' : null };
+      var products = hs.filter(function (h) { return D.instrumentById[h.instrumentId].type !== 'Index'; }).map(function (h) { return D.instrumentById[h.instrumentId].name; });
+      return { holdings: hs, label: a.name, source: { kind: 'allocation', id: a.id, products: products }, warning: products.length ? a.name + ' holds products, so ' + CH.DECISIONS.mapping.label + ' will include their benchmarks' : null };
     }
-    /* derived: each category's weight in the portfolio, held in that category's index basket */
     var out = [], kept = [];
+    if (s && s.kind === 'weights') {
+      /* typed: each category's weight held in its index basket (or the index chosen for a category without one) */
+      var W = s.weights || {}, ix = s.indices || {}, lost = [];
+      Object.keys(W).forEach(function (cid) {
+        var w = +W[cid]; if (!w || Math.abs(w) < 1e-9) return;
+        var bk = ix[cid] && D.instrumentById[ix[cid]] ? [h0(ix[cid], w, cid)] : CH.basket(cid, w);
+        if (bk) out = out.concat(bk); else lost.push((D.categoryById[cid] || {}).name || cid);
+      });
+      if (!out.length) return { reason: 'The SAA has no weights' };
+      var tot = U.sum(out, function (h) { return h.weight; });
+      return { holdings: merged(out), label: 'SAA weights', source: { kind: 'weights', total: U.round(tot, 4) }, note: lost.length ? lost.join(', ') + ' ha' + (lost.length === 1 ? 's' : 've') + ' no index, so the SAA weight there is left out' : Math.abs(tot - 100) > 0.005 ? 'The SAA weights add up to ' + U.round(tot, 2) + '%' : null };
+    }
+    /* not entered: each category's weight in the portfolio, held in that category's index basket */
     E.tree(alloc).forEach(function (t) {
       if (Math.abs(t.target) < 1e-9) return;
       var b = CH.basket(t.id, t.target);
       if (b) out = out.concat(b); else { kept.push(t.name); t.products.forEach(function (p) { out.push(h0(p.instrumentId, p.weight, t.id)); }); }
     });
-    return { holdings: merged(out), label: 'Derived from ' + alloc.name + '’s category weights', source: { kind: 'derived' }, derived: true, note: kept.length ? kept.join(', ') + ' ha' + (kept.length === 1 ? 's' : 've') + ' no category index, so the derived SAA keeps the products there' : null };
+    return { holdings: merged(out), label: 'Today’s category weights', source: { kind: 'derived' }, derived: true, note: kept.length ? kept.join(', ') + ' ha' + (kept.length === 1 ? 's' : 've') + ' no category index, so the products held there stand in' : null };
   };
   /** How each holding of the portfolio resolves to its benchmark. */
   CH.mappingOf = function (alloc, hs) {
@@ -143,7 +192,7 @@
    */
   CH.levelsOf = function (alloc, pool, opts) {
     opts = opts || {};
-    var ch = CH.chainOf(alloc); if (!ch) return { reason: 'No decision chain for ' + alloc.name, levels: [] };
+    var ch = CH.chainOf(alloc); if (!ch) return { reason: 'No benchmark for ' + alloc.name, levels: [] };
     var notes = [], warnings = [], cash = opts.unallocated === 'cash';
     var hs = E.effective(alloc), port = hs.map(function (h) { return h0(h.instrumentId, h.weight, h.categoryId); });
     var policy = CH.policyOf(alloc), saa = CH.saaOf(alloc, pool), mapping = CH.mappingOf(alloc, hs);
@@ -152,7 +201,7 @@
     var L = [
       Object.assign({}, CH.LEVELS.policy, policy.holdings ? { holdings: withCash(policy.holdings, cash), label: policy.label, source: policy.source } : { holdings: null, reason: policy.reason }),
       Object.assign({}, CH.LEVELS.saa, saa.holdings ? { holdings: withCash(saa.holdings, cash), label: saa.label, source: saa.source, derived: !!saa.derived } : { holdings: null, reason: saa.reason }),
-      Object.assign({}, CH.LEVELS.productBenchmarks, { holdings: withCash(pbh, cash), label: 'Benchmarks of ' + alloc.name + '’s products', source: { kind: 'derived', mode: (ch.productBenchmarks || {}).mode || 'stated' } }),
+      Object.assign({}, CH.LEVELS.productBenchmarks, { holdings: withCash(pbh, cash), label: 'Benchmarks of its ' + mapping.length + ' product' + (mapping.length === 1 ? '' : 's'), source: { kind: 'derived', mode: (ch.productBenchmarks || {}).mode || 'stated' } }),
       Object.assign({}, CH.LEVELS.portfolio, { holdings: withCash(port, cash), label: alloc.name, source: { kind: alloc.kind, id: alloc.id } })
     ];
     if (policy.note) notes.push(policy.note);
@@ -160,7 +209,7 @@
     if (saa.warning) warnings.push(saa.warning);
     if (cash) notes.push('Unallocated weight is treated as held in the cash index at every level');
     /* the implementation step split in two: weights first, or benchmarks first */
-    var impl = opts.implementation || ch.implementation || 'one';
+    var dflt = opts.defaults || {}, impl = opts.implementation || ch.implementation || dflt.implementation || 'one';
     if (impl !== 'one' && L[1].holdings) {
       var mid = impl === 'weightThenBenchmark' ? atWeights(L[1].holdings, L[2].holdings) : atWeights(L[2].holdings, L[1].holdings);
       L.splice(2, 0, Object.assign({}, CH.LEVELS[impl === 'weightThenBenchmark' ? 'saaWeights' : 'benchWeights'], { holdings: mid, label: CH.LEVELS[impl === 'weightThenBenchmark' ? 'saaWeights' : 'benchWeights'].name, source: { kind: 'derived' } }));
@@ -178,7 +227,7 @@
       });
       notes.push('Each level is cut to ' + (parts.length > 1 ? D.instrumentById[parts[1]].name + ' and ' : '') + (D.categoryById[cat] ? D.categoryById[cat].name : cat) + ' and rescaled to 100%');
     }
-    return { levels: L, mapping: mapping, counts: counts, notes: notes, warnings: warnings, order: ch.order || 'default', implementation: impl };
+    return { levels: L, mapping: mapping, counts: counts, notes: notes, warnings: warnings, order: ch.order || dflt.order || 'default', implementation: impl, isDefault: !!ch.isDefault, saaSet: CH.saaSet(alloc), exception: CH.exceptionOf(alloc) };
   };
   /** compositionOf's within-category mix at weightsOf's category weights. */
   function atWeights(compositionOf, weightsOf) {
@@ -400,8 +449,8 @@
    *        factorReturns, exposures, specificBy, risk:{basis, units, stepRisk, columns, varMethod, paths}, overTime, returnsFrom?}
    */
   CH.analyse = function (alloc, opts) {
-    var m = opts.method || {}, model = E.modelOf(opts.modelId), rbMemo = {}, res = opts.levels || CH.levelsOf(alloc, opts.pool, { unallocated: m.unallocated, rowKey: opts.rowKey, implementation: opts.implementation });
-    var out = { allocationId: alloc.id, notes: res.notes || [], warnings: res.warnings || [], mapping: (res.mapping || []).map(function (x) { return { instrumentId: x.instrumentId, name: x.name, categoryId: x.categoryId, weight: x.weight, source: x.source, target: x.target }; }), counts: res.counts };
+    var m = opts.method || {}, model = E.modelOf(opts.modelId), rbMemo = {}, res = opts.levels || CH.levelsOf(alloc, opts.pool, { unallocated: m.unallocated, rowKey: opts.rowKey, implementation: opts.implementation, defaults: { order: m.order, implementation: m.implementation } });
+    var out = { allocationId: alloc.id, notes: res.notes || [], warnings: res.warnings || [], mapping: (res.mapping || []).map(function (x) { return { instrumentId: x.instrumentId, name: x.name, categoryId: x.categoryId, weight: x.weight, source: x.source, target: x.target }; }), counts: res.counts, isDefault: !!res.isDefault, saaSet: !!res.saaSet, exception: res.exception || null };
     if (res.reason) { out.reason = res.reason; return out; }
     var all = res.levels, broken = all.filter(function (l) { return !l.holdings; });
     out.levels = all.map(function (l) { return { id: l.id, code: l.code, short: l.short, name: l.name, label: l.label, source: l.source, reason: l.reason || null, holdings: l.holdings ? l.holdings.map(function (h) { return { instrumentId: h.instrumentId, weight: U.round(h.weight, 4), categoryId: h.categoryId }; }) : null }; });
@@ -412,7 +461,7 @@
     var decs = L.slice(1).map(function (l, i) {
       var from = all.indexOf(L[i]), to = all.indexOf(l), ids = all.slice(from + 1, to + 1).map(function (x, j) { return decisionInto(all[from + j], x); });
       if (ids.length === 1) return ids[0];
-      var id = ids.join('+'); if (!CH.DECISIONS[id]) CH.DECISIONS[id] = { id: id, code: ids.map(function (x) { return CH.DECISIONS[x].code; }).join(' + '), label: ids.map(function (x) { return CH.DECISIONS[x].label; }).join(' and '), short: ids.map(function (x) { return CH.DECISIONS[x].short; }).join(' + '), merged: true };
+      var id = ids.join('+'); if (!CH.DECISIONS[id]) CH.DECISIONS[id] = { id: id, code: ids.map(function (x) { return CH.DECISIONS[x].code; }).join(' + '), label: ids.map(function (x) { return CH.DECISIONS[x].label; }).join(' and '), short: ids.map(function (x) { return CH.DECISIONS[x].short; }).join(' and '), versus: null, merged: true };
       return id;
     });
     var P = L.map(function (l) { return pos(l.holdings); });
@@ -430,7 +479,7 @@
     var holdingKind = function (i) { return defaultOrder && !opts.rowKey && m.unallocated !== 'cash' ? (decs[i] === 'selection' ? 'selection' : decs[i] === 'mapping' ? 'mapping' : null) : null; };
     var mapping = res.mapping;
     var allRows = function (Lp, Up, ret, i) { var hk = by === 'product' ? holdingKind(i) : null; return hk ? holdingRows(hk, Up, mapping, ret, m) : by === 'product' ? products(Lp, Up, ret, m) : brinson(Lp, Up, ret, by, m); };
-    var label = function (i, ord) { var d = CH.DECISIONS[decs[i]], at = ord.indexOf(i); return { id: decs[i], code: d.code, label: d.label, short: d.short, from: defaultOrder ? L[i].short : (at === 0 ? 'Policy' : 'after ' + ord.slice(0, at).map(function (j) { return CH.DECISIONS[decs[j]].code; }).join(', ')), to: defaultOrder ? L[i + 1].short : 'with ' + d.code, order: at }; };
+    var label = function (i, ord) { var d = CH.DECISIONS[decs[i]], at = ord.indexOf(i); return { id: decs[i], code: d.code, label: d.label, short: d.short, asks: d.asks || null, versus: defaultOrder ? (d.versus || L[i + 1].short + ' less ' + L[i].short.toLowerCase()) : null, from: defaultOrder ? L[i].short : (at === 0 ? 'Policy benchmark' : 'after ' + ord.slice(0, at).map(function (j) { return CH.DECISIONS[decs[j]].short; }).join(', ')), to: defaultOrder ? L[i + 1].short : 'with ' + d.short, order: at }; };
     out.orderLabel = orderSpec === 'averaged' ? 'Order-averaged over ' + orderings.length + ' orders' : CH.orderLabel(orderSpec);
     out.order = orderSpec; out.implementation = res.implementation;
     var inst = function (P2) { return byInstrument(P2); };
@@ -472,7 +521,7 @@
           return { v: v, rows: rows, fl: fl, mx: mx, smx: smx, pair: pair, upper: s.upper, lower: s.lower, ord: ord };
         });
         var v = orderings.length === 1 ? per[0].v : geo ? (Math.exp(U.sum(per, function (x) { return Math.log(1 + x.v / 100); }) / per.length) - 1) * 100 : U.sum(per, function (x) { return x.v; }) / per.length;
-        return { total: v, byGroup: avgRows(per.map(function (x) { return x.rows; })), factor: avgFac(per.map(function (x) { return x.fl; })), matrix: per[0].mx, specificMatrix: per[0].smx, pair: per[0].pair, spread: per.length > 1 ? { min: Math.min.apply(null, per.map(function (x) { return x.v; })), max: Math.max.apply(null, per.map(function (x) { return x.v; })), values: per.map(function (x) { return { order: x.ord.map(function (j) { return CH.DECISIONS[decs[j]].code; }).join(' → '), value: x.v }; }) } : null, meta: label(i, orderings[0]), drift: 0, upperMask: per[0].upper, lowerMask: per[0].lower };
+        return { total: v, byGroup: avgRows(per.map(function (x) { return x.rows; })), factor: avgFac(per.map(function (x) { return x.fl; })), matrix: per[0].mx, specificMatrix: per[0].smx, pair: per[0].pair, spread: per.length > 1 ? { min: Math.min.apply(null, per.map(function (x) { return x.v; })), max: Math.max.apply(null, per.map(function (x) { return x.v; })), values: per.map(function (x) { return { order: x.ord.map(function (j) { return CH.DECISIONS[decs[j]].short; }).join(' → '), value: x.v }; }) } : null, meta: label(i, orderings[0]), drift: 0, upperMask: per[0].upper, lowerMask: per[0].lower };
       });
       fwd.risk = riskExAnte(Dk, decs, model, opts, fwd.steps, function (Pp) { return Rv(Pp); }, P);
       fwd.headline = L.map(function (l, i) { return E.headline({ holdings: l.holdings }, i ? { holdings: L[i - 1].holdings } : null, { basis: 'forward', R: R, modelId: model.id }); });
@@ -560,7 +609,7 @@
             return o2;
           });
           var v = per.length === 1 ? per[0].v : geo ? (Math.exp(U.sum(per, function (x) { return Math.log(1 + x.v / 100); }) / per.length) - 1) * 100 : U.sum(per, function (x) { return x.v; }) / per.length;
-          return { total: v, byGroup: avgRows(per.map(function (x) { return x.rows; })), factor: avgFac(per.map(function (x) { return x.fl; })), matrix: per[0].mx, specificMatrix: per[0].smx || null, drift: U.sum(per, function (x) { return x.drift || 0; }) / per.length, driftLabel: per[0].driftLabel, cells: avgCells(per.map(function (x) { return x.cells; })), cumulative: per[0].cumulative == null ? null : U.sum(per, function (x) { return x.cumulative; }) / per.length, spread: per.length > 1 ? { min: Math.min.apply(null, per.map(function (x) { return x.v; })), max: Math.max.apply(null, per.map(function (x) { return x.v; })), values: per.map(function (x) { return { order: x.ord.map(function (j) { return CH.DECISIONS[decs[j]].code; }).join(' → '), value: x.v }; }) } : null, meta: label(i, orderings[0]), upperMask: per[0].upper, lowerMask: per[0].lower };
+          return { total: v, byGroup: avgRows(per.map(function (x) { return x.rows; })), factor: avgFac(per.map(function (x) { return x.fl; })), matrix: per[0].mx, specificMatrix: per[0].smx || null, drift: U.sum(per, function (x) { return x.drift || 0; }) / per.length, driftLabel: per[0].driftLabel, cells: avgCells(per.map(function (x) { return x.cells; })), cumulative: per[0].cumulative == null ? null : U.sum(per, function (x) { return x.cumulative; }) / per.length, spread: per.length > 1 ? { min: Math.min.apply(null, per.map(function (x) { return x.v; })), max: Math.max.apply(null, per.map(function (x) { return x.v; })), values: per.map(function (x) { return { order: x.ord.map(function (j) { return CH.DECISIONS[decs[j]].short; }).join(' → '), value: x.v }; }) } : null, meta: label(i, orderings[0]), upperMask: per[0].upper, lowerMask: per[0].lower };
         });
         var Lser = L.map(function (l, i) { var mk = 0; for (var j = 0; j < i; j++) mk |= 1 << j; return mS[mk]; });
         hist.headline = L.map(function (l, i) { return E.headline({ holdings: l.holdings, returnsFrom: (l.id === 'portfolio' || l.id === 'lower') && opts.returnsFrom && !opts.rowKey ? opts.returnsFrom : null }, i ? { holdings: L[i - 1].holdings } : null, { basis: 'historical', period: opts.period }); });
@@ -577,8 +626,8 @@
     if (hist && hist.riskExPost) { delete hist.riskExPost; }
     /* the whole chain as one step, policy to portfolio, when a card asks for it */
     if (opts.step === 'policyToPortfolio' && !opts.levels) {
-      var wp = CH.pair(L[L.length - 1].holdings, L[0].holdings, Object.assign({}, opts, { step: null, upperLabel: 'Policy', lowerLabel: 'Portfolio', returnsFrom: opts.rowKey ? null : opts.returnsFrom }));
-      var pick = function (x) { return x && x.steps && !x.reason ? { step: Object.assign(x.steps[0], { meta: { id: 'policyToPortfolio', code: 'Policy → Portfolio', label: 'The whole chain', short: 'Whole chain', from: 'Policy', to: 'Portfolio', order: 0 } }), risk: x.risk.steps[0], te: x.risk.total } : null; };
+      var wp = CH.pair(L[L.length - 1].holdings, L[0].holdings, Object.assign({}, opts, { step: null, upperLabel: 'Policy benchmark', lowerLabel: 'Portfolio', returnsFrom: opts.rowKey ? null : opts.returnsFrom }));
+      var pick = function (x) { return x && x.steps && !x.reason ? { step: Object.assign(x.steps[0], { meta: { id: 'policyToPortfolio', code: 'All', label: CH.DECISIONS.policyToPortfolio.label, short: CH.DECISIONS.policyToPortfolio.short, versus: CH.DECISIONS.policyToPortfolio.versus, asks: CH.DECISIONS.policyToPortfolio.asks, from: 'Policy benchmark', to: 'Portfolio', order: 0 } }), risk: x.risk.steps[0], te: x.risk.total } : null; };
       out.whole = { forward: pick(wp.forward), historical: pick(wp.historical) };
     }
     out.forward = fwd; out.historical = hist; out.decisions = decs.map(function (d) { return CH.DECISIONS[d]; });
@@ -754,21 +803,21 @@
       var x = out[b]; if (!x || x.reason || !x.steps) return;
       var lv = x.levelReturns, first = lv[0], last = lv[lv.length - 1], tag = b === 'forward' ? 'Fwd' : 'Hist';
       var lhs = geo ? ((1 + first / 100) * x.steps.reduce(function (p, s) { return p * (1 + s.total / 100); }, 1) - 1) * 100 : first + U.sum(x.steps, function (s) { return s.total; });
-      list.push({ id: b + ':chain', basis: b, label: 'Policy ' + (geo ? '× ' : '+ ') + x.steps.map(function (s) { return s.meta.code; }).join(geo ? ' × ' : ' + ') + ' = Portfolio', lhs: lhs, rhs: last, diff: lhs - last, tag: tag, kind: 'return' });
+      list.push({ id: b + ':chain', basis: b, label: 'Policy benchmark ' + (geo ? 'compounded with' : 'plus') + ' the ' + (x.steps.length === 1 ? 'decision' : x.steps.length + ' decisions') + ' = portfolio', lhs: lhs, rhs: last, diff: lhs - last, tag: tag, kind: 'return' });
       x.steps.forEach(function (s) {
         var asset = U.sum(s.byGroup, function (r) { return r.total; }) + (s.drift || 0), f = s.factor, fac = f.factorTotal + f.cash + f.specific + (f.drift || 0) + (f.notReconciled || 0);
-        list.push({ id: b + ':' + s.meta.id + ':asset', basis: b, label: s.meta.code + ' asset lens = step active return', lhs: asset, rhs: s.total, diff: asset - s.total, tag: tag, kind: 'return' });
-        list.push({ id: b + ':' + s.meta.id + ':factor', basis: b, label: s.meta.code + ' factors + cash + specific' + (f.drift ? ' + ' + (s.driftLabel || 'drift').toLowerCase() : '') + ' = step active return', lhs: fac - (f.notReconciled || 0), rhs: s.total, diff: fac - (f.notReconciled || 0) - s.total, tag: tag, kind: 'return', reason: f.notReconciled ? f.reconcileReason : null });
+        list.push({ id: b + ':' + s.meta.id + ':asset', basis: b, label: s.meta.label + ': rows add up to the decision', lhs: asset, rhs: s.total, diff: asset - s.total, tag: tag, kind: 'return' });
+        list.push({ id: b + ':' + s.meta.id + ':factor', basis: b, label: s.meta.label + ': factors + cash + specific' + (f.drift ? ' + ' + (s.driftLabel || 'drift').toLowerCase() : '') + ' add up to the decision', lhs: fac - (f.notReconciled || 0), rhs: s.total, diff: fac - (f.notReconciled || 0) - s.total, tag: tag, kind: 'return', reason: f.notReconciled ? f.reconcileReason : null });
       });
       var r = x.risk; if (r) {
         var sq = U.sum(r.steps, function (s) { return s.te * s.te; });
-        list.push({ id: b + ':risk:quad', basis: b, label: 'TE(policy → portfolio)² = Σ TE(step)² + cross term', lhs: r.total * r.total, rhs: sq + r.cross, diff: r.total * r.total - sq - r.cross, tag: tag, kind: 'risk', unit: '%²' });
+        list.push({ id: b + ':risk:quad', basis: b, label: 'Tracking error² = each decision’s tracking error² + cross term', lhs: r.total * r.total, rhs: sq + r.cross, diff: r.total * r.total - sq - r.cross, tag: tag, kind: 'risk', unit: '%²' });
         var se = U.sum(r.steps, function (s) { return s.contribution; });
-        list.push({ id: b + ':risk:euler', basis: b, label: 'Σ step contributions = TE(policy → portfolio)', lhs: se, rhs: r.total, diff: se - r.total, tag: tag, kind: 'risk' });
+        list.push({ id: b + ':risk:euler', basis: b, label: 'Contributions to tracking error add up to tracking error', lhs: se, rhs: r.total, diff: se - r.total, tag: tag, kind: 'risk' });
         r.steps.forEach(function (s, i) {
           var gsum = U.sum(s.byGroup, function (g) { return g.euler; }), fsum = U.sum(s.byFactor, function (g) { return g.euler; }) + (s.specific || 0) + (s.cash || 0) + (s.drift || 0);
-          list.push({ id: b + ':risk:' + s.id + ':g', basis: b, label: x.steps[i].meta.code + ' risk sources by group = step tracking error', lhs: gsum, rhs: s.te, diff: gsum - s.te, tag: tag, kind: 'risk' });
-          list.push({ id: b + ':risk:' + s.id + ':f', basis: b, label: x.steps[i].meta.code + ' factors + specific = step tracking error', lhs: fsum, rhs: s.te, diff: fsum - s.te, tag: tag, kind: 'risk' });
+          list.push({ id: b + ':risk:' + s.id + ':g', basis: b, label: x.steps[i].meta.label + ': risk by group adds up to its tracking error', lhs: gsum, rhs: s.te, diff: gsum - s.te, tag: tag, kind: 'risk' });
+          list.push({ id: b + ':risk:' + s.id + ':f', basis: b, label: x.steps[i].meta.label + ': risk by factor + specific adds up to its tracking error', lhs: fsum, rhs: s.te, diff: fsum - s.te, tag: tag, kind: 'risk' });
         });
       }
     });

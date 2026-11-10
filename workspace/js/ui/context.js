@@ -59,7 +59,7 @@
   X.referenceLabel = function (short) {
     var c = S.ws.comparison;
     if (c.referenceMode === 'individual') return short ? 'Each allocation’s own benchmark' : 'each allocation’s own benchmark';
-    if (c.referenceMode === 'policy') return short ? 'Policy benchmark' : 'each allocation’s policy benchmark';
+    if (c.referenceMode === 'policy') return short ? 'Attribution benchmark' : 'the benchmark each allocation is attributed against';
     if (c.referenceMode === 'portfolio') { var a = S.allocation(c.referencePortfolioId); return a ? a.name : 'a compared portfolio'; }
     var b = D.benchmarkById[c.sharedBenchmarkId]; return b ? b.name : 'the shared benchmark';
   };
@@ -76,9 +76,9 @@
     if (n.period) parts.push(p.period.preset === 'custom' ? F.month(p.period.start) + ' – ' + F.month(p.period.end) : p.period.preset === 'common' ? 'Common history' : 'Last ' + p.period.preset.replace('y', ' years'));
     parts.push('vs ' + X.referenceLabel());
     parts.push(sc ? 'Scenario ' + sc.name : 'Base case');
-    /* exports with the chain and the conventions in the context line */
+    /* exports name the benchmarks and the conventions in the context line */
     var act = S.active(), dep = UI.chain ? UI.chain.departures(w) : [];
-    if (act && act.chain && PA.chain) { var pol = PA.chain.policyOf(act), saa = PA.chain.saaOf(act, w.allocations); parts.push('Decision chain of ' + act.name + ': policy ' + (pol.label || 'none') + ', SAA ' + (saa.label || 'none')); }
+    if (act && PA.chain && PA.chain.chainOf(act)) { var pol = PA.chain.policyOf(act), saa = PA.chain.saaOf(act, w.allocations); parts.push('Benchmarks of ' + act.name + ': policy benchmark ' + (pol.label || 'none') + ', SAA ' + (saa.derived ? 'not set' : saa.label || 'none')); }
     if (dep.length) parts.push('Conventions: ' + dep.join(', '));
     return parts.join(' · ');
   };

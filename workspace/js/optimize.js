@@ -80,7 +80,7 @@
     var ids = [], pos = {}, add = function (id) { if (pos[id] == null) { pos[id] = ids.length; ids.push(id); } };
     assets.forEach(function (a) { a.x.forEach(function (p) { add(p[0]); }); });
     var bench = opts.benchmark && opts.benchmark.holdings && opts.benchmark.holdings.length ? opts.benchmark.holdings : null;
-    if (opts.objective === 'active' && !bench && !opts.preview) return { error: 'Assign a benchmark to the allocation to optimise against it.' };
+    if (opts.objective === 'active' && !bench && !opts.preview) return { error: 'Choose a benchmark for the allocation to optimise against it.' };
     if (bench) bench.forEach(function (h) { add(h.instrumentId); });
     var n = assets.length, N = ids.length;
     var X = assets.map(function (a) { var row = new Array(N).fill(0); a.x.forEach(function (p) { row[pos[p[0]]] += p[1]; }); return row; });

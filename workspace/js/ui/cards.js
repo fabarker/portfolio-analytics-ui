@@ -162,7 +162,7 @@
     var t = C.types[card.type], st = C.state[card.id], settings = C.settingsOf(card);
     /* a fresh body each paint, so delegated handlers a renderer attached never accumulate */
     var old = el.querySelector('.card-body'), body = old.cloneNode(false); old.parentNode.replaceChild(body, old);
-    paintStatus(card); paintChip(card, el);
+    paintStatus(card); paintChip(card, el); paintHeadChip(card, el);
     var sub = t.subtitle ? t.subtitle(st.ctx || C.ctx(card), settings, card) : '', bl = C.basisLabel(card);
     el.querySelector('.card-sub').innerHTML = bl + (bl && sub ? '<span class="sep" aria-hidden="true"> · </span>' : '') + esc(sub);
     if (st.status === 'failed' && !st.data) { body.innerHTML = '<div class="chart-empty">This card could not be calculated. ' + esc(st.error && st.error.message || '') + '</div>'; return; }
@@ -179,6 +179,16 @@
     b.classList.toggle('is-pinned', pin); b.innerHTML = (pin ? I.pin : '') + '<span>' + esc(m.name) + '</span>';
     b.setAttribute('aria-label', 'Factor model ' + m.name + (pin ? ', pinned to this card' : ', following the workspace') + '. Change it');
     b.setAttribute('data-tip', pin ? 'Pinned to ' + m.name + ': the workspace switch does not change this card' : 'Following the workspace factor model');
+  }
+  /** A card type may put one chip in its header (headChip: {html, cls, pressed, label, tip} or null) and answer its click (headChipClick). */
+  function paintHeadChip(card, el) {
+    var b = el.querySelector('[data-head-chip]'); if (!b) return;
+    var t = C.types[card.type], st = C.state[card.id] || {}, chip = null;
+    if (t.headChip && st.data && st.status !== 'failed') { try { chip = t.headChip(st.data, st.ctx || C.ctx(card), C.settingsOf(card), card); } catch (e) { chip = null; } }
+    b.hidden = !chip; if (!chip) return;
+    b.className = 'head-chip' + (chip.cls ? ' ' + chip.cls : ''); b.innerHTML = chip.html;
+    b.setAttribute('aria-pressed', String(!!chip.pressed)); b.setAttribute('aria-label', chip.label || '');
+    if (chip.tip) b.setAttribute('data-tip', chip.tip); else b.removeAttribute('data-tip');
   }
   function modelItems(card) {
     var D = PA.data, t = C.types[card.type], cur = C.modelIdOf(card), pin = C.isPinned(card), wsId = C.workspaceModel(), other = cur === 'isg' ? 'axioma' : 'isg';
@@ -211,7 +221,7 @@
     if (!t) return '<article class="card" data-card="' + esc(card.id) + '" style="' + pos(card) + '"><div class="card-body"><div class="chart-empty">Unknown card type “' + esc(card.type) + '”.</div></div></article>';
     return '<article class="card" data-card="' + esc(card.id) + '" style="' + pos(card) + '" tabindex="0" aria-label="' + esc((card.name || t.title) + ' card. Arrow keys move it, shift with arrows resizes it.') + '">' +
       '<header class="card-head"><span class="card-grip" aria-hidden="true">' + I.grip + '</span><div class="card-title"><h3>' + esc(card.name || t.title) + (card.followRow && t.supportsRow ? ' <span class="tag tag-info" data-tip="Follows the row selected in the Drivers &amp; Differences table">Row</span>' : '') + '</h3><div class="card-sub"></div></div>' +
-      '<div class="card-tools"><button type="button" class="model-chip" data-model-chip hidden aria-haspopup="menu" aria-expanded="false"></button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-settings aria-label="Card settings" aria-haspopup="dialog" aria-expanded="false" data-tip="Settings">' + I.sliders + '</button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-menu aria-label="Card menu" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div></header>' +
+      '<div class="card-tools"><button type="button" class="head-chip" data-head-chip hidden aria-pressed="false"></button><button type="button" class="model-chip" data-model-chip hidden aria-haspopup="menu" aria-expanded="false"></button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-settings aria-label="Card settings" aria-haspopup="dialog" aria-expanded="false" data-tip="Settings">' + I.sliders + '</button><button type="button" class="btn btn-icon btn-ghost btn-sm" data-menu aria-label="Card menu" aria-haspopup="menu" aria-expanded="false">' + I.moreH + '</button></div></header>' +
       '<div class="card-status" hidden></div><div class="card-body"></div><div class="card-data" hidden></div>' +
       '<button type="button" class="card-resize" data-resize aria-label="Resize card" tabindex="-1"></button></article>';
   }
@@ -227,17 +237,36 @@
   function rerenderAll() { if (S.ws) S.ws.cards.forEach(load); }
 
   /* ── settings popover and menu ───────────────────────────────────── */
+  /* A setting may be hidden (chosen on the card itself, so not listed) or belong to a group. Groups are
+     closed until needed: each says what it holds in one line and is tagged only when it has been changed. */
   function settingsBody(card) {
-    var t = C.types[card.type], settings = C.settingsOf(card), html = '';
-    if (C.usesModel(card)) { var wsm = PA.data.factorModelById[C.workspaceModel()].name, fmv = C.isPinned(card) ? card.settings.factorModel : 'follow'; html += '<div class="field"><label for="cs-factorModel">Factor model</label><select id="cs-factorModel" data-set="factorModel" class="input-sm">' + [['follow', 'Follow the workspace (' + wsm + ')'], ['isg', 'ISG'], ['axioma', 'Axioma']].map(function (o) { return '<option value="' + o[0] + '"' + (fmv === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>'; }
+    var t = C.types[card.type], settings = C.settingsOf(card), top = '', groups = [], byName = {};
+    var group = function (name) { if (!byName[name]) { byName[name] = { name: name, html: '', changed: [] }; groups.push(byName[name]); } return byName[name]; };
+    /* groups keep the order the card declares them in */
+    (t.settings || []).forEach(function (s) { if (s.group) group(s.group); });
+    var hasModelGroup = !!byName['Factor model'];
+    if (C.usesModel(card)) {
+      var wsm = PA.data.factorModelById[C.workspaceModel()].name, fmv = C.isPinned(card) ? card.settings.factorModel : 'follow';
+      var fm = '<div class="field"><label for="cs-factorModel">Factor model</label><select id="cs-factorModel" data-set="factorModel" class="input-sm">' + [['follow', 'Follow the workspace (' + wsm + ')'], ['isg', 'ISG'], ['axioma', 'Axioma']].map(function (o) { return '<option value="' + o[0] + '"' + (fmv === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
+      if (hasModelGroup) { var g0 = group('Factor model'); g0.html += fm; if (fmv !== 'follow') g0.changed.push('Pinned to ' + PA.data.factorModelById[fmv].name); } else top += fm;
+    }
     (t.settings || []).forEach(function (s) {
-      if (s.when && !s.when(settings, card)) return;
-      var opts = typeof s.options === 'function' ? s.options(card) : s.options;
-      if (s.type === 'factors') { var m = C.modelOf(card), cur = C.factorsFor(settings[s.key], m.id).ids; html += '<div class="field"><span class="label">' + esc(s.label) + ' · ' + esc(m.name) + '</span><div class="factor-pick">' + m.factors.map(function (f) { return '<button type="button" class="fchip" data-factor="' + s.key + '" data-val="' + esc(f.id) + '" aria-pressed="' + (cur.indexOf(f.id) >= 0) + '" data-tip="' + esc(f.description) + '">' + esc(f.name) + '</button>'; }).join('') + '</div><span class="field-hint">Each factor model keeps its own selection.</span></div>'; return; }
+      if (s.hidden || (s.when && !s.when(settings, card))) return;
+      var opts = typeof s.options === 'function' ? s.options(card) : s.options, html = '';
+      if (s.type === 'factors') { var m = C.modelOf(card), cur = C.factorsFor(settings[s.key], m.id).ids; html = '<div class="field"><span class="label">' + esc(s.label) + ' · ' + esc(m.name) + '</span><div class="factor-pick">' + m.factors.map(function (f) { return '<button type="button" class="fchip" data-factor="' + s.key + '" data-val="' + esc(f.id) + '" aria-pressed="' + (cur.indexOf(f.id) >= 0) + '" data-tip="' + esc(f.description) + '">' + esc(f.name) + '</button>'; }).join('') + '</div><span class="field-hint">Each factor model keeps its own selection.</span></div>'; }
       /* an option may carry a reason it is unavailable (o[2]): listed, but disabled */
-      if (s.type === 'select') html += '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + (o[2] ? ' disabled' : '') + '>' + esc(o[1] + (o[2] ? ' — ' + o[2] : '')) + '</option>'; }).join('') + '</select>' + (s.hint ? '<span class="field-hint">' + esc(typeof s.hint === 'function' ? s.hint(settings, card) : s.hint) + '</span>' : '') + '</div>';
-      else if (s.type === 'multi') html += '<div class="field"><span class="label">' + esc(s.label) + '</span><div class="factor-pick">' + opts.map(function (o) { return '<button type="button" class="fchip" data-multi="' + s.key + '" data-val="' + esc(o[0]) + '" aria-pressed="' + ((settings[s.key] || []).indexOf(o[0]) >= 0) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
-      else if (s.type === 'toggle') html += '<label class="switch"><input type="checkbox" data-set="' + s.key + '"' + (settings[s.key] ? ' checked' : '') + '><span class="track"></span><span>' + esc(s.label) + '</span></label>';
+      else if (s.type === 'select') html = '<div class="field"><label for="cs-' + s.key + '">' + esc(s.label) + '</label><select id="cs-' + s.key + '" data-set="' + s.key + '" class="input-sm">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(settings[s.key]) === String(o[0]) ? ' selected' : '') + (o[2] ? ' disabled' : '') + '>' + esc(o[1] + (o[2] ? ' — ' + o[2] : '')) + '</option>'; }).join('') + '</select>' + (s.hint ? '<span class="field-hint">' + esc(typeof s.hint === 'function' ? s.hint(settings, card) : s.hint) + '</span>' : '') + '</div>';
+      else if (s.type === 'multi') html = '<div class="field"><span class="label">' + esc(s.label) + '</span><div class="factor-pick">' + opts.map(function (o) { return '<button type="button" class="fchip" data-multi="' + s.key + '" data-val="' + esc(o[0]) + '" aria-pressed="' + ((settings[s.key] || []).indexOf(o[0]) >= 0) + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
+      else if (s.type === 'toggle') html = '<label class="switch"><input type="checkbox" data-set="' + s.key + '"' + (settings[s.key] ? ' checked' : '') + '><span class="track"></span><span>' + esc(s.label) + '</span></label>';
+      if (!s.group) { top += html; return; }
+      var g = group(s.group); g.html += html;
+      if (String(settings[s.key]) !== String(s.default)) { var o1 = s.type === 'select' ? opts.filter(function (o) { return String(o[0]) === String(settings[s.key]); })[0] : null; g.changed.push(o1 ? o1[1] : s.label); }
+    });
+    var open = (C.state[card.id] || {}).groupsOpen || {}, html = top;
+    groups.forEach(function (g) {
+      if (!g.html) return;
+      var n = g.changed.length, state = n ? g.changed.slice(0, 2).join(' · ') + (n > 2 ? ' and ' + (n - 2) + ' more' : '') : 'As the card opens';
+      html += '<details class="cs-group" data-group="' + esc(g.name) + '"' + (open[g.name] ? ' open' : '') + '><summary><span class="cs-gname">' + esc(g.name) + '</span><span class="cs-gstate">' + esc(state) + '</span>' + (n ? '<span class="tag tag-info">Changed for this card</span>' : '') + '</summary><div class="cs-gbody">' + g.html + '</div></details>';
     });
     if (t.supportsRow) html += '<label class="switch"><input type="checkbox" data-follow' + (card.followRow ? ' checked' : '') + '><span class="track"></span><span>Follow the selected row</span></label><div class="field-hint">' + (card.followRow ? 'Showing ' + esc(C.rowLabel(S.ws.prefs.selectedRow)) + '. Select another row in the table to change it.' : 'Showing the whole portfolio.') + '</div>';
     if (!html) html += '<div class="field-hint">This card has no settings. It follows the context bar.</div>';
@@ -248,6 +277,8 @@
     UI.popover(btn, { html: '<div class="menu-head">' + esc(card.name || t.title) + '</div><div class="card-settings">' + settingsBody(card) + '</div>', role: 'dialog', align: 'end', cls: 'card-pop', onOpen: function (el) {
       /* settings can show or hide others, so the body is redrawn after each change, keeping focus */
       var redraw = function (focusSel) { var cs = el.querySelector('.card-settings'); cs.innerHTML = settingsBody(S.card(id)); var f = focusSel && cs.querySelector(focusSel); if (f) f.focus(); };
+      /* a group stays open or closed across redraws */
+      el.addEventListener('toggle', function (e) { var g = e.target; if (!g.classList || !g.classList.contains('cs-group')) return; var st = C.state[id] = C.state[id] || {}; (st.groupsOpen = st.groupsOpen || {})[g.dataset.group] = g.open; }, true);
       var setOne = function (key, value) { var c = S.card(id), p = U.clone(c.settings || {}); p[key] = value; S.updateCard(id, { settings: p }); };
       U.on(el, 'change', 'select[data-set]', function (e, sel) { setOne(sel.dataset.set, sel.value); redraw('#' + sel.id); });
       U.on(el, 'change', 'input[type=checkbox][data-set]', function (e, cb) { setOne(cb.dataset.set, cb.checked); redraw('input[data-set="' + cb.dataset.set + '"]'); });
@@ -264,7 +295,7 @@
       { label: card.showData ? 'Hide data table' : 'Show data table', icon: I.table, disabled: !t.dataTable, onClick: function () { S.updateCard(card.id, { showData: !card.showData }); } },
       { label: 'Duplicate', icon: I.copy, onClick: function () { var copy = U.clone(card); copy.id = U.uid('c'); copy.y = bottom(); S.addCard(copy); } },
       { label: 'Save to card repository', icon: I.export, onClick: function () { saveToRepository(card); } }
-    ].concat(t.basis === 'either' ? [{ sep: true }, { label: C.basisOf(card) === 'forward' ? 'Show historical instead' : 'Show forward-looking instead', icon: I.reset, onClick: function () { C.setBasis(card, C.basisOf(card) === 'forward' ? 'historical' : 'forward'); } }] : []).concat(C.usesModel(card) ? [{ sep: true }].concat(modelItems(card)) : []).concat([
+    ].concat(t.basis === 'either' ? [{ sep: true }, { label: C.basisOf(card) === 'forward' ? 'Show historical instead' : 'Show forward-looking instead', icon: I.reset, onClick: function () { C.setBasis(card, C.basisOf(card) === 'forward' ? 'historical' : 'forward'); } }] : []).concat(t.menuItems ? [{ sep: true }].concat(t.menuItems(card)) : []).concat(C.usesModel(card) ? [{ sep: true }].concat(modelItems(card)) : []).concat([
       { sep: true },
       { label: 'Remove from workspace', icon: I.trash, onClick: function () { S.removeCard(card.id); UI.toast('Card removed.', { action: { label: 'Undo', fn: S.undo } }); } }
     ]), { align: 'end' });
@@ -385,6 +416,7 @@
   C.init = function () {
     grid = U.$('#cards'); sheetEl = U.$('#card-sheet');
     wireSheet();
+    U.on(grid, 'click', '[data-head-chip]', function (e, b) { var c = S.card(b.closest('.card').dataset.card), t = c && C.types[c.type]; if (t && t.headChipClick) t.headChipClick(c); });
     U.on(grid, 'click', '[data-model-chip]', function (e, b) { modelMenu(b, S.card(b.closest('.card').dataset.card)); });
     U.on(grid, 'click', '[data-settings]', function (e, b) { settingsPopover(b, S.card(b.closest('.card').dataset.card)); });
     U.on(grid, 'click', '[data-menu]', function (e, b) { cardMenu(b, S.card(b.closest('.card').dataset.card)); });

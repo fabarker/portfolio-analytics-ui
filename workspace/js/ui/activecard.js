@@ -27,8 +27,7 @@
   }
   function pickLabel(v) { var o = pickOptions().filter(function (x) { return x[0] === v; })[0]; return o ? o[1].replace(/^[^·]+· /, '') : 'a picked benchmark'; }
   /** The request's against: the picked allocation or sleeve travels with the request. */
-  var STEPS = [['saa', 'Policy → SAA (S1)'], ['mapping', 'SAA → Product benchmarks (S2)'], ['selection', 'Product benchmarks → Portfolio (S3)'], ['policyToPortfolio', 'Policy → Portfolio']];
-  var STEP_UPPER = { saa: 'the policy benchmark', mapping: 'the SAA', selection: 'the product benchmarks', policyToPortfolio: 'the policy benchmark' }, STEP_CODE = { saa: 'S1', mapping: 'S2', selection: 'S3', policyToPortfolio: 'policy → portfolio' };
+  var STEPS = PA.chain.DECISION_OPTIONS, STEP_UPPER = PA.chain.DECISION_VS;
   function against(s) {
     if (s.against === 'step') return Promise.resolve({ mode: 'step', step: s.step || 'selection' });
     if (s.against !== 'pick') return Promise.resolve({ mode: s.against });
@@ -41,12 +40,12 @@
     return Promise.resolve({ mode: 'pick', ref: { kind: kind, id: id } });
   }
   function againstLabel(ctx, s) {
-    if (s.against === 'step') { var st = s.step || 'selection'; return STEP_UPPER[st] + ' (chain step ' + STEP_CODE[st] + ')'; }
+    if (s.against === 'step') { var st = s.step || 'selection'; return STEP_UPPER[st] + ' (' + PA.chain.decisionTag(st) + ')'; }
     if (s.against === 'own') return 'each subject’s own benchmark';
     if (s.against === 'pick') return pickLabel(s.pick);
     var c = ctx.ws.comparison;
     if (c.referenceMode === 'individual') return 'each allocation’s benchmark';
-    if (c.referenceMode === 'policy') return 'each allocation’s policy benchmark';
+    if (c.referenceMode === 'policy') return 'the benchmark each allocation is attributed against';
     if (c.referenceMode === 'portfolio') { var a = S.allocation(c.referencePortfolioId); return a ? a.name : 'a compared portfolio'; }
     var b = D.benchmarkById[c.sharedBenchmarkId]; return b ? b.name : 'the shared benchmark';
   }
@@ -83,7 +82,7 @@
     }
     data.series.forEach(function (x) { if (x.coverage) notes.push(x.coverage + '.'); });
     var method = data.basis === 'forward' ? 'Return from the platform assumptions' + (ctx.scenario ? ' (scenario where applied)' : '') + '; risk from the ' + D.factorModelById[data.factorModel].name + ' factor model' + (ctx.scenario ? ', which the scenario does not change' : '') + '.' : 'Realised over ' + (data.period ? data.period.label : 'the period') + ': tracking error is the volatility of monthly active returns, annualised.';
-    return '<div class="tblwrap act-tbl"><table class="tbl"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' + H.foot(uniq(notes).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('')) + C.notes(card, [eq, esc(method), 'Active share is half the sum of absolute differences in the asset-class mix.', s.against === 'step' ? 'Chain step: each allocation with a decision chain is shown as the step’s lower level, measured against its upper level. The Decision chain card shows every step together.' : null]);
+    return '<div class="tblwrap act-tbl"><table class="tbl"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>' + H.foot(uniq(notes).map(function (n) { return '<span>' + esc(n) + '</span>'; }).join('')) + C.notes(card, [eq, esc(method), 'Active share is half the sum of absolute differences in the asset-class mix.', s.against === 'step' ? 'One decision: each allocation with a benchmark is shown after the decision, measured against the portfolio before it. The Decision chain card shows every decision together.' : null]);
   }
   function uniq(a) { var seen = {}; return a.filter(function (x) { if (seen[x]) return false; seen[x] = 1; return true; }); }
 
@@ -165,8 +164,8 @@
   C.register({ id: 'active-risk', title: 'Active risk & return', description: 'Return and risk split into passive (the benchmark) and active, with tracking error, information ratio, active share, and where the active risk and return come from.', group: 'Forward-looking', size: { w: 12, h: 8 }, min: { w: 6, h: 5 }, basis: 'either', supportsRow: true, factorModel: true,
     entries: [{ settings: { basis: 'forward' } }, { title: 'Realised active risk & return', description: 'Realised tracking error, active return and information ratio over the period, with where they came from.', group: 'Historical', settings: { basis: 'historical' } }],
     settings: [
-      { key: 'against', label: 'Active against', type: 'select', options: [['reference', 'Follow the Reference (context bar)'], ['own', 'Each subject’s own benchmark'], ['pick', 'Pick one…'], ['step', 'A chain step…']], default: 'reference' },
-      { key: 'step', label: 'Chain step', type: 'select', options: STEPS, default: 'selection', when: function (s) { return s.against === 'step'; }, hint: 'The step’s lower level is measured against its upper level, for each allocation with a decision chain.' },
+      { key: 'against', label: 'Active against', type: 'select', options: [['reference', 'Follow the Reference (context bar)'], ['own', 'Each subject’s own benchmark'], ['pick', 'Pick one…'], ['step', 'One decision…']], default: 'reference' },
+      { key: 'step', label: 'Decision', type: 'select', options: STEPS, default: 'selection', when: function (s) { return s.against === 'step'; }, hint: 'The portfolio after the decision is measured against the one before it, for each allocation with a benchmark.' },
       { key: 'pick', label: 'Benchmark, product, allocation or sleeve', type: 'select', options: function () { return pickOptions(); }, default: 'benchmark:bm_6040', when: function (s) { return s.against === 'pick'; } },
       { key: 'decompose', label: 'Attribute risk and return by', type: 'select', options: [['factor', 'Factor (the factor model)'], ['category', 'Category'], ['assetClass', 'Asset class'], ['product', 'Product']], default: 'factor' },
       { key: 'returnMethod', label: 'Active return', type: 'select', options: [['arithmetic', 'Arithmetic difference'], ['geometric', 'Geometric']], default: 'arithmetic' },

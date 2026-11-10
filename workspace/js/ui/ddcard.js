@@ -32,7 +32,7 @@
       segc('View', 'View', [['table', 'Table'], ['focus', 'Focus']], s.view) +
       (s.view === 'focus' ? '<div class="ctl dd-focus"><span class="label">Focus</span><div class="seg" role="group" aria-label="Focus allocation">' + ctx.members.map(function (a) { return '<button type="button" data-dd="focus" data-val="' + esc(a.id) + '" aria-pressed="' + (a.id === focus) + '"><span class="dot" style="background:' + UI.colorOf(a) + '"></span>' + esc(a.name) + '</button>'; }).join('') + '</div></div>'
         : '<div class="ctl">' + seg('Values', [['absolute', s.metric === 'factor' ? 'Exposures' : s.metric === 'weight' ? 'Weights' : 'Contributions'], ['delta', 'Differences']], s.values) + '</div>' +
-          (s.values === 'delta' && hasChain(ctx) ? '<div class="ctl"><label class="label" for="dd-from-' + card.id + '">From</label><select id="dd-from-' + card.id + '" class="input-sm" data-dd-sel="diffFrom"><option value="reference"' + (s.diffFrom !== 'previousLevel' ? ' selected' : '') + '>The Reference</option><option value="previousLevel"' + (s.diffFrom === 'previousLevel' ? ' selected' : '') + '>The previous chain level</option></select></div>' : ''));
+          (s.values === 'delta' && hasChain(ctx) ? '<div class="ctl"><label class="label" for="dd-from-' + card.id + '">From</label><select id="dd-from-' + card.id + '" class="input-sm" data-dd-sel="diffFrom"><option value="reference"' + (s.diffFrom !== 'previousLevel' ? ' selected' : '') + '>The Reference</option><option value="previousLevel"' + (s.diffFrom === 'previousLevel' ? ' selected' : '') + '>The stage before it</option></select></div>' : ''));
     if (s.metric === 'risk') html += '<div class="ctl"><label class="label" for="dd-risk-' + card.id + '">Risk units</label><select id="dd-risk-' + card.id + '" class="input-sm" data-dd-sel="riskUnits"><option value="share"' + (s.riskUnits === 'share' ? ' selected' : '') + '>Share of total risk (%)</option><option value="vol"' + (s.riskUnits === 'vol' ? ' selected' : '') + '>Contribution to volatility (pp)</option><option value="var99"' + (s.riskUnits === 'var99' ? ' selected' : '') + '>Contribution to 99% VaR, 1 year (pp)</option></select></div>';
     if (sc && ctx.basis !== 'historical' && !isF(s.metric) && s.view !== 'focus') html += '<div class="ctl"><label class="label" for="dd-scn-' + card.id + '">Scenario columns</label><select id="dd-scn-' + card.id + '" class="input-sm" data-dd-sel="scenarioView"><option value="delta"' + (s.scenarioView === 'delta' ? ' selected' : '') + '>Scenario + Δ vs Base</option><option value="pair"' + (s.scenarioView === 'pair' ? ' selected' : '') + '>Base | Scenario</option></select></div>';
     var open = !!S.session.rowFilter || !!(C.state[card.id] && C.state[card.id].searchOpen);
@@ -194,7 +194,7 @@
     basisOf: function (card) { var s = card.settings || {}; return (s.metric || 'return') === 'weight' ? null : s.basis === 'historical' ? 'historical' : 'forward'; },
     factorModel: function (s, card) { return isF(settingsOf(card).metric); },
     settings: [],
-    subtitle: function (ctx, s, card) { var sc = ctx.scenario, set = settingsOf(card); return METRICS[set.metric] + ' · ' + (set.values === 'delta' && set.diffFrom === 'previousLevel' && set.view !== 'focus' ? T.unitLabel(ctx.basis, set).replace(/vs (the )?reference/, 'vs the previous chain level') : T.unitLabel(ctx.basis, set)) + (isF(set.metric) ? C.modelDeparture(card) : '') + (set.view === 'focus' ? ' · focus ' + ((S.allocation(focusId(set, ctx)) || {}).name || '') : '') + (sc && ctx.basis !== 'historical' ? ' · scenario ' + sc.name : ''); },
+    subtitle: function (ctx, s, card) { var sc = ctx.scenario, set = settingsOf(card); return METRICS[set.metric] + ' · ' + (set.values === 'delta' && set.diffFrom === 'previousLevel' && set.view !== 'focus' ? T.unitLabel(ctx.basis, set).replace(/vs (the )?reference/, 'vs the stage before it') : T.unitLabel(ctx.basis, set)) + (isF(set.metric) ? C.modelDeparture(card) : '') + (set.view === 'focus' ? ' · focus ' + ((S.allocation(focusId(set, ctx)) || {}).name || '') : '') + (sc && ctx.basis !== 'historical' ? ' · scenario ' + sc.name : ''); },
     data: function (ctx, s, card) {
       var set = settingsOf(card), w = ctx.ws; card._flash = true;
       if (isF(set.metric)) return C.fetch('factorTable', { revision: ctx.revision, allocations: U.clone(ctx.members), basis: ctx.basis || 'forward', factorModel: C.modelIdOf(card), reference: refOf(set, w), period: U.clone(ctx.prefs.period), scenario: U.clone(ctx.scenario) });
@@ -208,9 +208,9 @@
       wire(body, card);
     }
   });
-  /** Any allocation in the comparison with a decision chain (or a derived level shown): offer differences from the previous level. */
-  function hasChain(ctx) { return ctx.members.some(function (a) { return a.chain || a.kind === 'level'; }); }
-  /** The reference the table differences against: the context bar's, or each column's previous chain level. */
+  /** Any allocation in the comparison with a benchmark (or an SAA or benchmark column shown): offer differences from the stage before it. */
+  function hasChain(ctx) { return ctx.members.some(function (a) { return a.kind === 'level' || PA.chain.chainOf(a); }); }
+  /** The reference the table differences against: the context bar's, or the stage before each column. */
   function refOf(set, w) { var r = U.clone(w.comparison); if (set.diffFrom === 'previousLevel' && set.values === 'delta') r.referenceMode = 'previousLevel'; return r; }
   function settingsOf(card) { var s = card.settings || {}, pick = C.factorsFor(s.factors, C.modelIdOf(card)); return { diffFrom: s.diffFrom === 'previousLevel' ? 'previousLevel' : 'reference', basis: s.basis === 'historical' ? 'historical' : 'forward', metric: s.metric || 'return', values: s.values || 'absolute', riskUnits: s.riskUnits || 'share', factors: pick.ids, mapped: pick.mapped, scenarioView: s.scenarioView || 'delta', view: s.view === 'focus' ? 'focus' : 'table', focus: s.focus || null }; }
   function patch(card, p) { var s = U.clone(card.settings || {}); for (var k in p) s[k] = p[k]; S.updateCard(card.id, { settings: s }); }

@@ -59,15 +59,19 @@
 
    Decision chains
    ─────────────────
-   Allocation.chain {policyBenchmarkId:string|null (null: the assigned benchmark),
-                   saa:{kind:'allocation'|'benchmark'|'derived', id?}|null,
+   Allocation.chain {policyBenchmarkId:string|null (null: the allocation's own benchmark; a different id is the
+                   tagged exception "attributed against"),
+                   saa:{kind:'weights', weights:{[categoryId]:%}, indices:{[categoryId]:instrumentId}}
+                      |{kind:'allocation'|'benchmark', id}|null (null: not entered; today's category weights stand in),
                    productBenchmarks:{mode:'stated'|'categoryIndex', overrides:{[instrumentId]:{kind:'benchmark'|'instrument', id}}},
-                   order:'default'|'saa,selection,mapping'|…, implementation:'one'|'weightThenBenchmark'|'benchmarkThenWeight'}
-                   copied by snapshots and clones. Requests that need an SAA allocation carry it in
-                   chainAllocations:Allocation[] (the referenced allocations, as edited).
+                   order?, implementation? (stored only when they differ from the workspace conventions)}
+                   An allocation with a benchmark and no stored chain is analysed through the default chain (its
+                   own benchmark, no SAA entered, stated product benchmarks). Copied by snapshots and clones.
+                   Requests that need an SAA allocation carry it in chainAllocations:Allocation[] (as edited).
    Workspace.conventions {attributionModel:'BF'|'BHB', interaction:'selection'|'allocation'|'separate',
                    linking:'none'|'carino'|'menchero'|'grap'|'frongello', currency:'none'|'fxFactor'|'separate',
-                   unallocated:'zero'|'cash', fees:'net'|'gross'}   workspace defaults a card may depart from
+                   unallocated:'zero'|'cash', fees:'net'|'gross', order:'default'|<order>,
+                   implementation:'one'|'weightThenBenchmark'|'benchmarkThenWeight'}   workspace defaults a card or a chain may depart from
    Derived level   a temporary member {id:'__level:<parentId>:saa'|…, kind:'level', level:{parentId, id}, scopeAs:parentId,
                    holdings, chain (the parent's)}; session only, like a category on its own
    against         ActiveRequest, the structure request (step), the factor-history request (step) and
@@ -85,11 +89,12 @@
                    specificBy, risk:{basis:'default'|'exante'|'expost', units, stepRisk, columns, varMethod:'parametric'|'historical'|'montecarlo', paths},
                    overTime:'years'|'months'|'rolling36'}
    ChainResponse  {factorModel, modelAsOf, pairModel, period, series:[{allocationId, reason?, partial?, notes, warnings,
+                   isDefault, saaSet, exception:{id, label}|null,
                    levels:[{id, code, short, name, label, source, reason?, holdings}], mapping:[{instrumentId, name, categoryId,
                    weight, source:'stated'|'categoryIndex'|'override'|'index'|'fitted'|'none', target:{kind, id, label}}], counts,
                    decisions:[{id, code, label, short}], order, orderLabel, coverage:[{id, proxied, uncovered}],
                    forward|historical:{levelReturns, headline:Headline[] (each level vs the one before), exposure, rf, premia,
-                     steps:[{meta:{id, code, label, from, to}, total, byGroup:[{key, label, short, color, wFrom, wTo, rFrom, rTo,
+                     steps:[{meta:{id, code, label, short, versus, asks, from, to}, total, byGroup:[{key, label, short, color, wFrom, wTo, rFrom, rTo,
                        allocation, selection, interaction, total, sub?, weightLine?}], factor:{byFactor:[{factorId, label, betaFrom,
                        betaTo, dBeta, factorReturn, contribution}], factorTotal, cash, specific, drift?, notReconciled?},
                        matrix:{order, cells:{[group]:{factors:{[id]:pp}, specific, cash}}}, pair?, drift?, driftLabel?, spread?},
@@ -201,7 +206,7 @@
     if (ref.referenceMode === 'policy') { var pol = CH.policyOf(alloc); return pol.holdings ? { alloc: { id: '__policy:' + alloc.id, kind: 'benchmark', name: pol.label, holdings: pol.holdings }, label: pol.label, reason: null } : { alloc: null, label: null, reason: pol.reason }; }
     if (ref.referenceMode === 'previousLevel') return previousLevel(alloc, req);
     if (ref.referenceMode === 'individual') {
-      if (!alloc.benchmarkId) return { alloc: null, label: null, reason: 'No benchmark assigned' };
+      if (!alloc.benchmarkId) return { alloc: null, label: null, reason: 'No benchmark' };
       var b = D.benchmarkById[alloc.benchmarkId];
       return { alloc: b, label: b ? b.name : null, reason: b ? null : 'Benchmark not found' };
     }
@@ -258,7 +263,7 @@
     if (mode === 'own') {
       if (key) return ownOfRow();
       if (alloc.kind === 'sleeve' && alloc.sleeve) return indexOf(alloc.sleeve.categoryId, 'A sleeve is measured against its category index');
-      if (!alloc.benchmarkId) return { label: null, reason: 'No benchmark assigned to ' + alloc.name };
+      if (!alloc.benchmarkId) return { label: null, reason: 'No benchmark for ' + alloc.name };
       var ob = D.benchmarkById[alloc.benchmarkId]; return ob ? { holdings: ob.holdings, label: ob.name, kind: 'benchmark' } : { label: null, reason: 'Benchmark not found' };
     }
     var r = findReference(alloc, req); if (!r.alloc) return { label: null, reason: r.reason };
@@ -292,31 +297,30 @@
   var CH = PA.chain;
   function chainPool(req) { return (req.chainAllocations || []).concat(req.allocations || []); }
   var STEP_LEVELS = { saa: ['policy', 'saa'], mapping: ['saa', 'productBenchmarks'], selection: ['productBenchmarks', 'portfolio'], policyToPortfolio: ['policy', 'portfolio'] };
-  var STEP_CODES = { saa: 'S1', mapping: 'S2', selection: 'S3', policyToPortfolio: 'Policy → Portfolio' };
   /** The chain an allocation answers to: its own, a temporary category's parent's, or none for a derived level. */
-  function chainSource(alloc) { return alloc && alloc.kind !== 'level' && CH.chainOf(alloc) ? alloc : null; }
+  function chainSource(alloc) { return alloc && alloc.kind !== 'level' && CH.chainOf(alloc) && CH.policyOf(alloc).reason !== 'No benchmark' ? alloc : null; }
   /** The two ends of a chain step: the subject is the step's lower level, the benchmark its upper level. */
   function stepPair(alloc, req, step) {
     var src = chainSource(alloc);
-    if (!src) return { reason: alloc.kind === 'level' ? 'A derived level has no chain of its own' : 'No decision chain for ' + alloc.name };
+    if (!src) return { reason: alloc.kind === 'level' ? 'An SAA or benchmark column has no benchmarks of its own' : 'No benchmark for ' + alloc.name };
     var key = req.rowKey && req.rowKey !== '__total' ? req.rowKey : null;
     var res = CH.levelsOf(src, chainPool(req), { unallocated: (req.method || {}).unallocated, rowKey: key, implementation: 'one' });
     var ids = STEP_LEVELS[step] || STEP_LEVELS.selection, find = function (id) { return res.levels.filter(function (l) { return l.id === id; })[0]; };
     var up = find(ids[0]), lo = find(ids[1]);
-    if (!up || !up.holdings) return { reason: (up && up.reason) || 'Level unavailable' };
-    if (!lo || !lo.holdings) return { reason: (lo && lo.reason) || 'Level unavailable' };
+    if (!up || !up.holdings) return { reason: (up && up.reason) || 'Not available' };
+    if (!lo || !lo.holdings) return { reason: (lo && lo.reason) || 'Not available' };
     var subject = { holdings: lo.holdings };
     if (lo.id === 'portfolio' && !key && !alloc.standalone) subject.returnsFrom = function (f, t) { var r = E.rowReturns(alloc, '__total', f, t); return r ? r.returns : E.backtest(lo.holdings, f, t).returns; };
-    return { subject: subject, bench: { holdings: up.holdings }, label: up.short + ' (step ' + STEP_CODES[step] + ')', subjectLabel: lo.short, upper: up, lower: lo, notes: res.notes };
+    return { subject: subject, bench: { holdings: up.holdings }, label: up.short, decision: (CH.DECISIONS[step] || CH.DECISIONS.selection).label, subjectLabel: lo.short, upper: up, lower: lo, notes: res.notes };
   }
   /** The previous chain level of a derived level, or an allocation's product-benchmark level. */
   function previousLevel(alloc, req) {
     var parent = alloc.kind === 'level' ? chainPool(req).filter(function (x) { return x.id === alloc.level.parentId; })[0] : chainSource(alloc);
-    if (!parent) return { reason: alloc.kind === 'level' ? 'Parent allocation not in the comparison' : 'No decision chain' };
+    if (!parent) return { reason: alloc.kind === 'level' ? 'Parent allocation not in the comparison' : 'No benchmark for ' + alloc.name };
     var res = CH.levelsOf(parent, chainPool(req), {}), ids = res.levels.map(function (l) { return l.id; }), at = alloc.kind === 'level' ? ids.indexOf(alloc.level.id) : ids.indexOf('portfolio'), prev = at > 0 ? res.levels[at - 1] : null;
-    if (!prev) return { reason: 'The policy benchmark is the first level' };
+    if (!prev) return { reason: 'Nothing comes before the policy benchmark' };
     if (!prev.holdings) return { reason: prev.reason };
-    return { alloc: { id: '__prev:' + alloc.id, kind: 'benchmark', name: prev.short, holdings: prev.holdings }, label: prev.short + ' level', reason: null };
+    return { alloc: { id: '__prev:' + alloc.id, kind: 'benchmark', name: prev.short, holdings: prev.holdings }, label: prev.short, reason: null };
   }
 
   /* ── mock adapter ────────────────────────────────────────────────── */
@@ -324,7 +328,7 @@
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } if (store.chainDefault !== 1) { migrateChains(store); store.chainDefault = 1; persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } if (!store.chainDefault) migrateChains(store); if (store.chainDefault !== 2) { oneBenchmark(store); store.chainDefault = 2; persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
       store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace);
       return store;
     }
@@ -334,10 +338,24 @@
       if (!w.allocations.some(function (a) { return a.id === D.sampleSaa.id; })) w.allocations.push(U.clone(D.sampleSaa));
       Object.keys(D.sampleChains).forEach(function (id) { var a = w.allocations.filter(function (x) { return x.id === id; })[0]; if (a && !a.chain) a.chain = U.clone(D.sampleChains[id]); });
     }
+    /* stores saved before "one benchmark per allocation": a chain's policy becomes the allocation's benchmark where it had
+       none, a derived SAA becomes "not entered", and order and implementation are kept only when they are not the defaults */
+    function oneBenchmark(st) {
+      st.workspaces.forEach(function (w) { (w.allocations || []).forEach(function (a) {
+        var c = a.chain; if (!c) return;
+        if (c.policyBenchmarkId && !a.benchmarkId) { a.benchmarkId = c.policyBenchmarkId; c.policyBenchmarkId = null; }
+        if (c.policyBenchmarkId && c.policyBenchmarkId === a.benchmarkId) c.policyBenchmarkId = null;
+        if (c.saa && c.saa.kind === 'derived') c.saa = null;
+        if (c.productBenchmarks && c.productBenchmarks.mode === 'custom') c.productBenchmarks.mode = 'stated';
+        if (c.order === 'default') delete c.order;
+        if (c.implementation === 'one') delete c.implementation;
+        if (w.id === 'ws_global_review' && a.id === 'al_income' && !c.saa) c.saa = U.clone(D.sampleChains.al_income.saa);
+      }); });
+    }
     function fresh() {
       var need = [['workspaces', 'data/workspaces.js'], ['sleeveRepository', 'data/sleeves.js'], ['savedCards', 'data/sleeves.js'], ['benchmarkLibrary', 'data/benchmarks.js']], gone = need.filter(function (n) { return !D[n[0]]; }).map(function (n) { return n[1]; });
       if (gone.length) throw { code: 'missing_data', message: 'The sample data did not load (' + gone.filter(function (f, i) { return gone.indexOf(f) === i; }).join(', ') + '). Check that the whole workspace folder was copied and that its files are available offline, then reload.' };
-      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2, chainDefault: 1 }; }
+      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2, chainDefault: 2 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }
@@ -410,8 +428,8 @@
           var a = req.allocation, teTo = (req.options && req.options.teTo) || 'benchmark', bm = a.benchmarkId ? D.benchmarkById[a.benchmarkId] : null, bench = bm ? { holdings: bm.holdings, label: bm.name } : null, why = null;
           if (teTo !== 'benchmark') {
             var lv = CH.chainOf(a) ? CH.levelsOf(a, (req.chainAllocations || []).concat([a]), {}) : null, lvl = lv && lv.levels.filter(function (l) { return l.id === (teTo === 'policy' ? 'policy' : 'saa'); })[0];
-            bench = lvl && lvl.holdings ? { holdings: lvl.holdings, label: (teTo === 'policy' ? 'policy benchmark ' : 'SAA ') + lvl.label } : null;
-            why = !lv ? 'Set up a decision chain for ' + a.name + ' to optimise against its ' + (teTo === 'policy' ? 'policy benchmark' : 'SAA') + '.' : lvl && lvl.reason ? lvl.reason + ': set it in the decision chain.' : null;
+            bench = lvl && lvl.holdings ? { holdings: lvl.holdings, label: (teTo === 'policy' ? 'attribution benchmark ' : 'SAA ') + lvl.label } : null;
+            why = !lv ? 'Give ' + a.name + ' a benchmark to optimise against its ' + (teTo === 'policy' ? 'attribution benchmark' : 'SAA') + '.' : lvl && lvl.reason ? lvl.reason + ': set it under Benchmarks.' : null;
           }
           var inScope = !!(req.scenario && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0);
           var res = E.optimize(a, Object.assign({}, req.options, { scenario: inScope ? req.scenario : null, factorModel: req.factorModel, benchmark: bench }));
@@ -428,9 +446,9 @@
           var run = basis === 'forward' && risk.basis === 'expost' ? 'both' : basis;
           var series = req.allocations.map(function (a) {
             if (a.kind === 'level') { var par = chainPool(req).filter(function (x) { return x.id === a.level.parentId; })[0]; return { allocationId: a.id, reason: 'A derived level of ' + (par ? par.name : 'another allocation') + '; its chain is under ' + (par ? par.name : 'that allocation') }; }
-            if (!chainSource(a)) return { allocationId: a.id, reason: 'No decision chain for ' + a.name, noChain: true };
+            if (!chainSource(a)) return { allocationId: a.id, reason: 'No benchmark for ' + a.name, noBenchmark: true };
             var inScope = basis !== 'historical' && !!(Rsc && Rsc.corrValid && req.scenario.scope.indexOf(a.scopeAs || a.id) >= 0), sub = subjectOf(a, '__total');
-            var r = CH.analyse(a, { pool: chainPool(req), basis: run, R: inScope ? Rsc : Rbase, period: period, modelId: model.id, pairModelId: req.pairModels ? (model.id === 'isg' ? 'axioma' : 'isg') : null, rowKey: req.rowKey && req.rowKey !== '__total' ? req.rowKey : null, decompose: req.decompose, order: req.order, implementation: req.implementation, method: req.method, factorReturns: req.factorReturns, exposures: req.exposures, specificBy: req.specificBy, risk: risk, overTime: req.overTime, returnsFrom: sub ? sub.returnsFrom : null });
+            var r = CH.analyse(a, { pool: chainPool(req), basis: run, R: inScope ? Rsc : Rbase, period: period, modelId: model.id, pairModelId: req.pairModels ? (model.id === 'isg' ? 'axioma' : 'isg') : null, rowKey: req.rowKey && req.rowKey !== '__total' ? req.rowKey : null, decompose: req.decompose, step: req.step, order: req.order, implementation: req.implementation, method: req.method, factorReturns: req.factorReturns, exposures: req.exposures, specificBy: req.specificBy, risk: risk, overTime: req.overTime, returnsFrom: sub ? sub.returnsFrom : null });
             r.scenarioApplied = inScope; r.basisRun = run; return r;
           });
           return { factorModel: model.id, modelAsOf: model.asOf, pairModel: req.pairModels ? (model.id === 'isg' ? 'axioma' : 'isg') : null, period: period, series: series };
@@ -657,7 +675,7 @@
           var stepMode = req.against && req.against.mode === 'step';
           var series = req.allocations.map(function (a) {
             var st = stepMode ? stepPair(a, req, req.against.step) : null;
-            if (st && st.reason) return { allocationId: a.id, benchmark: { label: 'Step ' + STEP_CODES[req.against.step] }, reason: st.reason };
+            if (st && st.reason) return { allocationId: a.id, benchmark: { label: (CH.DECISIONS[req.against.step] || {}).label || 'Decision' }, reason: st.reason };
             var subject = st ? st.subject : subjectOf(a, req.rowKey);
             if (!subject) return { allocationId: a.id, benchmark: null, reason: 'No holdings in this row' };
             var bm = st ? { holdings: st.bench.holdings, label: st.label, kind: 'chain level' } : benchmarkFor(a, req);

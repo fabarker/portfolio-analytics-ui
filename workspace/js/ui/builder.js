@@ -77,9 +77,15 @@
     return '<label class="rh-eyebrow" for="active-pick">' + (a ? '<span class="dot" style="background:' + UI.colorOf(a) + '" aria-hidden="true"></span>' : '') + 'Editing</label>' +
       '<div class="rh-name"><select id="active-pick" data-fkey="active-pick"' + (w.allocations.length ? '' : ' disabled') + '>' + (inC.length ? '<optgroup label="In the comparison">' + inC.map(opt).join('') + '</optgroup>' : '') + (out.length ? '<optgroup label="Not compared">' + out.map(opt).join('') + '</optgroup>' : '') + (w.allocations.length ? '' : '<option>No allocations yet</option>') + '</select>' +
       (a ? '<button type="button" class="rail-toggle rh-menu" id="rail-menu" data-fkey="rail-menu" aria-label="Options for ' + esc(a.name) + '" aria-haspopup="menu" aria-expanded="false" data-tip="Select products, expand or collapse, rename, benchmark, snapshot">' + I.more + '</button>' : '') + '</div>' +
-      (a ? '<div class="active-meta">' + [UI.kindTag(a), hb.basis === 'actual' ? '' : '<span data-tip="' + esc(hb.label + ': ' + hb.detail) + '">' + (hb.basis === 'edited' ? 'Edited' : 'Backtest') + '</span>', bm ? '<span>vs ' + esc(bm.name) + '</span>' : (a.kind === 'sleeve' ? '' : '<span class="tag tag-warn" data-tip="Differences against “each allocation’s own benchmark” are unavailable until one is assigned.">No benchmark</span>'), a.chain ? '<button type="button" class="rh-chain" data-chain-open data-tip="' + esc(chainTip(a)) + '">Chain set</button>' : ''].filter(Boolean).join('<span class="sep" aria-hidden="true">·</span>') + '</div>' : '');
+      (a ? '<div class="active-meta">' + [UI.kindTag(a), hb.basis === 'actual' ? '' : '<span data-tip="' + esc(hb.label + ': ' + hb.detail) + '">' + (hb.basis === 'edited' ? 'Edited' : 'Backtest') + '</span>', benchLine(a, bm)].filter(Boolean).join('<span class="sep" aria-hidden="true">·</span>') + '</div>' : '');
   }
-  function chainTip(a) { var p = PA.chain.policyOf(a), s = PA.chain.saaOf(a, S.ws.allocations); return 'Decision chain: policy ' + (p.label || p.reason) + ' · SAA ' + (s.label || s.reason) + '. Open the decision chain.'; }
+  /** What the allocation is measured against, as the way into Benchmarks. Quiet when set; the exception is named. */
+  function benchLine(a, bm) {
+    if (!bm) return a.kind === 'sleeve' ? '' : '<button type="button" class="tag tag-warn rh-nobm" data-chain-open="policy" data-tip="Choose what ' + esc(a.name) + ' is measured against">No benchmark</button>';
+    var ex = PA.chain.exceptionOf(a), sep = '<span class="sep" aria-hidden="true">·</span>';
+    return '<button type="button" class="rh-chain" data-chain-open="policy" data-tip="Benchmarks: what ' + esc(a.name) + ' is measured against, at each level">vs ' + esc(bm.name) + '</button>' +
+      (ex ? sep + '<button type="button" class="rh-chain" data-chain-open="policy" data-tip="The decisions are attributed against a different benchmark from the one the allocation is compared with">attributed against ' + esc(ex.label) + '</button>' : '');
+  }
   function badge(n) { return n ? '<span class="rail-badge" aria-hidden="true">' + n + '</span>' : ''; }
   function renderTabs(tab, iss) {
     return TABS.map(function (t) {
@@ -138,16 +144,18 @@
     if (px.length) out.push({ t: px.length + ' product' + (px.length === 1 ? '' : 's') + ' with limited history', s: px.map(function (h) { var ins = D.instrumentById[h.instrumentId]; return ins.identifier + ' (' + (ins.coverage === 'none' ? 'no history' : 'proxy') + ')'; }).join(', ') + '. Historical cards disclose it.', acts: [['show', E.categoryOf(px[0]) + '/' + px[0].instrumentId, 'Show in Build']] });
     var fm = D.factorModelById[(S.ws.prefs.factorModel) || 'isg'], prox = a.holdings.filter(function (h) { return fm.coverage(D.instrumentById[h.instrumentId]); });
     if (prox.length) out.push({ t: fm.name + ': ' + prox.length + ' product' + (prox.length === 1 ? '' : 's') + ' proxied by the category index', s: prox.map(function (h) { return D.instrumentById[h.instrumentId].identifier; }).join(', ') + ' are not covered by the ' + fm.name + ' factor model, so factor exposures and factor risk use the category index in their place.', acts: [['show', E.categoryOf(prox[0]) + '/' + prox[0].instrumentId, 'Show in Build'], ['model', fm.id, 'About ' + fm.name]] });
-    if (!a.benchmarkId && a.kind !== 'sleeve') out.push({ t: 'No benchmark assigned', s: 'Differences against “each allocation’s benchmark” are unavailable until one is set.', acts: live ? [['bench', '', 'Assign benchmark']] : [] });
-    /* the decision chain: what is missing warns; the category-index fallback and a missing chain are information */
-    if (a.kind !== 'sleeve') {
-      if (!a.chain) out.push({ level: 'info', t: 'No decision chain', s: 'Name a policy benchmark, an SAA and the product benchmarks to decompose return and risk step by step.', acts: [['chain', '', 'Set up decision chain']] });
-      else {
-        var pol = PA.chain.policyOf(a), saa = PA.chain.saaOf(a, S.ws.allocations), mp = PA.chain.mappingOf(a), fb = mp.filter(function (m) { return m.source === 'categoryIndex' || m.source === 'none'; });
-        if (!pol.holdings) out.push({ t: 'No policy benchmark', s: 'The decision chain has no first level, so its steps start at the SAA. Pick a policy benchmark or use the assigned one.', acts: [['chain', 'policy', 'Decision chain…']] });
-        if (!saa.holdings) out.push({ t: saa.reason === 'No SAA' ? 'No SAA' : saa.reason, s: 'Without an SAA, the SAA and product benchmark decisions are shown as one step.', acts: [['chain', 'saa', 'Decision chain…']] });
-        if (fb.length) out.push({ level: 'info', t: fb.length + ' product' + (fb.length === 1 ? '' : 's') + ' without a stated benchmark (category index used)', s: fb.map(function (m) { return D.instrumentById[m.instrumentId].identifier; }).join(', ') + ' are measured against their category index in the chain. Override any of them in the mapping.', acts: [['chain', 'mapping', 'Review mapping']] });
-      }
+    /* benchmarks: one item that lists what is open. A missing benchmark or a reference that cannot be found warns; the defaults are information */
+    if (!a.benchmarkId) { if (a.kind !== 'sleeve') out.push({ t: 'No benchmark', s: 'Choose what ' + a.name + ' is measured against. Differences against its benchmark and the Decision chain card wait for it.', acts: [['chain', 'policy', 'Benchmarks…']] }); }
+    else {
+      var CH = PA.chain, pol = CH.policyOf(a), saa = pol.holdings ? CH.saaOf(a, S.ws.allocations) : {}, chn = CH.chainOf(a), byRule = ((chn.productBenchmarks || {}).mode || 'stated') === 'stated';
+      var fb = pol.holdings && byRule ? CH.mappingOf(a).filter(function (m) { return m.source === 'categoryIndex' || m.source === 'fitted' || m.source === 'none'; }) : [], open = [], why = [], first = null, broken = false;
+      var add = function (key, t, w, bad) { open.push(t); why.push(w); first = first || key; broken = broken || !!bad; };
+      if (!pol.holdings) add('policy', 'benchmark not found', 'The benchmark ' + a.name + ' was given is no longer in the library.', true);
+      else if (!saa.holdings) add('saa', saa.reason || 'SAA not found', 'Until it is put right, the SAA and ' + CH.LEVELS.productBenchmarks.short + ' decisions are shown as one.', true);
+      else if (saa.derived) add('saa', 'SAA not set', 'Today’s category weights stand in for the SAA, so the SAA decision shows only how the mix differs from the benchmark.');
+      else if (saa.warning || saa.note) add('saa', 'SAA to review', (saa.warning || saa.note) + '.');
+      if (fb.length) add('mapping', fb.length + ' product' + (fb.length === 1 ? '' : 's') + ' without a stated benchmark', fb.map(function (m) { return D.instrumentById[m.instrumentId].identifier; }).join(', ') + (fb.length === 1 ? ' is' : ' are') + ' measured against ' + (fb.length === 1 ? 'its' : 'their') + ' category’s index, a fitted index or ' + (fb.length === 1 ? 'itself' : 'themselves') + '.');
+      if (open.length) out.push({ level: broken ? null : 'info', t: 'Benchmarks: ' + open.join(' · '), s: why.join(' '), acts: [['chain', first, 'Benchmarks…']] });
     }
     return out;
   }
@@ -323,7 +331,7 @@
     var fs = U.$('#sl-from-sel'); if (fs) fs.onclick = function () { S.session.railTab = 'build'; S.setSelectMode(true); UI.toast('Tick products in the tree, then Save as sleeve or Save & compare.'); };
     var or = U.$('#sl-open-repo'); if (or) or.onclick = function () { UI.shell.go('#/sleeves'); };
     var rm = U.$('#rail-menu'); if (rm) rm.onclick = function () { rowMenu(rm, a, 'root'); };
-    var cho = U.$('#rail-head [data-chain-open]'); if (cho) cho.onclick = function () { UI.chain.open(a); };
+    U.$$('#rail-head [data-chain-open]').forEach(function (b) { b.onclick = function () { UI.chain.open(a, { focus: b.dataset.chainOpen }); }; });
     var pick = U.$('#active-pick'); if (pick) pick.onchange = function () { var id = pick.value; S.update('Editing switched to ' + S.allocation(id).name, function (ws) { ws.comparison.activeId = id; }, { refresh: false, activity: false, force: true }); };
     var nb = U.$('#rail-new'); if (nb) nb.onclick = function () { UI.dialogs.newAllocation(); };
     var dr = U.$('#rail-draft'); if (dr) dr.onclick = function () { UI.dialogs.draftFromSnapshot(a); };
@@ -425,7 +433,6 @@
     if (kind === 'show') showRow(a, key);
     else if (kind === 'find') B.findProduct(key);
     else if (kind === 'apply') UI.sleeves.apply(a, key);
-    else if (kind === 'bench') UI.dialogs.assignBenchmark(a);
     else if (kind === 'model') PA.cards.aboutModel(key);
     else if (kind === 'chain') UI.chain.open(a, { focus: key });
   }
@@ -511,7 +518,7 @@
       { label: 'Expand every category', onClick: function () { allTo(false); } },
       { label: 'Collapse every category', onClick: function () { allTo(true); } },
       { sep: true }, { label: 'New category…', icon: I.plus, onClick: function () { B.newCategory(); } }, { label: 'Find a product to add', icon: I.search, disabled: ro, kbd: '/', onClick: function () { B.findProduct(); } }, { label: 'Add products from returns…', icon: I.paste, onClick: function () { UI.importer.open({ text: '' }); } },
-      { sep: true }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Assign benchmark…', onClick: function () { UI.dialogs.assignBenchmark(a); } }, { label: a.chain ? 'Decision chain…' : 'Set up decision chain…', icon: I.chart, disabled: a.kind === 'sleeve', onClick: function () { UI.chain.open(a); } }, { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } }, { label: 'Show portfolio total in table', icon: I.table, onClick: function () { S.setPref('selectedRow', '__total'); } }];
+      { sep: true }, { label: 'Rename', onClick: function () { UI.dialogs.renameAllocation(a); } }, { label: 'Benchmarks…', icon: I.target, onClick: function () { UI.chain.open(a); } }, { label: 'Snapshot this allocation', icon: I.camera, onClick: function () { UI.dialogs.snapshot(a); } }, { label: 'Show portfolio total in table', icon: I.table, onClick: function () { S.setPref('selectedRow', '__total'); } }];
     else if (kind === 'category') {
       var t = E.tree(a).filter(function (x) { return x.id === key; })[0], ci = D.categories.map(function (c) { return c.id; }).indexOf(key), n = D.categories.length, usedBy = categoryUsers(key);
       items = [{ head: t.name },
@@ -532,7 +539,7 @@
       items = [{ head: ins.name },
         { label: on ? 'Deselect' : 'Select for a sleeve', icon: I.check, disabled: ro, onClick: function () { S.toggleSelected(h.id); } },
         { label: 'Inspect', icon: I.info, onClick: function () { UI.dialogs.inspectInstrument(ins); } },
-        { label: 'Show in table', icon: I.table, onClick: function () { S.setPref('selectedRow', key); ensureTableExpanded(key); } }].concat(a.chain ? [{ label: 'Show against its benchmark', icon: I.chart, onClick: function () { UI.chain.showAgainstBenchmark(a, key); } }] : []).concat([
+        { label: 'Show in table', icon: I.table, onClick: function () { S.setPref('selectedRow', key); ensureTableExpanded(key); } }].concat(PA.chain.chainOf(a) ? [{ label: 'Show against its benchmark', icon: I.chart, onClick: function () { UI.chain.showAgainstBenchmark(a, key); } }] : []).concat([
         { sep: true },
         { label: 'Remove from allocation', icon: I.trash, disabled: ro, onClick: function () {
           var cat0 = D.categoryById[parts[0]], was = E.categoryTargets(a)[parts[0]];

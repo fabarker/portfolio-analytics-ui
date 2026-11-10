@@ -79,12 +79,12 @@
     x.standalone = { allocationId: a.id, categoryId: c.id, weight: U.round(sum, 2) }; x.scopeAs = a.id;
     return x;
   };
-  /* ── derived chain levels ───────────────────────────────────────────
-     With "Show levels in comparison" on (prefs.showLevels 'active' or 'all'),
-     the SAA and product-benchmark levels of the allocation being edited, or
-     of every compared allocation with a decision chain, join the analysis as
-     temporary members: resolved from the chain on every change, outside the
-     six-member limit, inheriting the parent's scenario scope, never saved. */
+  /* ── an allocation's SAA and benchmarks as columns ──────────────────
+     With prefs.showLevels 'active' or 'all', the SAA and the Manager/Product
+     benchmark portfolio of the allocation being edited, or of every compared
+     allocation with a benchmark, join the analysis as temporary members:
+     resolved again on every change, outside the six-member limit,
+     inheriting the parent's scenario scope, never saved. */
   S.LEVEL_PREFIX = '__level:';
   var levelMemo = { key: null, list: [] };
   S.levels = function () {
@@ -94,10 +94,10 @@
     if (levelMemo.key === key) return levelMemo.list;
     var out = [];
     S.members().forEach(function (a) {
-      if (!a.chain || (mode === 'active' && a.id !== S.ws.comparison.activeId)) return;
-      (PA.chain.levelsOf(a, S.ws.allocations, {}).levels || []).forEach(function (l) {
+      if (!PA.chain.chainOf(a) || (mode === 'active' && a.id !== S.ws.comparison.activeId)) return;
+      (PA.chain.levelsOf(a, S.ws.allocations, { defaults: PA.chain.conventionsOf(S.ws) }).levels || []).forEach(function (l) {
         if ((l.id !== 'saa' && l.id !== 'productBenchmarks') || !l.holdings) return;
-        out.push({ id: S.LEVEL_PREFIX + a.id + ':' + l.id, kind: 'level', name: a.name + ' · ' + l.short, color: a.color, benchmarkId: a.benchmarkId, chain: U.clone(a.chain), leverage: l.holdings.some(function (h) { return h.weight < 0; }), history: null, edited: false, scopeAs: a.scopeAs || a.id,
+        out.push({ id: S.LEVEL_PREFIX + a.id + ':' + l.id, kind: 'level', name: a.name + ' · ' + l.short, color: a.color, benchmarkId: a.benchmarkId, chain: a.chain ? U.clone(a.chain) : null, leverage: l.holdings.some(function (h) { return h.weight < 0; }), history: null, edited: false, scopeAs: a.scopeAs || a.id,
           level: { parentId: a.id, id: l.id, code: l.code, short: l.short, label: l.label, derived: !!l.derived }, holdings: l.holdings.map(function (h, i) { return { id: 'lv' + i + '_' + h.instrumentId, instrumentId: h.instrumentId, weight: U.round(h.weight, 4), categoryId: h.categoryId }; }) });
       });
     });

@@ -129,7 +129,6 @@
     S.update('Benchmark “' + bm.name + '” added as a fixed column', function (ws) { ws.allocations.push({ id: id, name: bm.name, kind: 'snapshot', color: nextColor(), benchmarkId: null, leverage: false, history: { basis: 'backtest', inception: now.toISOString().slice(0, 7) }, edited: false, sourceId: bm.id, capturedAt: now.toISOString(), note: 'Benchmark composition as published', holdings: bm.holdings.map(function (h) { return { id: U.uid('h'), instrumentId: h.instrumentId, weight: h.weight }; }) }); if (ws.comparison.members.length < 6) { ws.comparison.members.push(id); ws.prefs.emphasis.push(id); } }, { type: 'member' });
   };
   Dg.renameAllocation = function (a) { UI.prompt({ title: 'Rename allocation', label: 'Name', value: a.name }).then(function (n) { if (n && n !== a.name) S.update('“' + a.name + '” renamed to “' + n + '”', function (ws) { ws.allocations.filter(function (x) { return x.id === a.id; })[0].name = n; }, { type: 'rename' }); }); };
-  Dg.assignBenchmark = function (a) { UI.benchmarks.assign(a); };
 
   /* ── workspaces: the reporting currency ──────────────────────────── */
   function currencyOptions(sel) {

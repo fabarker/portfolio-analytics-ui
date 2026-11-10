@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Decision Chain Redesign</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Design review of the Decision chain card and of policy benchmark, SAA and product benchmark setup, with redesign recommendations and mock-ups. No application code has changed.">
+<meta name="description" content="Design review of the Decision chain card and of policy benchmark, SAA and product benchmark setup, with redesign recommendations and mock-ups. Built on 10 November 2026 with the names and defaults recorded at the top.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
@@ -306,10 +306,11 @@ table.yt tr.bars td::after{content:"";position:absolute;left:0;right:0;top:50%;h
   <h1 style="margin-top:12px">Decision chain and benchmark setup: redesign recommendations</h1>
   <p class="lede">A review of the Decision chain card and of how a policy benchmark, an SAA and product benchmarks are set up. Every finding comes from the code in <code>workspace/</code> and from a live run of the mockup; every figure in a mock-up is one the card shows today for the sample workspace.</p>
   <div class="status">
-    <span class="pill ok">Recommendations only · no application code changed</span>
+    <span class="pill ok">Built 10 November 2026</span>
     <span class="pill">Reviewed at commit 6a6c34a</span>
     <span class="pill">Samples: Strategic Core and Growth Tilt</span>
   </div>
+  <p style="margin-top:14px"><strong>Outcome.</strong> The redesign was built in the workspace on 10 November 2026. Decision 1 was answered with four names for the chain: <em>Policy benchmark</em>, <em>SAA</em>, <em>Manager/Product benchmark</em> and <em>Manager/Product</em>; each decision takes the name of the stage it arrives at, and the three together read <em>All decisions</em>. Decisions 2 to 6 took the defaults recommended below: one benchmark per allocation with a tagged exception; today’s category weights standing in for an SAA that is not set; SAA weights typed by category; both bases on Summary and one at a time on Breakdown; and Brinson effects headed <em>From weights</em> and <em>From returns</em>. The mock-ups on this page keep the working names used during the review, so where a label here differs from the workspace, the workspace is right.</p>
 </header>
 
 <nav class="toc" aria-label="Sections">

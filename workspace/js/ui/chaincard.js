@@ -313,7 +313,7 @@
     if (!st.spread) return '';
     return '<details class="ch-spread"><summary>How much the order matters: ' + F.signed(st.spread.min, 2) + ' to ' + F.signed(st.spread.max, 2) + ' over ' + word(st.spread.values.length) + ' orders</summary><table class="tbl ch-tbl"><thead><tr><th>Order</th><th class="num">' + esc(st.meta.short) + '</th></tr></thead><tbody>' + st.spread.values.map(function (v) { return '<tr><td>' + esc(v.order) + '</td><td class="num">' + sgn(v.value) + '</td></tr>'; }).join('') + '<tr class="total"><td>Average (shown)</td><td class="num">' + sgn(st.total) + '</td></tr></tbody></table></details>';
   }
-  var lowerFirst = function (t) { return t && /^[A-Z][a-z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; };
+  var lowerFirst = function (t) { return t && /^[A-Z][a-z]+(?!\/)\b/.test(t) && !/^[A-Za-z]+\//.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; };
   /** What the decision is and what it did, in a sentence or two above its table. */
   function saying(x, sel, s, b, by, brk) {
     var st = sel.step, r = sel.risk, y = x[b], past = b === 'historical', v = st.total, flat = Math.abs(v) < 0.005, all = !!sel.whole;

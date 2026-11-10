@@ -109,5 +109,20 @@ the user asks for them.
   a chain step in seven existing cards, vs = policy benchmark, workspace
   attribution conventions with a fee basis, Optimize tracking error to the
   policy or SAA, and `POST /analytics/chain` (`js/chain.js` is the mock).
+  2026-11-10: the **decision chain redesign** from
+  `design/decision-chain-redesign.html` was built. On screen the stages are
+  **Policy benchmark, SAA, Manager/Product benchmark, Manager/Product** (the
+  user's names); each decision takes the name of the stage it arrives at and
+  the three together are "All decisions". Codes (L0–L3, S1–S3) stay in the
+  data and never show. One **Benchmarks** dialog (`UI.chain.open`, four rows:
+  benchmark, SAA, product benchmarks, method) replaces Assign benchmark and
+  the chain dialog. An allocation has one benchmark; attributing against a
+  different one is a tagged exception. The SAA can be typed weights
+  (`chain.saa = {kind:'weights', weights, indices}`); when not set, today's
+  category weights stand in, tagged "Not set". The card has three views
+  (Summary, Breakdown, Over time) with its checks behind a header chip;
+  Brinson columns read "From weights" / "From returns". The 6 November entry
+  above describes the earlier names and views.
+  `ONLY=<step name> node workspace/verify-workspace.mjs` runs one step.
 - `reference/venn/` — reference screenshots.
 - Remote: https://github.com/fabarker/portfolio-analytics-ui.git (branch main).

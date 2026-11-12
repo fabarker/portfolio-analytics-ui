@@ -36,7 +36,7 @@
     function save(c, andCompare) {
       var name = U.$('#sl-name', c.el).value.trim(); if (!name) { U.$('#sl-name', c.el).setAttribute('aria-invalid', 'true'); return false; }
       var catId = U.$('#sl-cat', c.el).value, note = U.$('#sl-note', c.el).value.trim(), tag = U.$('#sl-tag', c.el) && U.$('#sl-tag', c.el).checked, now = new Date().toISOString();
-      var sleeve = { id: U.uid('slv'), name: name, categoryId: catId, mixed: mixed, archived: false, createdBy: 'F. Barker', createdAt: now, note: note || (opts.categoryId ? 'Created from the ' + D.categoryById[opts.categoryId].name + ' category of ' + a.name : 'Created from a product selection in ' + a.name), source: { workspaceId: S.ws.id, workspaceName: S.ws.name, allocationId: a.id, allocationName: a.name }, versions: [{ v: 1, createdAt: now, note: 'Initial', holdings: sleeveH }] };
+      var sleeve = { id: U.uid('slv'), name: name, categoryId: catId, mixed: mixed, archived: false, createdBy: 'PMG Admin', createdAt: now, note: note || (opts.categoryId ? 'Created from the ' + D.categoryById[opts.categoryId].name + ' category of ' + a.name : 'Created from a product selection in ' + a.name), source: { workspaceId: S.ws.id, workspaceName: S.ws.name, allocationId: a.id, allocationName: a.name }, versions: [{ v: 1, createdAt: now, note: 'Initial', holdings: sleeveH }] };
       U.$$('.dlg-actions .btn', c.el).forEach(function (b) { b.disabled = true; });
       PA.api.saveSleeve(sleeve).then(function (saved) {
         remember(saved || sleeve);
@@ -169,7 +169,7 @@
   SL.showRepository = function (el, selectedId) {
     document.title = 'Sleeve repository · Portfolio Analytics';
     repo.selected = selectedId || repo.selected; repo.version = null; repo.edit = null;
-    el.innerHTML = '<header class="topbar"><a class="wordmark" href="#/"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></a><span class="sep faint">/</span><span class="eyebrow">Sleeve repository</span><span class="spacer"></span><a class="btn btn-sm" href="#/">' + I.chevronLeft + '<span>Workspaces</span></a><span class="user"><span class="avatar" aria-hidden="true">FB</span><span>F. Barker</span></span></header><div class="repo" id="repo"><div class="repo-nav skeleton" style="min-height:300px"></div><div class="repo-list"></div><div class="repo-detail"></div></div>';
+    el.innerHTML = '<header class="topbar"><a class="wordmark" href="#/"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></a><span class="sep faint">/</span><span class="eyebrow">Sleeve repository</span><span class="spacer"></span><a class="btn btn-sm" href="#/">' + I.chevronLeft + '<span>Workspaces</span></a><span class="user"><span class="avatar" aria-hidden="true">PMG</span><span>PMG Admin</span></span></header><div class="repo" id="repo"><div class="repo-nav skeleton" style="min-height:300px"></div><div class="repo-list"></div><div class="repo-detail"></div></div>';
     var cont = U.$('#repo', el);
     U.on(cont, 'click', '[data-filter]', function (e, b) { repo.filter = b.dataset.filter; renderRepo(el); });
     U.on(cont, 'click', '[data-open]', function (e, b) { repo.selected = b.dataset.open; repo.version = null; repo.edit = null; history.replaceState(null, '', '#/sleeves/' + encodeURIComponent(repo.selected)); renderRepo(el); });

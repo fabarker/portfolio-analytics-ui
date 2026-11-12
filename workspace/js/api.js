@@ -328,7 +328,7 @@
     var store = null;
     function load() {
       if (store) return store;
-      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } if (!store.chainDefault) migrateChains(store); if (store.chainDefault !== 2) { oneBenchmark(store); store.chainDefault = 2; persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
+      try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.workspaces && parsed.sleeves) { store = parsed; if (!store.benchmarks) store.benchmarks = U.clone(D.benchmarkLibrary); if (!store.products) store.products = []; if (store.twoCardDefault !== 2) { store.twoCardDefault = 2; store.workspaces.forEach(function (w) { var src = D.workspaces.filter(function (x) { return x.id === w.id; })[0]; if (src) w.cards = U.clone(src.cards); }); persist(); } if (store.ownerDefault !== 1) { renameOwners(store); store.ownerDefault = 1; persist(); } if (!store.chainDefault) migrateChains(store); if (store.chainDefault !== 2) { oneBenchmark(store); store.chainDefault = 2; persist(); } D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace); return store; } } } catch (e) { /* storage unavailable */ }
       store = fresh(); D.registerProducts(store.products); D.registerBenchmarks(store.benchmarks); store.workspaces.forEach(E.normalizeWorkspace);
       return store;
     }
@@ -352,10 +352,15 @@
         if (w.id === 'ws_global_review' && a.id === 'al_income' && !c.saa) c.saa = U.clone(D.sampleChains.al_income.saa);
       }); });
     }
+    /* stores saved when sample records named individual owners: every owner is the one account */
+    function renameOwners(st) {
+      var walk = function (o) { if (!o || typeof o !== 'object') return; Object.keys(o).forEach(function (k) { var v = o[k]; if ((k === 'owner' || k === 'createdBy') && typeof v === 'string') o[k] = 'PMG Admin'; else walk(v); }); };
+      ['workspaces', 'sleeves', 'savedCards', 'benchmarks', 'products'].forEach(function (k) { walk(st[k]); });
+    }
     function fresh() {
       var need = [['workspaces', 'data/workspaces.js'], ['sleeveRepository', 'data/sleeves.js'], ['savedCards', 'data/sleeves.js'], ['benchmarkLibrary', 'data/benchmarks.js']], gone = need.filter(function (n) { return !D[n[0]]; }).map(function (n) { return n[1]; });
       if (gone.length) throw { code: 'missing_data', message: 'The sample data did not load (' + gone.filter(function (f, i) { return gone.indexOf(f) === i; }).join(', ') + '). Check that the whole workspace folder was copied and that its files are available offline, then reload.' };
-      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2, chainDefault: 2 }; }
+      return { workspaces: U.clone(D.workspaces), sleeves: U.clone(D.sleeveRepository), savedCards: U.clone(D.savedCards), benchmarks: U.clone(D.benchmarkLibrary), products: [], version: 1, twoCardDefault: 2, chainDefault: 2, ownerDefault: 1 }; }
     function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* keep in memory */ } }
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
     function latency() { return config.slow ? 1800 : config.latency + Math.random() * 140; }
@@ -373,7 +378,7 @@
         return wait(latency()).then(function () {
           var now = new Date().toISOString();
           if (!input.currency || !D.currencyByCode[input.currency]) throw { code: 'invalid', message: 'Choose a reporting currency' };
-          var ws = { id: U.uid('ws'), name: input.name || 'Untitled workspace', description: input.description || '', currency: input.currency, owner: 'F. Barker', createdAt: now, updatedAt: now,
+          var ws = { id: U.uid('ws'), name: input.name || 'Untitled workspace', description: input.description || '', currency: input.currency, owner: 'PMG Admin', createdAt: now, updatedAt: now,
             categories: D.defaultCategories(), allocations: [], comparison: { members: [], activeId: null, referenceMode: 'shared', sharedBenchmarkId: 'bm_6040', referencePortfolioId: null },
             scenarios: [], activeScenarioId: null, cards: U.clone(D.workspaces[0].cards), prefs: U.clone(D.workspaces[0].prefs), activity: [{ at: now, type: 'create', label: 'Workspace created' }] };
           ws.prefs.emphasis = []; ws.prefs.selectedRow = 'public_equity';
@@ -407,7 +412,7 @@
             if (!D.assetClassById[r.assetClass]) throw { code: 'invalid', message: 'Unknown asset class for ' + r.name };
             if (r.returns.filter(function (v) { return v != null; }).length < 12) throw { code: 'invalid', message: r.name + ' needs at least 12 monthly returns' };
             var name = r.name.trim(), k = 2; while (names.indexOf(name.toLowerCase()) >= 0) name = r.name.trim() + ' (' + k++ + ')'; names.push(name.toLowerCase());
-            return { id: U.uid('up'), name: name, identifier: r.identifier || ('UP-' + name.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase()), type: r.type || 'Fund', assetClass: r.assetClass, currency: r.currency || D.reporting, start: r.start, returns: r.returns.slice(), proxy: r.proxy !== false, source: 'uploaded', owner: 'F. Barker', createdAt: now, archived: false, description: r.description || '', origin: r.origin || null };
+            return { id: U.uid('up'), name: name, identifier: r.identifier || ('UP-' + name.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase()), type: r.type || 'Fund', assetClass: r.assetClass, currency: r.currency || D.reporting, start: r.start, returns: r.returns.slice(), proxy: r.proxy !== false, source: 'uploaded', owner: 'PMG Admin', createdAt: now, archived: false, description: r.description || '', origin: r.origin || null };
           });
           out.forEach(function (p) { list.unshift(p); });
           D.registerProducts(list); persist(); return U.clone(out);

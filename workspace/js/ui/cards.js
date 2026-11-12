@@ -309,7 +309,7 @@
     var t = C.types[card.type];
     UI.prompt({ title: 'Save card to the repository', sub: 'Saved cards keep their settings and are available in every workspace.', label: 'Name', value: card.name || t.title, confirmLabel: 'Save' }).then(function (name) {
       if (!name) return;
-      PA.api.saveCard({ id: U.uid('card'), name: name, type: card.type, settings: U.clone(card.settings || {}), followRow: !!card.followRow, createdBy: 'F. Barker', createdAt: new Date().toISOString() }).then(function () { UI.toast('“' + name + '” saved to the card repository.'); if (sheetEl && !sheetEl.hidden) renderSheet(); });
+      PA.api.saveCard({ id: U.uid('card'), name: name, type: card.type, settings: U.clone(card.settings || {}), followRow: !!card.followRow, createdBy: 'PMG Admin', createdAt: new Date().toISOString() }).then(function () { UI.toast('“' + name + '” saved to the card repository.'); if (sheetEl && !sheetEl.hidden) renderSheet(); });
     });
   }
   function bottom() { return S.ws.cards.reduce(function (m, c) { return Math.max(m, c.y + c.h); }, 0); }

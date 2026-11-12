@@ -51,14 +51,14 @@
   var row = function (kind, id, weight) { return kind === 'rate' ? { kind: 'rate', spread: id, weight: weight } : { kind: kind, id: id, weight: weight }; };
   /* The shipped library: three custom benchmarks. */
   D.benchmarkLibrary = [
-    { id: 'cbm_policy', name: 'Strategic Core Policy', source: 'custom', description: 'Policy mix agreed for the 2027 review: public, private and hedged exposures.', owner: 'F. Barker', visibility: 'shared', rebalance: 'monthly', archived: false, createdAt: '2026-09-20T10:00:00Z',
+    { id: 'cbm_policy', name: 'Strategic Core Policy', source: 'custom', description: 'Policy mix agreed for the 2027 review: public, private and hedged exposures.', owner: 'PMG Admin', visibility: 'shared', rebalance: 'monthly', archived: false, createdAt: '2026-09-20T10:00:00Z',
       versions: [
         { v: 1, createdAt: '2026-09-20T10:00:00Z', note: 'Initial', rows: [row('index', 'idx_us_eq', 26), row('index', 'idx_dev_eq', 13), row('index', 'idx_em_eq', 6), row('index', 'idx_govt', 20), row('index', 'idx_ig', 12), row('index', 'idx_hy', 4), row('product', 'hf_kestrel', 7), row('index', 'idx_pe', 8), row('rate', 3, 4)] },
         { v: 2, createdAt: '2026-11-02T14:30:00Z', note: 'Real estate added; less US equity', rows: [row('index', 'idx_us_eq', 24), row('index', 'idx_dev_eq', 12), row('index', 'idx_em_eq', 6), row('index', 'idx_govt', 18), row('index', 'idx_ig', 12), row('index', 'idx_hy', 4), row('product', 'hf_kestrel', 7), row('index', 'idx_pe', 8), row('index', 'idx_re', 4), row('rate', 3, 5)] }
       ] },
-    { id: 'cbm_cash3', name: 'Cash + 3%', source: 'custom', description: 'Absolute-return target: the reporting currency’s 3-month cash rate plus 3% a year.', owner: 'A. Okafor', visibility: 'shared', rebalance: 'monthly', archived: false, createdAt: '2026-08-04T09:00:00Z',
+    { id: 'cbm_cash3', name: 'Cash + 3%', source: 'custom', description: 'Absolute-return target: the reporting currency’s 3-month cash rate plus 3% a year.', owner: 'PMG Admin', visibility: 'shared', rebalance: 'monthly', archived: false, createdAt: '2026-08-04T09:00:00Z',
       versions: [{ v: 1, createdAt: '2026-08-04T09:00:00Z', note: 'Initial', rows: [row('rate', 3, 100)] }] },
-    { id: 'cbm_7030_alts', name: '70/30 with Alternatives', source: 'custom', description: 'The Global 70/30 preset with a sleeve of hedge funds and private equity.', owner: 'F. Barker', visibility: 'private', rebalance: 'quarterly', archived: false, createdAt: '2026-10-11T16:20:00Z',
+    { id: 'cbm_7030_alts', name: '70/30 with Alternatives', source: 'custom', description: 'The Global 70/30 preset with a sleeve of hedge funds and private equity.', owner: 'PMG Admin', visibility: 'private', rebalance: 'quarterly', archived: false, createdAt: '2026-10-11T16:20:00Z',
       versions: [{ v: 1, createdAt: '2026-10-11T16:20:00Z', note: 'Initial', rows: [row('benchmark', 'bm_7030', 80), row('index', 'idx_hf', 10), row('index', 'idx_pe', 10)] }] }
   ];
 

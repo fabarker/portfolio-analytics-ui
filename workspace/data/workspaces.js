@@ -81,7 +81,7 @@
     name: 'Global Multi-Asset Review 2027',
     description: 'Strategic review of the core multi-asset allocation against income and growth alternatives.',
     currency: 'USD',
-    owner: 'F. Barker',
+    owner: 'PMG Admin',
     createdAt: '2026-09-14T09:12:00Z',
     updatedAt: '2026-10-30T16:41:00Z',
     allocations: [
@@ -139,7 +139,7 @@
     id: 'ws_endowment',
     name: 'Endowment Model Review',
     description: 'Private-markets-heavy reference allocations for the foundation mandate.',
-    currency: 'USD', owner: 'F. Barker', createdAt: '2026-08-02T10:00:00Z', updatedAt: '2026-10-19T15:12:00Z',
+    currency: 'USD', owner: 'PMG Admin', createdAt: '2026-08-02T10:00:00Z', updatedAt: '2026-10-19T15:12:00Z',
     allocations: [
       { id: 'al_endow_a', name: 'Endowment Candidate', kind: 'live', color: 'cat-1', benchmarkId: 'bm_endow', leverage: false, history: { basis: 'backtest', inception: '2026-08' }, edited: false,
         categories: { public_equity: 33, private_equity: 20, ig_fixed_income: 14, other_fixed_income: 5, hedge_funds: 14, real_assets: 14 },
@@ -159,7 +159,7 @@
     id: 'ws_glide',
     name: 'Retirement Glidepath 2030',
     description: 'Three points on the glidepath, compared against the conservative reference.',
-    currency: 'USD', owner: 'A. Okafor', createdAt: '2026-06-11T08:30:00Z', updatedAt: '2026-10-07T12:05:00Z',
+    currency: 'USD', owner: 'PMG Admin', createdAt: '2026-06-11T08:30:00Z', updatedAt: '2026-10-07T12:05:00Z',
     allocations: [
       { id: 'al_g1', name: '2030 · Accumulation', kind: 'live', color: 'cat-1', benchmarkId: 'bm_7030', leverage: false, history: { basis: 'backtest', inception: '2026-06' }, edited: false,
         categories: { public_equity: 70, ig_fixed_income: 30 }, holdings: H([['etf_us_lc', 40], ['etf_dev', 20], ['etf_em', 10], ['etf_govt', 18], ['etf_ig', 12]]) },

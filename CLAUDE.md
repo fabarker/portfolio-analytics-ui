@@ -25,6 +25,8 @@ the user asks for them.
 ## Working with this user
 
 - Never say "book" in writing to the user ("workbook" is fine).
+- Every person named in the product (owners, creators, the signed-in user) is
+  **PMG Admin**, avatar "PMG". No individual names in data, UI or pages.
 - In repo text and commits, refer to the host system as **Poros**, never
   "Cyrus". Code bound for the host must read as the host's own (no decision
   numbers or spec/test references in ported files).

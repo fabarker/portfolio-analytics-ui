@@ -181,7 +181,7 @@
       if (!name) { U.$('#bm-name', dlg).setAttribute('aria-invalid', 'true'); err.textContent = 'Enter a name for the benchmark.'; U.$('#bm-name', dlg).focus(); return false; }
       if (Math.abs(total() - 100) > 0.051) { err.textContent = 'Weights must total 100%.'; return false; }
       var now = new Date().toISOString(), rows = st.rows.filter(function (r) { return r.weight > 0; }).map(function (r) { return r.kind === 'rate' ? { kind: 'rate', spread: r.spread, weight: r.weight } : { kind: r.kind, id: r.id, weight: r.weight }; });
-      var b = base ? U.clone(base) : { id: U.uid('cbm'), name: name, source: 'custom', owner: 'F. Barker', archived: false, createdAt: now, versions: [] };
+      var b = base ? U.clone(base) : { id: U.uid('cbm'), name: name, source: 'custom', owner: 'PMG Admin', archived: false, createdAt: now, versions: [] };
       b.description = U.$('#bm-desc', dlg).value.trim(); b.rebalance = U.$('#bm-rebal', dlg).value; b.visibility = (dlg.querySelector('[name=bm-vis]:checked') || {}).value || 'shared';
       b.versions.push({ v: b.versions.length + 1, createdAt: now, note: base ? (U.$('#bm-note', dlg).value.trim() || 'Weights edited') : 'Initial', rows: rows });
       U.$$('.dlg-actions .btn', dlg).forEach(function (x) { x.disabled = true; });
@@ -205,7 +205,7 @@
   BM.showLibrary = function (el, selectedId) {
     document.title = 'Benchmark library · Portfolio Analytics';
     view.selected = selectedId || view.selected; view.version = null;
-    el.innerHTML = '<header class="topbar"><a class="wordmark" href="#/"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></a><span class="sep faint">/</span><span class="eyebrow">Benchmark library</span><span class="spacer"></span><button type="button" class="btn btn-sm btn-primary" id="bl-new">' + I.plus + '<span>New custom benchmark</span></button><a class="btn btn-sm" href="#/">' + I.chevronLeft + '<span>Workspaces</span></a><span class="user"><span class="avatar" aria-hidden="true">FB</span><span>F. Barker</span></span></header><div class="repo" id="blib"><div class="repo-nav skeleton" style="min-height:300px"></div><div class="repo-list"></div><div class="repo-detail"></div></div>';
+    el.innerHTML = '<header class="topbar"><a class="wordmark" href="#/"><b>Portfolio Management Group</b><span>Portfolio Analytics</span></a><span class="sep faint">/</span><span class="eyebrow">Benchmark library</span><span class="spacer"></span><button type="button" class="btn btn-sm btn-primary" id="bl-new">' + I.plus + '<span>New custom benchmark</span></button><a class="btn btn-sm" href="#/">' + I.chevronLeft + '<span>Workspaces</span></a><span class="user"><span class="avatar" aria-hidden="true">PMG</span><span>PMG Admin</span></span></header><div class="repo" id="blib"><div class="repo-nav skeleton" style="min-height:300px"></div><div class="repo-list"></div><div class="repo-detail"></div></div>';
     U.$('#bl-new', el).onclick = function () { BM.builder({ onSaved: function (b) { view.selected = b.id; view.filter = 'custom'; render(el); } }); };
     var cont = U.$('#blib', el);
     U.on(cont, 'click', '[data-filter]', function (e, b) { view.filter = b.dataset.filter; render(el); });
